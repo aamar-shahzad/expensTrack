@@ -180,6 +180,12 @@ const UI = {
           <li>Both devices will have the same data</li>
         </ol>
       </div>
+
+      <div class="card danger-zone">
+        <label>Danger Zone</label>
+        <button class="btn-danger" id="clear-data-btn">Clear All Data</button>
+        <p class="help-text">Permanently delete all expenses, people, and photos from this device.</p>
+      </div>
     `;
     
     document.getElementById('connect-btn').onclick = () => {

@@ -27,21 +27,43 @@ const People = {
   async loadPeopleList() {
     try {
       const people = await DB.getPeople();
+      const expenses = await DB.getExpenses();
       const list = document.getElementById('people-list');
       if (!list) return;
 
       if (people.length === 0) {
-        list.innerHTML = '<div class="empty-msg">No people added yet.<br>Add people who share expenses.</div>';
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">👥</div>
+            <div class="empty-title">No people yet</div>
+            <div class="empty-text">Add people who share expenses with you</div>
+          </div>
+        `;
         return;
       }
 
-      list.innerHTML = people.map(p => `
-        <div class="list-item">
-          <div class="avatar">${p.name.charAt(0).toUpperCase()}</div>
-          <div class="item-name">${p.name}</div>
-          <button class="btn-danger btn-small" onclick="People.deletePerson('${p.id}')">Delete</button>
-        </div>
-      `).join('');
+      // Count expenses per person
+      const expenseCount = {};
+      const expenseTotal = {};
+      expenses.forEach(e => {
+        expenseCount[e.payerId] = (expenseCount[e.payerId] || 0) + 1;
+        expenseTotal[e.payerId] = (expenseTotal[e.payerId] || 0) + parseFloat(e.amount);
+      });
+
+      list.innerHTML = people.map(p => {
+        const count = expenseCount[p.id] || 0;
+        const total = expenseTotal[p.id] || 0;
+        return `
+          <div class="list-item">
+            <div class="avatar">${p.name.charAt(0).toUpperCase()}</div>
+            <div class="item-info">
+              <div class="item-name">${p.name}</div>
+              <div class="item-meta">${count} expense${count !== 1 ? 's' : ''} • $${total.toFixed(2)} paid</div>
+            </div>
+            <button class="btn-icon" onclick="People.deletePerson('${p.id}', ${count})">🗑️</button>
+          </div>
+        `;
+      }).join('');
     } catch (e) {
       console.error('Failed to load people:', e);
     }
@@ -64,7 +86,12 @@ const People = {
     }
   },
 
-  async deletePerson(id) {
+  async deletePerson(id, expenseCount = 0) {
+    if (expenseCount > 0) {
+      App.showError(`Can't delete - has ${expenseCount} expense${expenseCount > 1 ? 's' : ''}`);
+      return;
+    }
+
     if (!confirm('Delete this person?')) return;
 
     try {

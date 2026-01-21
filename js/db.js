@@ -287,5 +287,19 @@ const DB = {
       request.onsuccess = () => resolve(image);
       request.onerror = () => reject(request.error);
     });
+  },
+
+  // Clear all data
+  async clearAllData() {
+    const transaction = this.db.transaction(['expenses', 'people', 'images'], 'readwrite');
+    
+    return new Promise((resolve, reject) => {
+      transaction.oncomplete = () => resolve(true);
+      transaction.onerror = () => reject(transaction.error);
+
+      transaction.objectStore('expenses').clear();
+      transaction.objectStore('people').clear();
+      transaction.objectStore('images').clear();
+    });
   }
 };
