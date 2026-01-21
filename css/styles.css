@@ -1757,5 +1757,53 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Search Box */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--white);
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.search-icon {
+  font-size: 16px;
+  opacity: 0.5;
+}
+
+.search-box input {
+  flex: 1;
+  border: none;
+  font-size: 16px;
+  background: transparent;
+  color: var(--text);
+}
+
+.search-box input:focus {
+  outline: none;
+}
+
+.search-box input::placeholder {
+  color: var(--text-secondary);
+}
+
+/* Offline Indicator */
+.offline-indicator {
+  position: fixed;
+  top: env(safe-area-inset-top, 0);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #ff9500;
+  color: white;
+  padding: 6px 16px;
+  border-radius: 0 0 10px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
 /* Hidden */
 .hidden { display: none !important; }

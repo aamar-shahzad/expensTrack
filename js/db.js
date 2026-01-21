@@ -103,6 +103,19 @@ const DB = {
     });
   },
 
+  async getAllExpenses() {
+    const store = await this.transaction('expenses');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const expenses = request.result;
+        expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+        resolve(expenses);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
   async deleteExpense(id) {
     const store = await this.transaction('expenses', 'readwrite');
 

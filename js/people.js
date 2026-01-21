@@ -3,8 +3,16 @@
  */
 
 const People = {
+  lastPayerId: null,
+
   async init() {
-    // No default person - user adds their own
+    // Load last used payer from localStorage
+    this.lastPayerId = localStorage.getItem('et_last_payer');
+  },
+
+  setLastPayer(payerId) {
+    this.lastPayerId = payerId;
+    localStorage.setItem('et_last_payer', payerId);
   },
 
   async loadForDropdown() {
@@ -17,7 +25,7 @@ const People = {
         select.innerHTML = '<option value="">Add people first...</option>';
       } else {
         select.innerHTML = '<option value="">Select person...</option>' +
-          people.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+          people.map(p => `<option value="${p.id}" ${p.id === this.lastPayerId ? 'selected' : ''}>${p.name}</option>`).join('');
       }
     } catch (e) {
       console.error('Failed to load dropdown:', e);

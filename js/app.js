@@ -88,13 +88,18 @@ const App = {
       // Network status
       window.addEventListener('online', () => {
         this.isOnline = true;
+        this.updateOfflineIndicator();
         this.showToast('Back online', 'success');
       });
 
       window.addEventListener('offline', () => {
         this.isOnline = false;
+        this.updateOfflineIndicator();
         this.showToast('Offline mode', 'error');
       });
+      
+      // Initial offline check
+      this.updateOfflineIndicator();
 
       // Setup install button
       this.setupInstall();
@@ -185,10 +190,12 @@ const App = {
   },
 
   showError(msg) {
+    this.haptic('error');
     this.showToast(msg, 'error');
   },
 
   showSuccess(msg) {
+    this.haptic('success');
     this.showToast(msg, 'success');
   },
 
@@ -202,6 +209,34 @@ const App = {
     document.body.appendChild(toast);
 
     setTimeout(() => toast.remove(), 3000);
+  },
+
+  // Haptic feedback
+  haptic(type = 'light') {
+    if ('vibrate' in navigator) {
+      switch(type) {
+        case 'success': navigator.vibrate(10); break;
+        case 'error': navigator.vibrate([10, 50, 10]); break;
+        default: navigator.vibrate(5);
+      }
+    }
+  },
+
+  // Offline indicator
+  updateOfflineIndicator() {
+    let indicator = document.getElementById('offline-indicator');
+    
+    if (!navigator.onLine) {
+      if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'offline-indicator';
+        indicator.className = 'offline-indicator';
+        indicator.innerHTML = '📴 Offline';
+        document.body.appendChild(indicator);
+      }
+    } else {
+      indicator?.remove();
+    }
   }
 };
 

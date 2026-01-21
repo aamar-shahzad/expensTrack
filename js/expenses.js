@@ -346,6 +346,11 @@ const Expenses = {
         imageId: imageId
       });
 
+      // Remember last payer
+      if (payerId) {
+        People.setLastPayer(payerId);
+      }
+
       // Reset
       document.getElementById('expense-form').reset();
       document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
@@ -413,6 +418,38 @@ const Expenses = {
     } catch (e) {
       console.error('Export failed:', e);
       App.showError('Export failed');
+    }
+  },
+
+  // Search expenses
+  async searchExpenses(query) {
+    if (!query) {
+      this.loadCurrentMonth();
+      return;
+    }
+    
+    try {
+      const allExpenses = await DB.getAllExpenses();
+      const filtered = allExpenses.filter(exp => 
+        exp.description.toLowerCase().includes(query.toLowerCase())
+      );
+      
+      // Hide month nav and filters during search
+      const monthNav = document.querySelector('.month-nav');
+      const filterRow = document.querySelector('.filter-row');
+      if (monthNav) monthNav.classList.add('hidden');
+      if (filterRow) filterRow.classList.add('hidden');
+      
+      this.renderExpenses(filtered);
+      
+      // Update summary for search results
+      const total = filtered.reduce((sum, e) => sum + e.amount, 0);
+      const totalEl = document.getElementById('total-amount');
+      const countEl = document.getElementById('expense-count');
+      if (totalEl) totalEl.textContent = Settings.formatAmount(total);
+      if (countEl) countEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
+    } catch (e) {
+      console.error('Search failed:', e);
     }
   }
 };

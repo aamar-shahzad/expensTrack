@@ -51,6 +51,11 @@ const UI = {
       ` : ''}
       <h1>Expenses</h1>
       
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="expense-search" placeholder="Search expenses...">
+      </div>
+      
       <div class="month-nav">
         <button id="prev-month">‹</button>
         <span id="current-month">January 2026</span>
@@ -117,6 +122,15 @@ const UI = {
       } else {
         App.showError('Select both dates');
       }
+    };
+    
+    // Search
+    let searchTimeout;
+    document.getElementById('expense-search').oninput = (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        Expenses.searchExpenses(e.target.value.trim());
+      }, 300);
     };
     
     Expenses.loadCurrentMonth();
