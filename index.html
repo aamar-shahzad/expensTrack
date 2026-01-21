@@ -72,8 +72,10 @@
     <!-- Modals Container -->
     <div id="modals" class="modals"></div>
 
+    <!-- Third-party libraries (load first) -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
     <!-- JavaScript -->
-    <script src="js/app.js" defer></script>
     <script src="js/db.js" defer></script>
     <script src="js/ui.js" defer></script>
     <script src="js/camera.js" defer></script>
@@ -81,8 +83,6 @@
     <script src="js/people.js" defer></script>
     <script src="js/settlement.js" defer></script>
     <script src="js/sync.js" defer></script>
-
-    <!-- Third-party libraries -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
+    <script src="js/app.js" defer></script>
 </body>
 </html>
