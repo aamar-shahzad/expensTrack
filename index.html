@@ -72,10 +72,10 @@
     <!-- Modals Container -->
     <div id="modals" class="modals"></div>
 
-    <!-- Third-party libraries (load first) -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- Third-party libraries -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
 
-    <!-- JavaScript -->
+    <!-- JavaScript - all deferred, loaded in order -->
     <script src="js/db.js" defer></script>
     <script src="js/ui.js" defer></script>
     <script src="js/camera.js" defer></script>
