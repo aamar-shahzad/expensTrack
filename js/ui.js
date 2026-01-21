@@ -43,45 +43,47 @@ const UI = {
     const hasMultipleAccounts = Accounts.getAll().length > 1;
     
     main.innerHTML = `
-      ${hasMultipleAccounts ? `
-      <div class="account-header" onclick="App.navigateTo('settings')">
-        <span class="account-badge">${account?.mode === 'single' ? '👤' : '👥'} ${account?.name || 'Account'}</span>
-        <span class="account-switch">Switch ›</span>
+      <div class="sticky-header">
+        ${hasMultipleAccounts ? `
+        <div class="account-header" onclick="App.navigateTo('settings')">
+          <span class="account-badge">${account?.mode === 'single' ? '👤' : '👥'} ${account?.name || 'Account'}</span>
+          <span class="account-switch">Switch ›</span>
+        </div>
+        ` : ''}
+        <h1>Expenses</h1>
+        
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="expense-search" placeholder="Search expenses...">
+        </div>
+        
+        <div class="month-nav">
+          <button id="prev-month">‹</button>
+          <span id="current-month">January 2026</span>
+          <button id="next-month">›</button>
+        </div>
+        
+        <div class="summary-box">
+          <div class="summary-label">Total This Month</div>
+          <div class="summary-amount" id="total-amount">${Settings.getCurrency()}0.00</div>
+          <div class="summary-count" id="expense-count">0 expenses</div>
+        </div>
+        
+        <div class="filter-row">
+          <button class="filter-btn active" data-filter="month">This Month</button>
+          <button class="filter-btn" data-filter="all">All Time</button>
+          <button class="filter-btn" data-filter="custom">Custom</button>
+        </div>
+        
+        <div id="custom-date-range" class="custom-range hidden">
+          <input type="date" id="filter-from">
+          <span>to</span>
+          <input type="date" id="filter-to">
+          <button class="btn-small btn-primary" id="apply-filter">Apply</button>
+        </div>
       </div>
-      ` : ''}
-      <h1>Expenses</h1>
       
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="expense-search" placeholder="Search expenses...">
-      </div>
-      
-      <div class="month-nav">
-        <button id="prev-month">‹</button>
-        <span id="current-month">January 2026</span>
-        <button id="next-month">›</button>
-      </div>
-      
-      <div class="summary-box">
-        <div class="summary-label">Total This Month</div>
-        <div class="summary-amount" id="total-amount">${Settings.getCurrency()}0.00</div>
-        <div class="summary-count" id="expense-count">0 expenses</div>
-      </div>
-      
-      <div class="filter-row">
-        <button class="filter-btn active" data-filter="month">This Month</button>
-        <button class="filter-btn" data-filter="all">All Time</button>
-        <button class="filter-btn" data-filter="custom">Custom</button>
-      </div>
-      
-      <div id="custom-date-range" class="custom-range hidden">
-        <input type="date" id="filter-from">
-        <span>to</span>
-        <input type="date" id="filter-to">
-        <button class="btn-small btn-primary" id="apply-filter">Apply</button>
-      </div>
-      
-      <div id="expenses-list"></div>
+      <div id="expenses-list" class="expenses-list"></div>
     `;
     
     document.getElementById('prev-month').onclick = () => Expenses.navigateMonth(-1);
