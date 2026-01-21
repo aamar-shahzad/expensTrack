@@ -60,11 +60,19 @@ const App = {
         }
       }
 
-      // Initialize database
-      await DB.init();
+      // Initialize accounts first
+      Accounts.init();
+      
+      // Initialize database for current account
+      await DB.init(Accounts.currentAccountId);
 
-      // Initialize settings first
+      // Initialize settings from current account
+      const currentAccount = Accounts.getCurrentAccount();
       Settings.init();
+      if (currentAccount) {
+        Settings.setCurrency(currentAccount.currency);
+        Settings.setMode(currentAccount.mode);
+      }
 
       // Initialize modules
       UI.init();

@@ -33,7 +33,16 @@ const UI = {
 
   renderHome() {
     const main = document.getElementById('main-content');
+    const account = Accounts.getCurrentAccount();
+    const hasMultipleAccounts = Accounts.getAll().length > 1;
+    
     main.innerHTML = `
+      ${hasMultipleAccounts ? `
+      <div class="account-header" onclick="App.navigateTo('settings')">
+        <span class="account-badge">${account?.mode === 'single' ? '👤' : '👥'} ${account?.name || 'Account'}</span>
+        <span class="account-switch">Switch ›</span>
+      </div>
+      ` : ''}
       <h1>Expenses</h1>
       
       <div class="month-nav">
@@ -297,8 +306,10 @@ const UI = {
 
   renderSettings() {
     const main = document.getElementById('main-content');
-    const currentCurrency = Settings.getCurrency();
-    const currentMode = Settings.getMode();
+    const currentAccount = Accounts.getCurrentAccount();
+    const accounts = Accounts.getAll();
+    const currentCurrency = currentAccount?.currency || '$';
+    const currentMode = currentAccount?.mode || 'shared';
     
     const currencyOptions = Settings.currencies.map(c => 
       `<option value="${c.symbol}" ${c.symbol === currentCurrency ? 'selected' : ''}>${c.symbol} - ${c.name}</option>`
@@ -308,20 +319,36 @@ const UI = {
       <h1>Settings</h1>
       
       <div class="card">
-        <label>App Mode</label>
+        <label>Accounts</label>
+        <div class="account-list">
+          ${accounts.map(acc => `
+            <div class="account-item ${acc.id === currentAccount?.id ? 'active' : ''}" data-id="${acc.id}">
+              <div class="account-icon">${acc.mode === 'single' ? '👤' : '👥'}</div>
+              <div class="account-info">
+                <div class="account-name">${acc.name}</div>
+                <div class="account-meta">${acc.mode === 'single' ? 'Private' : 'Shared'} • ${acc.currency}</div>
+              </div>
+              ${acc.id === currentAccount?.id ? '<span class="account-check">✓</span>' : ''}
+            </div>
+          `).join('')}
+        </div>
+        <button class="btn-secondary" id="add-account-btn" style="margin-top:12px">+ Add Account</button>
+      </div>
+      
+      <div class="card">
+        <label>Current Account: ${currentAccount?.name || 'None'}</label>
         <div class="mode-toggle">
           <button class="mode-btn ${currentMode === 'single' ? 'active' : ''}" data-mode="single">
             <span class="mode-icon">👤</span>
-            <span class="mode-name">Single</span>
-            <span class="mode-desc">Personal tracking</span>
+            <span class="mode-name">Private</span>
+            <span class="mode-desc">No sync/share</span>
           </button>
           <button class="mode-btn ${currentMode === 'shared' ? 'active' : ''}" data-mode="shared">
             <span class="mode-icon">👥</span>
             <span class="mode-name">Shared</span>
-            <span class="mode-desc">Split with others</span>
+            <span class="mode-desc">Can sync</span>
           </button>
         </div>
-        <p class="help-text">Single mode hides People, Settle, and Sync tabs.</p>
       </div>
       
       <div class="card">
@@ -340,25 +367,43 @@ const UI = {
       
       <div class="card danger-zone">
         <label>Danger Zone</label>
-        <button class="btn-danger" id="clear-data-btn">Clear All Data</button>
-        <p class="help-text">Permanently delete all expenses, people, and photos.</p>
+        <button class="btn-danger" id="clear-data-btn" style="margin-bottom:10px">Clear Account Data</button>
+        ${accounts.length > 1 ? `<button class="btn-danger" id="delete-account-btn">Delete This Account</button>` : ''}
+        <p class="help-text">Permanently delete all data in this account.</p>
       </div>
     `;
+    
+    // Account selection
+    document.querySelectorAll('.account-item').forEach(item => {
+      item.onclick = async () => {
+        const id = item.dataset.id;
+        if (id !== Accounts.currentAccountId) {
+          await Accounts.switchAccount(id);
+          App.showSuccess('Switched account');
+        }
+      };
+    });
+    
+    // Add account
+    document.getElementById('add-account-btn').onclick = () => this.showAddAccountModal();
     
     // Mode toggle
     document.querySelectorAll('.mode-btn').forEach(btn => {
       btn.onclick = () => {
         const mode = btn.dataset.mode;
+        Accounts.updateAccount(Accounts.currentAccountId, { mode });
         Settings.setMode(mode);
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        App.showSuccess(`Switched to ${mode} mode`);
+        App.showSuccess(`Switched to ${mode === 'single' ? 'private' : 'shared'} mode`);
       };
     });
     
     // Currency select
     document.getElementById('currency-select').onchange = (e) => {
-      Settings.setCurrency(e.target.value);
+      const currency = e.target.value;
+      Accounts.updateAccount(Accounts.currentAccountId, { currency });
+      Settings.setCurrency(currency);
       App.showSuccess('Currency updated');
     };
     
@@ -373,6 +418,97 @@ const UI = {
     
     // Clear data
     document.getElementById('clear-data-btn').onclick = () => this.clearAllData();
+    
+    // Delete account
+    document.getElementById('delete-account-btn')?.addEventListener('click', () => this.deleteCurrentAccount());
+  },
+
+  showAddAccountModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">New Account</span>
+          <button class="sheet-save" id="save-account-btn">Create</button>
+        </div>
+        <div class="sheet-body">
+          <div class="input-group">
+            <label>Account Name</label>
+            <input type="text" id="account-name" placeholder="e.g., Family, Work, Trip" autocomplete="off">
+          </div>
+          <div class="input-group">
+            <label>Type</label>
+            <div class="mode-toggle" style="margin-top:8px">
+              <button class="mode-btn" data-mode="single">
+                <span class="mode-icon">👤</span>
+                <span class="mode-name">Private</span>
+              </button>
+              <button class="mode-btn active" data-mode="shared">
+                <span class="mode-icon">👥</span>
+                <span class="mode-name">Shared</span>
+              </button>
+            </div>
+          </div>
+          <div class="input-group">
+            <label>Currency</label>
+            <select id="account-currency" class="form-select">
+              ${Settings.currencies.map(c => `<option value="${c.symbol}">${c.symbol} - ${c.name}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    let selectedMode = 'shared';
+    
+    // Mode selection in modal
+    modal.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.onclick = () => {
+        modal.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedMode = btn.dataset.mode;
+      };
+    });
+    
+    setTimeout(() => document.getElementById('account-name').focus(), 100);
+    
+    document.getElementById('save-account-btn').onclick = async () => {
+      const name = document.getElementById('account-name').value.trim();
+      const currency = document.getElementById('account-currency').value;
+      
+      if (!name) {
+        App.showError('Enter account name');
+        return;
+      }
+      
+      const account = Accounts.createAccount(name, selectedMode, currency);
+      await Accounts.switchAccount(account.id);
+      modal.remove();
+      App.showSuccess('Account created');
+    };
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+  },
+
+  async deleteCurrentAccount() {
+    const account = Accounts.getCurrentAccount();
+    if (!confirm(`Delete account "${account.name}"? All data will be lost!`)) return;
+    if (!confirm('Are you sure? This cannot be undone.')) return;
+    
+    // Switch to another account first
+    const others = Accounts.getAll().filter(a => a.id !== account.id);
+    if (others.length > 0) {
+      await Accounts.switchAccount(others[0].id);
+      await Accounts.deleteAccount(account.id);
+      App.showSuccess('Account deleted');
+    }
   },
 
   async exportData() {

@@ -1,16 +1,26 @@
 /**
  * IndexedDB Wrapper for ExpenseTracker
+ * Supports multiple databases (one per account)
  */
 
 const DB = {
   db: null,
   dbName: 'ExpenseTracker',
+  currentAccountId: null,
   version: 1,
 
+  // Get database name for an account
+  getDbName(accountId) {
+    return accountId ? `ExpenseTracker_${accountId}` : 'ExpenseTracker';
+  },
+
   // Initialize IndexedDB
-  async init() {
+  async init(accountId = null) {
+    this.currentAccountId = accountId;
+    const dbName = this.getDbName(accountId);
+    
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.version);
+      const request = indexedDB.open(dbName, this.version);
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
@@ -300,6 +310,29 @@ const DB = {
       transaction.objectStore('expenses').clear();
       transaction.objectStore('people').clear();
       transaction.objectStore('images').clear();
+    });
+  },
+
+  // Switch to a different account's database
+  async switchDatabase(accountId) {
+    // Close current database
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+    }
+    
+    // Open new database
+    await this.init(accountId);
+  },
+
+  // Delete an account's database
+  async deleteDatabase(accountId) {
+    const dbName = this.getDbName(accountId);
+    
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(dbName);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
     });
   }
 };
