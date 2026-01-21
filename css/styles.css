@@ -315,8 +315,8 @@ h1 {
 .detail-row {
   display: flex;
   justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid #eee;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
 }
 
 .detail-row:last-child {
@@ -324,11 +324,12 @@ h1 {
 }
 
 .detail-label {
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .detail-value {
   font-weight: 500;
+  color: var(--text);
 }
 
 .detail-amount {
@@ -722,7 +723,7 @@ h1 {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #34c759;
+  background: var(--accent);
 }
 
 .status-box.offline .status-dot {
@@ -773,10 +774,10 @@ h1 {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #f0f8ff;
+  background: rgba(7, 94, 84, 0.05);
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid var(--primary)30;
+  border: 1px solid rgba(7, 94, 84, 0.15);
 }
 
 .peer-icon {
@@ -842,7 +843,7 @@ h1 {
 
 /* Mobile Sheet Modal */
 .modal-sheet {
-  background: #f5f5f5;
+  background: var(--bg);
   width: 100%;
   border-radius: 14px 14px 0 0;
   animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
@@ -867,7 +868,7 @@ h1 {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--border);
 }
 
 .sheet-title {
@@ -1037,7 +1038,7 @@ h1 {
   }
 }
 
-.toast.success { background: #34c759; }
+.toast.success { background: var(--accent); }
 .toast.error { background: #ff3b30; }
 
 @keyframes fadeIn {
@@ -1161,7 +1162,7 @@ h1 {
   align-items: center;
   gap: 12px;
   padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border);
 }
 
 .settle-person:last-child {
@@ -1207,7 +1208,7 @@ h1 {
 }
 
 .settle-person-balance.positive {
-  color: #34c759;
+  color: var(--accent);
 }
 
 .settle-person-balance.negative {
@@ -1217,7 +1218,7 @@ h1 {
 .settle-done {
   text-align: center;
   padding: 20px;
-  color: #34c759;
+  color: var(--accent);
   font-weight: 500;
 }
 
@@ -1225,9 +1226,9 @@ h1 {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px;
-  background: #f8f8f8;
-  border-radius: 8px;
+  padding: 14px;
+  background: var(--bg);
+  border-radius: 10px;
   margin-bottom: 8px;
 }
 
@@ -1250,22 +1251,22 @@ h1 {
   color: var(--primary);
 }
 
-/* Floating Action Button */
+/* Floating Action Button (People page) */
 .fab {
   position: fixed;
   bottom: calc(80px + env(safe-area-inset-bottom));
   right: 20px;
   width: 56px;
   height: 56px;
-  border-radius: 50%;
-  background: var(--primary);
+  border-radius: 16px;
+  background: var(--accent);
   color: white;
   border: none;
   font-size: 32px;
   font-weight: 300;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
   z-index: 50;
   display: flex;
   align-items: center;
@@ -1275,7 +1276,7 @@ h1 {
 
 .fab:active {
   transform: scale(0.95);
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);
 }
 
 /* Danger Zone */
@@ -1298,7 +1299,7 @@ h1 {
 .mode-btn {
   flex: 1;
   padding: 16px 12px;
-  border: 2px solid #ddd;
+  border: 2px solid var(--border);
   border-radius: 12px;
   background: var(--white);
   cursor: pointer;
@@ -1308,7 +1309,7 @@ h1 {
 
 .mode-btn.active {
   border-color: var(--primary);
-  background: #f0f7ff;
+  background: rgba(7, 94, 84, 0.08);
 }
 
 .mode-icon {
@@ -1333,10 +1334,11 @@ h1 {
 .form-select {
   width: 100%;
   padding: 14px 16px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 10px;
   font-size: 16px;
   background: var(--white);
+  color: var(--text);
   cursor: pointer;
 }
 
@@ -1346,7 +1348,7 @@ h1 {
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  background: #f0f7ff;
+  background: rgba(7, 94, 84, 0.08);
   border-radius: 10px;
   margin-bottom: 16px;
   cursor: pointer;
@@ -1373,16 +1375,16 @@ h1 {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
-  background: #f8f8f8;
-  border-radius: 10px;
+  padding: 14px;
+  background: var(--bg);
+  border-radius: 12px;
   cursor: pointer;
   border: 2px solid transparent;
   transition: all 0.2s;
 }
 
 .account-item.active {
-  background: #f0f7ff;
+  background: rgba(7, 94, 84, 0.08);
   border-color: var(--primary);
 }
 
@@ -1419,10 +1421,11 @@ h1 {
 .filter-btn {
   flex: 1;
   padding: 10px 8px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--white);
   font-size: 13px;
+  color: var(--text);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -1447,13 +1450,13 @@ h1 {
 .custom-range input {
   flex: 1;
   padding: 10px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
 }
 
 .custom-range span {
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .custom-range .btn-small {
@@ -1466,7 +1469,7 @@ h1 {
   top: 0;
   left: 0;
   right: 0;
-  background: #34c759;
+  background: var(--accent);
   color: white;
   padding: 12px 16px;
   display: flex;
@@ -1482,7 +1485,7 @@ h1 {
 
 .update-banner button {
   background: var(--white);
-  color: #34c759;
+  color: var(--accent);
   border: none;
   padding: 8px 16px;
   border-radius: 6px;

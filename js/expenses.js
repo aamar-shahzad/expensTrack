@@ -29,8 +29,8 @@ const Expenses = {
       list.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">📝</div>
-          <div class="empty-title">No expenses this month</div>
-          <div class="empty-text">Tap the Add button below to add your first expense</div>
+          <div class="empty-title">No expenses yet</div>
+          <div class="empty-text">Tap the + button to add your first expense</div>
         </div>
       `;
       return;
