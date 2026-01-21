@@ -12,8 +12,13 @@ const Settlement = {
       const expenses = await DB.getExpenses();
       const people = await DB.getPeople();
 
+      if (people.length === 0) {
+        this.renderEmpty('Add people first to see settlements');
+        return;
+      }
+
       if (expenses.length === 0) {
-        this.renderEmptySettlement();
+        this.renderEmpty('No expenses yet. Add some expenses to calculate settlements.');
         return;
       }
 
@@ -22,8 +27,8 @@ const Settlement = {
       let totalExpenses = 0;
 
       expenses.forEach(expense => {
-        totalExpenses += expense.amount;
-        personTotals[expense.payerId] = (personTotals[expense.payerId] || 0) + expense.amount;
+        totalExpenses += parseFloat(expense.amount);
+        personTotals[expense.payerId] = (personTotals[expense.payerId] || 0) + parseFloat(expense.amount);
       });
 
       const personCount = people.length;
@@ -39,7 +44,7 @@ const Settlement = {
       // Calculate settlement transactions
       const settlements = this.calculateSettlements(balances, people);
 
-      this.renderSettlement(totalExpenses, personTotals, sharePerPerson, settlements, people);
+      this.renderSettlement(totalExpenses, personTotals, sharePerPerson, settlements, people, balances);
 
     } catch (error) {
       console.error('Failed to calculate settlement:', error);
@@ -49,37 +54,31 @@ const Settlement = {
 
   calculateSettlements(balances, people) {
     const settlements = [];
-    const debtors = []; // People who owe money
-    const creditors = []; // People who are owed money
+    const debtors = [];
+    const creditors = [];
 
-    // Separate debtors and creditors
     for (const person of people) {
       const balance = balances[person.id] || 0;
-      if (balance < -0.01) { // Owes money
+      if (balance < -0.01) {
         debtors.push({ id: person.id, name: person.name, amount: -balance });
-      } else if (balance > 0.01) { // Is owed money
+      } else if (balance > 0.01) {
         creditors.push({ id: person.id, name: person.name, amount: balance });
       }
     }
 
-    // Sort by amount (largest first)
     debtors.sort((a, b) => b.amount - a.amount);
     creditors.sort((a, b) => b.amount - a.amount);
 
-    // Calculate optimal payments
     let i = 0, j = 0;
     while (i < debtors.length && j < creditors.length) {
       const debtor = debtors[i];
       const creditor = creditors[j];
-
       const payment = Math.min(debtor.amount, creditor.amount);
 
       if (payment > 0.01) {
         settlements.push({
-          from: debtor.id,
-          fromName: debtor.name,
-          to: creditor.id,
-          toName: creditor.name,
+          from: debtor.name,
+          to: creditor.name,
           amount: payment
         });
       }
@@ -94,82 +93,74 @@ const Settlement = {
     return settlements;
   },
 
-  renderEmptySettlement() {
-    const resultsElement = document.getElementById('settlement-results');
-    if (!resultsElement) return;
+  renderEmpty(message) {
+    const el = document.getElementById('settlement-results');
+    if (!el) return;
 
-    resultsElement.innerHTML = `
-      <div class="text-center">
-        <p>No expenses to settle yet. Add some expenses first!</p>
+    el.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">💰</div>
+        <div class="empty-title">No settlements</div>
+        <div class="empty-text">${message}</div>
       </div>
     `;
   },
 
-  renderSettlement(totalExpenses, personTotals, sharePerPerson, settlements, people) {
-    const resultsElement = document.getElementById('settlement-results');
-    if (!resultsElement) return;
+  renderSettlement(totalExpenses, personTotals, sharePerPerson, settlements, people, balances) {
+    const el = document.getElementById('settlement-results');
+    if (!el) return;
 
-    const personSpending = people.map(person => ({
-      name: person.name,
-      spent: personTotals[person.id] || 0,
-      balance: (personTotals[person.id] || 0) - sharePerPerson
-    }));
-
-    resultsElement.innerHTML = `
-      <div class="settlement-summary">
-        <div class="summary-stats mb-4">
-          <div class="stat-card">
-            <h3>Total Expenses</h3>
-            <p class="stat-value">$${totalExpenses.toFixed(2)}</p>
-          </div>
-          <div class="stat-card">
-            <h3>Per Person Share</h3>
-            <p class="stat-value">$${sharePerPerson.toFixed(2)}</p>
-          </div>
+    el.innerHTML = `
+      <div class="settle-summary">
+        <div class="settle-stat">
+          <div class="settle-stat-label">Total Spent</div>
+          <div class="settle-stat-value">$${totalExpenses.toFixed(2)}</div>
         </div>
-
-        <h3 class="mb-3">Individual Spending</h3>
-        <div class="spending-list mb-4">
-          ${personSpending.map(person => `
-            <div class="spending-item flex justify-between">
-              <span>${person.name}</span>
-              <div class="text-right">
-                <div>Spent: $${person.spent.toFixed(2)}</div>
-                <div class="balance ${person.balance >= 0 ? 'positive' : 'negative'}">
-                  ${person.balance >= 0 ? '+' : ''}$${person.balance.toFixed(2)}
-                </div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-
-        <h3 class="mb-3">Settlement Plan</h3>
-        <div class="settlement-plan">
-          ${settlements.length === 0 ?
-            '<p class="text-center">Everyone is settled up! 🎉</p>' :
-            settlements.map(settlement => `
-              <div class="settlement-item">
-                <strong>${settlement.fromName}</strong> pays
-                <strong>${settlement.toName}</strong>
-                <span class="amount">$${settlement.amount.toFixed(2)}</span>
-              </div>
-            `).join('')
-          }
+        <div class="settle-stat">
+          <div class="settle-stat-label">Per Person</div>
+          <div class="settle-stat-value">$${sharePerPerson.toFixed(2)}</div>
         </div>
       </div>
-    `;
 
-    // Add some basic styles for the settlement view
-    const style = document.createElement('style');
-    style.textContent = `
-      .stat-card { background: #f8fafc; padding: 1rem; border-radius: 0.5rem; text-align: center; margin-bottom: 1rem; }
-      .stat-value { font-size: 1.5rem; font-weight: bold; color: #2563eb; }
-      .spending-item { padding: 0.75rem; border-bottom: 1px solid #e2e8f0; }
-      .balance.positive { color: #16a34a; }
-      .balance.negative { color: #dc2626; }
-      .settlement-item { background: #eff6ff; padding: 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem; }
-      .amount { font-weight: bold; color: #2563eb; }
+      <div class="settle-section">
+        <div class="settle-section-title">Who Spent What</div>
+        ${people.map(p => {
+          const spent = personTotals[p.id] || 0;
+          const balance = balances[p.id] || 0;
+          const balanceClass = balance > 0.01 ? 'positive' : balance < -0.01 ? 'negative' : '';
+          const balanceText = balance > 0.01 ? `gets back $${balance.toFixed(2)}` : 
+                              balance < -0.01 ? `owes $${(-balance).toFixed(2)}` : 'settled';
+          return `
+            <div class="settle-person">
+              <div class="settle-person-avatar">${p.name.charAt(0).toUpperCase()}</div>
+              <div class="settle-person-info">
+                <div class="settle-person-name">${p.name}</div>
+                <div class="settle-person-spent">Spent $${spent.toFixed(2)}</div>
+              </div>
+              <div class="settle-person-balance ${balanceClass}">${balanceText}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="settle-section">
+        <div class="settle-section-title">Settlement Plan</div>
+        ${settlements.length === 0 ? 
+          '<div class="settle-done">Everyone is settled up!</div>' :
+          settlements.map(s => `
+            <div class="settle-payment">
+              <div class="settle-payment-from">${s.from}</div>
+              <div class="settle-payment-arrow">→</div>
+              <div class="settle-payment-to">${s.to}</div>
+              <div class="settle-payment-amount">$${s.amount.toFixed(2)}</div>
+            </div>
+          `).join('')
+        }
+      </div>
+
+      <button class="btn-secondary" style="width:100%;margin-top:16px" onclick="Expenses.exportToCSV()">
+        Export All Expenses (CSV)
+      </button>
     `;
-    document.head.appendChild(style);
   }
 };

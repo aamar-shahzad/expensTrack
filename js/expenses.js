@@ -26,7 +26,13 @@ const Expenses = {
     if (!list) return;
 
     if (expenses.length === 0) {
-      list.innerHTML = '<div class="empty-msg">No expenses this month</div>';
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📝</div>
+          <div class="empty-title">No expenses this month</div>
+          <div class="empty-text">Tap the Add button below to add your first expense</div>
+        </div>
+      `;
       return;
     }
 
@@ -110,6 +116,7 @@ const Expenses = {
           </div>
         </div>
         <div class="modal-footer">
+          <button class="btn-secondary" onclick="Expenses.editExpense('${exp.id}'); this.closest('.modal-overlay').remove();">Edit</button>
           <button class="btn-danger" onclick="Expenses.deleteExpense('${exp.id}'); this.closest('.modal-overlay').remove();">Delete</button>
         </div>
       </div>
@@ -120,6 +127,74 @@ const Expenses = {
     };
 
     document.body.appendChild(modal);
+  },
+
+  async editExpense(id) {
+    const exp = await DB.getExpenseById(id);
+    if (!exp) return;
+
+    const people = await DB.getPeople();
+    const peopleOptions = people.map(p => 
+      `<option value="${p.id}" ${p.id === exp.payerId ? 'selected' : ''}>${p.name}</option>`
+    ).join('');
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">Edit Expense</span>
+          <button class="sheet-save" id="update-expense-btn">Save</button>
+        </div>
+        <div class="sheet-body">
+          <div class="input-group">
+            <label>Description</label>
+            <input type="text" id="edit-description" value="${exp.description}">
+          </div>
+          <div class="input-group">
+            <label>Amount</label>
+            <input type="number" id="edit-amount" value="${exp.amount}" step="0.01" inputmode="decimal">
+          </div>
+          <div class="input-group">
+            <label>Date</label>
+            <input type="date" id="edit-date" value="${exp.date}">
+          </div>
+          <div class="input-group">
+            <label>Paid By</label>
+            <select id="edit-payer">${peopleOptions}</select>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById('update-expense-btn').onclick = async () => {
+      const desc = document.getElementById('edit-description').value.trim();
+      const amount = parseFloat(document.getElementById('edit-amount').value);
+      const date = document.getElementById('edit-date').value;
+      const payerId = document.getElementById('edit-payer').value;
+
+      if (!desc || !amount || !date || !payerId) {
+        App.showError('Fill all fields');
+        return;
+      }
+
+      try {
+        await DB.updateExpense(id, { description: desc, amount, date, payerId });
+        App.showSuccess('Updated!');
+        modal.remove();
+        this.loadCurrentMonth();
+      } catch (e) {
+        App.showError('Failed to update');
+      }
+    };
+
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
   },
 
   async showFullImage(imageId) {
@@ -249,4 +324,41 @@ const Expenses = {
     }
   },
 
+  // Export expenses to CSV
+  async exportToCSV() {
+    try {
+      const expenses = await DB.getExpenses();
+      const people = await DB.getPeople();
+      const names = {};
+      people.forEach(p => names[p.id] = p.name);
+
+      if (expenses.length === 0) {
+        App.showError('No expenses to export');
+        return;
+      }
+
+      const headers = ['Date', 'Description', 'Amount', 'Paid By'];
+      const rows = expenses.map(e => [
+        e.date,
+        `"${e.description.replace(/"/g, '""')}"`,
+        e.amount.toFixed(2),
+        names[e.payerId] || 'Unknown'
+      ]);
+
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `expenses-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      App.showSuccess('Exported!');
+    } catch (e) {
+      console.error('Export failed:', e);
+      App.showError('Export failed');
+    }
+  }
 };

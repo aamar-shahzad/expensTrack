@@ -780,6 +780,173 @@ h1 {
   opacity: 0.8;
 }
 
+/* Empty States */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #888;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.empty-text {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.empty-msg {
+  text-align: center;
+  padding: 40px 20px;
+  color: #888;
+  font-size: 15px;
+}
+
+/* Settlement Styles */
+.settle-summary {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.settle-stat {
+  flex: 1;
+  background: #007aff;
+  color: white;
+  padding: 16px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.settle-stat-label {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-bottom: 4px;
+}
+
+.settle-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.settle-section {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.settle-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.settle-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.settle-person:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.settle-person:first-of-type {
+  padding-top: 0;
+}
+
+.settle-person-avatar {
+  width: 40px;
+  height: 40px;
+  background: #007aff;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.settle-person-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.settle-person-name {
+  font-weight: 500;
+}
+
+.settle-person-spent {
+  font-size: 13px;
+  color: #888;
+}
+
+.settle-person-balance {
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+}
+
+.settle-person-balance.positive {
+  color: #34c759;
+}
+
+.settle-person-balance.negative {
+  color: #ff3b30;
+}
+
+.settle-done {
+  text-align: center;
+  padding: 20px;
+  color: #34c759;
+  font-weight: 500;
+}
+
+.settle-payment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #f8f8f8;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.settle-payment:last-child {
+  margin-bottom: 0;
+}
+
+.settle-payment-from,
+.settle-payment-to {
+  font-weight: 500;
+}
+
+.settle-payment-arrow {
+  color: #888;
+}
+
+.settle-payment-amount {
+  margin-left: auto;
+  font-weight: 600;
+  color: #007aff;
+}
+
 /* Floating Action Button */
 .fab {
   position: fixed;

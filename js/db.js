@@ -113,6 +113,27 @@ const DB = {
     });
   },
 
+  async updateExpense(id, updates) {
+    const store = await this.transaction('expenses', 'readwrite');
+    
+    return new Promise(async (resolve, reject) => {
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const expense = getReq.result;
+        if (!expense) {
+          reject(new Error('Expense not found'));
+          return;
+        }
+        
+        const updated = { ...expense, ...updates, updatedAt: Date.now() };
+        const putReq = store.put(updated);
+        putReq.onsuccess = () => resolve(updated);
+        putReq.onerror = () => reject(putReq.error);
+      };
+      getReq.onerror = () => reject(getReq.error);
+    });
+  },
+
   // People operations
   async addPerson(person) {
     const store = await this.transaction('people', 'readwrite');
