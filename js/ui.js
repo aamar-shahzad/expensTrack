@@ -215,28 +215,50 @@ const UI = {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-      <div class="modal-box">
-        <div class="modal-header">
-          <span>Add Person</span>
-          <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">Add Person</span>
+          <button class="sheet-save" id="save-person-btn">Save</button>
         </div>
-        <div class="modal-body">
-          <input type="text" id="person-name" placeholder="Name">
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-          <button class="btn-primary" id="save-person-btn">Save</button>
+        <div class="sheet-body">
+          <div class="input-group">
+            <label>Name</label>
+            <input type="text" id="person-name" placeholder="Enter name" autocomplete="off">
+          </div>
         </div>
       </div>
     `;
     
     document.body.appendChild(modal);
-    document.getElementById('person-name').focus();
     
+    // Focus input after animation
+    setTimeout(() => {
+      document.getElementById('person-name').focus();
+    }, 100);
+    
+    // Save on button click
     document.getElementById('save-person-btn').onclick = () => {
       const name = document.getElementById('person-name').value.trim();
       if (name) {
         People.savePerson(name);
+        modal.remove();
+      } else {
+        App.showError('Enter a name');
+      }
+    };
+    
+    // Save on Enter key
+    document.getElementById('person-name').onkeypress = (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('save-person-btn').click();
+      }
+    };
+    
+    // Close on backdrop tap
+    modal.onclick = (e) => {
+      if (e.target === modal) {
         modal.remove();
       }
     };

@@ -2,7 +2,7 @@
  * Service Worker for ExpenseTracker PWA
  */
 
-const CACHE_VERSION = 12;
+const CACHE_VERSION = 13;
 const CACHE_NAME = `expense-tracker-v${CACHE_VERSION}`;
 
 // Assets to cache (relative paths for GitHub Pages)
