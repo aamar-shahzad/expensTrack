@@ -119,7 +119,7 @@ const UI = {
   renderAdd() {
     const main = document.getElementById('main-content');
     const today = new Date().toISOString().split('T')[0];
-    const isShared = Settings.isSharedMode();
+    const isShared = Accounts.isSharedMode();
     const currency = Settings.getCurrency();
     
     main.innerHTML = `
@@ -149,11 +149,6 @@ const UI = {
           </select>
         </div>
         ` : '<input type="hidden" id="expense-payer" value="self">'}
-        
-        <div class="form-group">
-          <label>Notes (Optional)</label>
-          <input type="text" id="expense-notes" placeholder="Add notes...">
-        </div>
         
         <div class="form-group">
           <label class="checkbox-label">

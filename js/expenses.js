@@ -43,7 +43,7 @@ const Expenses = {
 
     list.innerHTML = expenses.map(exp => {
       const recurringBadge = exp.recurring ? '<span class="recurring-badge">🔄</span>' : '';
-      const payerName = Settings.isSharedMode() ? `${names[exp.payerId] || 'Unknown'} • ` : '';
+      const payerName = Accounts.isSharedMode() ? `${names[exp.payerId] || 'Unknown'} • ` : '';
       return `
         <div class="expense-item" onclick="Expenses.showDetail('${exp.id}')">
           ${exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : '<div class="expense-icon">💵</div>'}
@@ -80,7 +80,7 @@ const Expenses = {
 
     const people = await DB.getPeople();
     const payer = people.find(p => p.id === exp.payerId);
-    const isShared = Settings.isSharedMode();
+    const isShared = Accounts.isSharedMode();
 
     let imageHtml = '';
     if (exp.imageId) {
@@ -121,12 +121,6 @@ const Expenses = {
             <span class="detail-value">${payer?.name || 'Unknown'}</span>
           </div>
           ` : ''}
-          ${exp.notes ? `
-          <div class="detail-row">
-            <span class="detail-label">Notes</span>
-            <span class="detail-value">${exp.notes}</span>
-          </div>
-          ` : ''}
           ${exp.recurring ? `
           <div class="detail-row">
             <span class="detail-label">Type</span>
@@ -152,6 +146,7 @@ const Expenses = {
     const exp = await DB.getExpenseById(id);
     if (!exp) return;
 
+    const isShared = Accounts.isSharedMode();
     const people = await DB.getPeople();
     const peopleOptions = people.map(p => 
       `<option value="${p.id}" ${p.id === exp.payerId ? 'selected' : ''}>${p.name}</option>`
@@ -180,10 +175,12 @@ const Expenses = {
             <label>Date</label>
             <input type="date" id="edit-date" value="${exp.date}">
           </div>
+          ${isShared ? `
           <div class="input-group">
             <label>Paid By</label>
             <select id="edit-payer">${peopleOptions}</select>
           </div>
+          ` : ''}
         </div>
       </div>
     `;
@@ -194,9 +191,9 @@ const Expenses = {
       const desc = document.getElementById('edit-description').value.trim();
       const amount = parseFloat(document.getElementById('edit-amount').value);
       const date = document.getElementById('edit-date').value;
-      const payerId = document.getElementById('edit-payer').value;
+      const payerId = isShared ? document.getElementById('edit-payer').value : exp.payerId;
 
-      if (!desc || isNaN(amount) || amount <= 0 || !date || !payerId) {
+      if (!desc || isNaN(amount) || amount <= 0 || !date) {
         App.showError('Fill all fields correctly');
         return;
       }
@@ -326,7 +323,6 @@ const Expenses = {
     const amount = parseFloat(document.getElementById('expense-amount').value);
     const date = document.getElementById('expense-date').value;
     const payerId = document.getElementById('expense-payer').value;
-    const notes = document.getElementById('expense-notes')?.value.trim() || '';
     const recurring = document.getElementById('expense-recurring')?.checked || false;
     const imageId = Camera.capturedImage?.id || null;
 
@@ -338,7 +334,7 @@ const Expenses = {
       App.showError('Enter valid amount');
       return;
     }
-    if (Settings.isSharedMode() && !payerId) {
+    if (Accounts.isSharedMode() && !payerId) {
       App.showError('Select who paid');
       return;
     }
@@ -349,7 +345,6 @@ const Expenses = {
         amount: amount,
         date: date,
         payerId: payerId,
-        notes: notes,
         recurring: recurring,
         imageId: imageId
       });
