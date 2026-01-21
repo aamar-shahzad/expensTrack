@@ -403,6 +403,12 @@ h1 {
 
 .status-text {
   font-weight: 500;
+  flex: 1;
+}
+
+.status-info {
+  font-size: 13px;
+  color: #888;
 }
 
 .peer-id {

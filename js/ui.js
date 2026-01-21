@@ -23,7 +23,11 @@ const UI = {
       case 'add': this.renderAdd(); break;
       case 'people': this.renderPeople(); break;
       case 'settle': this.renderSettle(); break;
-      case 'sync': this.renderSync(); break;
+      case 'sync': 
+        // Refresh connection when opening sync tab
+        Sync.refresh();
+        this.renderSync(); 
+        break;
     }
   },
 
@@ -137,6 +141,7 @@ const UI = {
     const isReady = Sync.isInitialized;
     const peerId = Sync.peerId || 'Connecting...';
     const connections = Sync.getConnectionCount();
+    const knownCount = Sync.knownDevices?.length || 0;
     
     main.innerHTML = `
       <h1>Sync</h1>
@@ -144,6 +149,7 @@ const UI = {
       <div class="status-box ${isReady ? 'online' : 'offline'}">
         <div class="status-dot"></div>
         <div class="status-text">${isReady ? 'Ready' : 'Connecting...'}</div>
+        <div class="status-info">${connections} connected${knownCount > 0 ? ` • ${knownCount} known` : ''}</div>
       </div>
       
       <div class="card">
@@ -159,11 +165,14 @@ const UI = {
       </div>
       
       <div class="card">
-        <label>Connected Devices: ${connections}</label>
+        <label>Sync Data</label>
         <button class="btn-primary" id="sync-btn" ${connections === 0 ? 'disabled' : ''}>
-          Sync Now
+          Sync Now (${connections} device${connections !== 1 ? 's' : ''})
         </button>
-        <p class="help-text">Sync shares all expenses, people, and photos with connected devices.</p>
+        <p class="help-text">
+          Syncs expenses, people, and photos with connected devices.<br>
+          Connection auto-closes after 5 min idle.
+        </p>
       </div>
       
       <div class="card">
@@ -171,7 +180,8 @@ const UI = {
         <ol class="help-list">
           <li>Share your Device ID with others</li>
           <li>Enter their ID and tap Connect</li>
-          <li>Tap "Sync Now" to share data</li>
+          <li>Tap "Sync Now" to share data both ways</li>
+          <li>Both devices get updated data</li>
         </ol>
       </div>
     `;
