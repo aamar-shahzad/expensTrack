@@ -2,25 +2,25 @@
  * Service Worker for ExpenseTracker PWA
  */
 
-const CACHE_VERSION = 9;
+const CACHE_VERSION = 10;
 const CACHE_NAME = `expense-tracker-v${CACHE_VERSION}`;
 
-// Assets to cache immediately
+// Assets to cache (relative paths for GitHub Pages)
 const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
-  '/css/styles.css',
-  '/js/app.js',
-  '/js/db.js',
-  '/js/ui.js',
-  '/js/camera.js',
-  '/js/expenses.js',
-  '/js/people.js',
-  '/js/settlement.js',
-  '/js/sync.js',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  './',
+  './index.html',
+  './css/styles.css',
+  './js/app.js',
+  './js/db.js',
+  './js/ui.js',
+  './js/camera.js',
+  './js/expenses.js',
+  './js/people.js',
+  './js/settlement.js',
+  './js/sync.js',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 // Install - cache core assets
@@ -51,16 +51,14 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch - cache-first for assets, network-first for API
+// Fetch - cache-first for assets, network-first for HTML
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
 
-  // Skip non-GET and cross-origin requests
+  // Skip non-GET requests
   if (request.method !== 'GET') return;
-  if (url.origin !== location.origin && !url.href.includes('unpkg.com')) return;
 
-  // Network-first for HTML (to get updates)
+  // Network-first for HTML
   if (request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(request)
@@ -69,7 +67,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
           return response;
         })
-        .catch(() => caches.match(request) || caches.match('/index.html'))
+        .catch(() => caches.match(request) || caches.match('./index.html'))
     );
     return;
   }
@@ -89,19 +87,11 @@ self.addEventListener('fetch', (event) => {
         });
       })
       .catch(() => {
-        // Offline fallback
         if (request.headers.get('accept')?.includes('text/html')) {
-          return caches.match('/index.html');
+          return caches.match('./index.html');
         }
       })
   );
-});
-
-// Background sync
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'expense-sync') {
-    console.log('SW: Background sync triggered');
-  }
 });
 
 // Push notifications
@@ -112,9 +102,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'ExpenseTracker', {
       body: data.body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-      vibrate: [100, 50, 100]
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png'
     })
   );
 });
@@ -122,5 +111,5 @@ self.addEventListener('push', (event) => {
 // Notification click
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(clients.openWindow('/'));
+  event.waitUntil(clients.openWindow('./'));
 });

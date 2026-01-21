@@ -2,8 +2,8 @@
   "name": "ExpenseTracker",
   "short_name": "Expenses",
   "description": "Track shared expenses with friends and family",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f2f2f7",
   "theme_color": "#007aff",
@@ -42,14 +42,14 @@
       "name": "Add Expense",
       "short_name": "Add",
       "description": "Add a new expense",
-      "url": "/?view=add",
+      "url": "./?view=add",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "View Settlement",
       "short_name": "Settle",
       "description": "See who owes whom",
-      "url": "/?view=settle",
+      "url": "./?view=settle",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
     }
   ],

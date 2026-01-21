@@ -24,9 +24,9 @@ const App = {
 
   async init() {
     try {
-      // Register service worker
+      // Register service worker (relative path for GitHub Pages)
       if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.register('/sw.js');
+        const registration = await navigator.serviceWorker.register('./sw.js');
         console.log('SW registered:', registration.scope);
         
         // Check for updates
