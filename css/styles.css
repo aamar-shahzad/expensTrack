@@ -1,4 +1,16 @@
-/* ExpenseTracker - Simple Working Styles */
+/* ExpenseTracker - WhatsApp Inspired Design */
+
+:root {
+  --primary: #075e54;
+  --primary-dark: #054d44;
+  --primary-light: #128c7e;
+  --accent: #25d366;
+  --bg: #f0f2f5;
+  --white: #ffffff;
+  --text: #111b21;
+  --text-secondary: #667781;
+  --border: #e9edef;
+}
 
 * {
   margin: 0;
@@ -7,15 +19,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Prevent double-tap zoom on buttons */
 button, input, select {
   touch-action: manipulation;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #f5f5f5;
-  color: #333;
+  background: var(--bg);
+  color: var(--text);
   line-height: 1.5;
   min-height: 100vh;
 }
@@ -24,7 +35,7 @@ body {
 .loading-screen {
   position: fixed;
   inset: 0;
-  background: #007aff;
+  background: var(--primary);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -63,11 +74,11 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  background: white;
-  border-top: 1px solid #ddd;
+  background: var(--white);
+  border-top: 1px solid var(--border);
   display: flex;
-  padding: 8px 0;
-  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  padding: 6px 0;
+  padding-bottom: calc(6px + env(safe-area-inset-bottom));
   z-index: 100;
 }
 
@@ -76,24 +87,23 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 6px 2px;
+  gap: 3px;
+  padding: 8px 4px;
   background: none;
   border: none;
-  color: #888;
-  font-size: 9px;
+  color: var(--text-secondary);
+  font-size: 11px;
   cursor: pointer;
   position: relative;
-  min-width: 0;
 }
 
 .nav-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
 .nav-btn.active {
-  color: #007aff;
+  color: var(--primary);
 }
 
 .nav-btn .badge {
@@ -101,11 +111,41 @@ body {
   top: 4px;
   right: 50%;
   transform: translateX(12px);
-  background: #34c759;
+  background: var(--accent);
   color: white;
   font-size: 10px;
   padding: 2px 6px;
   border-radius: 10px;
+}
+
+/* Floating Action Button */
+.fab-main {
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  right: 16px;
+  width: 56px;
+  height: 56px;
+  background: var(--accent);
+  border: none;
+  border-radius: 16px;
+  color: white;
+  cursor: pointer;
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.fab-main:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);
+}
+
+.fab-main svg {
+  width: 28px;
+  height: 28px;
 }
 
 /* Headers */
@@ -137,9 +177,9 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: white;
+  background: var(--white);
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: 12px;
   margin-bottom: 16px;
 }
 
@@ -147,30 +187,31 @@ h1 {
   width: 36px;
   height: 36px;
   border: none;
-  background: #f0f0f0;
+  background: var(--bg);
   border-radius: 50%;
   font-size: 20px;
   cursor: pointer;
-  color: #007aff;
+  color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .month-nav button:active {
-  background: #e0e0e0;
+  background: var(--border);
 }
 
 .month-nav span {
   font-weight: 600;
+  color: var(--text);
 }
 
 /* Summary Box */
 .summary-box {
-  background: #007aff;
+  background: var(--primary);
   color: white;
-  padding: 20px;
-  border-radius: 10px;
+  padding: 24px 20px;
+  border-radius: 16px;
   text-align: center;
   margin-bottom: 16px;
 }
@@ -194,38 +235,38 @@ h1 {
 
 /* Expense Items */
 .expense-item {
-  background: white;
-  padding: 12px;
-  border-radius: 10px;
-  margin-bottom: 10px;
+  background: var(--white);
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .expense-item:active {
-  background: #f5f5f5;
+  background: var(--bg);
 }
 
 .expense-icon {
-  width: 44px;
-  height: 44px;
-  background: #f0f0f0;
-  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  background: var(--bg);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 22px;
   flex-shrink: 0;
 }
 
 .expense-thumb {
-  width: 44px;
-  height: 44px;
-  background: #f0f0f0;
-  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  background: var(--bg);
+  border-radius: 50%;
   flex-shrink: 0;
   background-size: cover;
   background-position: center;
@@ -238,21 +279,24 @@ h1 {
 
 .expense-desc {
   font-weight: 500;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text);
 }
 
 .expense-meta {
   font-size: 13px;
-  color: #888;
-  margin-top: 2px;
+  color: var(--text-secondary);
+  margin-top: 3px;
 }
 
 .expense-amount {
   font-weight: 600;
-  font-size: 17px;
+  font-size: 16px;
   flex-shrink: 0;
+  color: var(--text);
 }
 
 /* Detail View */
@@ -289,7 +333,7 @@ h1 {
 
 .detail-amount {
   font-size: 18px;
-  color: #007aff;
+  color: var(--primary);
 }
 
 /* Full Image Viewer */
@@ -342,7 +386,7 @@ h1 {
 
 /* List Items */
 .list-item {
-  background: white;
+  background: var(--white);
   padding: 14px 16px;
   border-radius: 10px;
   margin-bottom: 10px;
@@ -354,7 +398,7 @@ h1 {
 .avatar {
   width: 44px;
   height: 44px;
-  background: #007aff;
+  background: var(--primary);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -421,13 +465,13 @@ h1 {
   border: 1px solid #ddd;
   border-radius: 10px;
   font-size: 16px;
-  background: white;
+  background: var(--white);
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #007aff;
+  border-color: var(--primary);
 }
 
 /* Add Expense Form - Clean UI */
@@ -438,10 +482,10 @@ h1 {
 }
 
 .form-card {
-  background: white;
+  background: var(--white);
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .amount-input {
@@ -454,7 +498,7 @@ h1 {
 .currency-symbol {
   font-size: 32px;
   font-weight: 600;
-  color: #007aff;
+  color: var(--primary);
 }
 
 .amount-input input {
@@ -478,9 +522,10 @@ h1 {
   width: 100%;
   padding: 14px 0;
   border: none;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
   font-size: 17px;
   background: transparent;
+  color: var(--text);
 }
 
 .desc-input:focus {
@@ -488,7 +533,7 @@ h1 {
 }
 
 .desc-input::placeholder {
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .form-row {
@@ -496,7 +541,7 @@ h1 {
   gap: 12px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
 }
 
 .form-field {
@@ -523,12 +568,12 @@ h1 {
 .form-field input:focus,
 .form-field select:focus {
   outline: none;
-  border-color: #007aff;
-  background: white;
+  border-color: var(--primary);
+  background: var(--white);
 }
 
 .photo-section {
-  background: white;
+  background: var(--white);
   border-radius: 12px;
   padding: 12px;
 }
@@ -545,21 +590,21 @@ h1 {
   justify-content: center;
   gap: 8px;
   padding: 12px;
-  background: #f5f5f5;
+  background: var(--bg);
   border: none;
   border-radius: 10px;
   font-size: 15px;
-  color: #333;
+  color: var(--text);
   cursor: pointer;
 }
 
 .photo-btn:active {
-  background: #e8e8e8;
+  background: var(--border);
 }
 
 .btn-save {
   padding: 16px;
-  font-size: 18px;
+  font-size: 17px;
   border-radius: 12px;
   margin-top: 8px;
 }
@@ -568,17 +613,17 @@ h1 {
 .btn-primary {
   width: 100%;
   padding: 14px;
-  background: #007aff;
+  background: var(--accent);
   color: white;
   border: none;
   border-radius: 10px;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .btn-primary:active {
-  background: #0056b3;
+  background: #20bd5a;
   transform: scale(0.98);
 }
 
@@ -589,8 +634,8 @@ h1 {
 
 .btn-secondary {
   padding: 14px;
-  background: #f0f0f0;
-  color: #333;
+  background: var(--bg);
+  color: var(--text);
   border: none;
   border-radius: 10px;
   font-size: 16px;
@@ -598,7 +643,7 @@ h1 {
 }
 
 .btn-secondary:active {
-  background: #e0e0e0;
+  background: var(--border);
   transform: scale(0.98);
 }
 
@@ -635,7 +680,7 @@ h1 {
 
 /* Cards */
 .card {
-  background: white;
+  background: var(--white);
   padding: 16px;
   border-radius: 10px;
   margin-bottom: 16px;
@@ -667,7 +712,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: white;
+  background: var(--white);
   padding: 14px 16px;
   border-radius: 10px;
   margin-bottom: 16px;
@@ -705,7 +750,7 @@ h1 {
 }
 
 .device-id {
-  background: #007aff;
+  background: var(--primary);
   color: white;
   padding: 16px;
   border-radius: 12px;
@@ -731,7 +776,7 @@ h1 {
   background: #f0f8ff;
   padding: 12px;
   border-radius: 10px;
-  border: 1px solid #007aff30;
+  border: 1px solid var(--primary)30;
 }
 
 .peer-icon {
@@ -787,7 +832,7 @@ h1 {
 }
 
 .modal-box {
-  background: white;
+  background: var(--white);
   width: 100%;
   max-height: 90vh;
   border-radius: 14px 14px 0 0;
@@ -833,7 +878,7 @@ h1 {
 .sheet-cancel {
   background: none;
   border: none;
-  color: #007aff;
+  color: var(--primary);
   font-size: 17px;
   cursor: pointer;
   padding: 4px;
@@ -842,7 +887,7 @@ h1 {
 .sheet-save {
   background: none;
   border: none;
-  color: #007aff;
+  color: var(--primary);
   font-size: 17px;
   font-weight: 600;
   cursor: pointer;
@@ -854,7 +899,7 @@ h1 {
 }
 
 .input-group {
-  background: white;
+  background: var(--white);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -1006,7 +1051,7 @@ h1 {
   top: 0;
   left: 0;
   right: 0;
-  background: #007aff;
+  background: var(--primary);
   color: white;
   padding: 12px 16px;
   padding-top: calc(12px + env(safe-area-inset-top));
@@ -1020,8 +1065,8 @@ h1 {
 .install-banner span { flex: 1; }
 
 .install-btn {
-  background: white;
-  color: #007aff;
+  background: var(--white);
+  color: var(--primary);
   border: none;
   padding: 8px 16px;
   border-radius: 6px;
@@ -1078,7 +1123,7 @@ h1 {
 
 .settle-stat {
   flex: 1;
-  background: #007aff;
+  background: var(--primary);
   color: white;
   padding: 16px;
   border-radius: 12px;
@@ -1097,7 +1142,7 @@ h1 {
 }
 
 .settle-section {
-  background: white;
+  background: var(--white);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
@@ -1131,7 +1176,7 @@ h1 {
 .settle-person-avatar {
   width: 40px;
   height: 40px;
-  background: #007aff;
+  background: var(--primary);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -1202,7 +1247,7 @@ h1 {
 .settle-payment-amount {
   margin-left: auto;
   font-weight: 600;
-  color: #007aff;
+  color: var(--primary);
 }
 
 /* Floating Action Button */
@@ -1213,7 +1258,7 @@ h1 {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #007aff;
+  background: var(--primary);
   color: white;
   border: none;
   font-size: 32px;
@@ -1255,14 +1300,14 @@ h1 {
   padding: 16px 12px;
   border: 2px solid #ddd;
   border-radius: 12px;
-  background: white;
+  background: var(--white);
   cursor: pointer;
   text-align: center;
   transition: all 0.2s;
 }
 
 .mode-btn.active {
-  border-color: #007aff;
+  border-color: var(--primary);
   background: #f0f7ff;
 }
 
@@ -1291,7 +1336,7 @@ h1 {
   border: 1px solid #ddd;
   border-radius: 10px;
   font-size: 16px;
-  background: white;
+  background: var(--white);
   cursor: pointer;
 }
 
@@ -1309,12 +1354,12 @@ h1 {
 
 .account-badge {
   font-weight: 600;
-  color: #007aff;
+  color: var(--primary);
 }
 
 .account-switch {
   font-size: 13px;
-  color: #007aff;
+  color: var(--primary);
 }
 
 /* Account List */
@@ -1338,7 +1383,7 @@ h1 {
 
 .account-item.active {
   background: #f0f7ff;
-  border-color: #007aff;
+  border-color: var(--primary);
 }
 
 .account-icon {
@@ -1360,7 +1405,7 @@ h1 {
 }
 
 .account-check {
-  color: #007aff;
+  color: var(--primary);
   font-weight: bold;
 }
 
@@ -1376,16 +1421,16 @@ h1 {
   padding: 10px 8px;
   border: 1px solid #ddd;
   border-radius: 8px;
-  background: white;
+  background: var(--white);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .filter-btn.active {
-  background: #007aff;
+  background: var(--primary);
   color: white;
-  border-color: #007aff;
+  border-color: var(--primary);
 }
 
 /* Custom Date Range */
@@ -1395,7 +1440,7 @@ h1 {
   gap: 8px;
   margin-bottom: 16px;
   padding: 12px;
-  background: white;
+  background: var(--white);
   border-radius: 10px;
 }
 
@@ -1436,7 +1481,7 @@ h1 {
 }
 
 .update-banner button {
-  background: white;
+  background: var(--white);
   color: #34c759;
   border: none;
   padding: 8px 16px;

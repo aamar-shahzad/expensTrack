@@ -102,6 +102,7 @@ const App = {
       // Hide loading, show app
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('nav').classList.remove('hidden');
+      document.getElementById('fab-add')?.classList.remove('hidden');
 
       // Load initial view
       this.navigateTo('home');
@@ -172,6 +173,12 @@ const App = {
     document.querySelectorAll('.nav-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.view === view);
     });
+
+    // Show/hide FAB (only on home view)
+    const fab = document.getElementById('fab-add');
+    if (fab) {
+      fab.classList.toggle('hidden', view !== 'home');
+    }
 
     // Load view
     UI.loadView(view);
