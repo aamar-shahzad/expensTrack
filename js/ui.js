@@ -114,12 +114,9 @@ const UI = {
   renderPeople() {
     const main = document.getElementById('main-content');
     main.innerHTML = `
-      <div class="header-row">
-        <h1>People</h1>
-        <button class="btn-primary btn-small" id="add-person-btn">+ Add</button>
-      </div>
-      
+      <h1>People</h1>
       <div id="people-list"></div>
+      <button class="fab" id="add-person-btn">+</button>
     `;
     
     document.getElementById('add-person-btn').onclick = () => this.showAddPersonModal();

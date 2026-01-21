@@ -780,5 +780,33 @@ h1 {
   opacity: 0.8;
 }
 
+/* Floating Action Button */
+.fab {
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #007aff;
+  color: white;
+  border: none;
+  font-size: 32px;
+  font-weight: 300;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.fab:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
 /* Hidden */
 .hidden { display: none !important; }
