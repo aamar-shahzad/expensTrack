@@ -2,11 +2,11 @@
  * Service Worker for ExpenseTracker PWA
  */
 
-const CACHE_NAME = 'expense-tracker-v6';
-const STATIC_CACHE = 'expense-tracker-static-v6';
+const CACHE_VERSION = 7;
+const CACHE_NAME = `expense-tracker-v${CACHE_VERSION}`;
 
-// Assets to cache
-const STATIC_ASSETS = [
+// Assets to cache immediately
+const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/css/styles.css',
@@ -19,159 +19,108 @@ const STATIC_ASSETS = [
   '/js/settlement.js',
   '/js/sync.js',
   '/manifest.json',
-  'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
 
-// Install event - cache static assets
+// Install - cache core assets
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing');
+  console.log('SW: Installing v' + CACHE_VERSION);
+  
   event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then((cache) => {
-        return cache.addAll(STATIC_ASSETS);
-      })
-      .catch((error) => {
-        console.error('Failed to cache static assets:', error);
-      })
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(PRECACHE_ASSETS))
+      .then(() => self.skipWaiting())
   );
-
-  // Force activation
-  self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate - clean old caches
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker activating');
+  console.log('SW: Activating v' + CACHE_VERSION);
+  
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== STATIC_CACHE && cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(key => key !== CACHE_NAME)
+            .map(key => {
+              console.log('SW: Deleting old cache', key);
+              return caches.delete(key);
+            })
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+// Fetch - cache-first for assets, network-first for API
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Skip non-GET and cross-origin requests
+  if (request.method !== 'GET') return;
+  if (url.origin !== location.origin && !url.href.includes('unpkg.com')) return;
+
+  // Network-first for HTML (to get updates)
+  if (request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+          return response;
         })
-      );
-    }).then(() => {
-      // Take control of all clients
-      return self.clients.claim();
+        .catch(() => caches.match(request) || caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // Cache-first for other assets
+  event.respondWith(
+    caches.match(request)
+      .then(cached => {
+        if (cached) return cached;
+        
+        return fetch(request).then(response => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+          }
+          return response;
+        });
+      })
+      .catch(() => {
+        // Offline fallback
+        if (request.headers.get('accept')?.includes('text/html')) {
+          return caches.match('/index.html');
+        }
+      })
+  );
+});
+
+// Background sync
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'expense-sync') {
+    console.log('SW: Background sync triggered');
+  }
+});
+
+// Push notifications
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  
+  const data = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'ExpenseTracker', {
+      body: data.body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      vibrate: [100, 50, 100]
     })
   );
 });
 
-// Fetch event - serve from cache first, then network
-self.addEventListener('fetch', (event) => {
-  // Skip non-GET requests and external requests
-  if (event.request.method !== 'GET' ||
-      !event.request.url.startsWith(self.location.origin)) {
-    return;
-  }
-
-  // Handle image requests (we'll add this later for blob URLs)
-  if (event.request.url.includes('/api/image/')) {
-    // Let the main thread handle image requests
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request)
-      .then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-
-        return fetch(event.request)
-          .then((response) => {
-            // Don't cache non-successful responses
-            if (!response.ok) {
-              return response;
-            }
-
-            // Clone the response before caching
-            const responseClone = response.clone();
-
-            // Cache successful responses
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseClone);
-              });
-
-            return response;
-          })
-          .catch((error) => {
-            console.error('Fetch failed:', error);
-            // Return offline fallback for HTML requests
-            if (event.request.headers.get('accept').includes('text/html')) {
-              return caches.match('/index.html');
-            }
-          });
-      })
-  );
-});
-
-// Background sync for when connection is restored
-self.addEventListener('sync', (event) => {
-  console.log('Background sync triggered:', event.tag);
-
-  if (event.tag === 'expense-sync') {
-    event.waitUntil(syncExpenses());
-  }
-});
-
-async function syncExpenses() {
-  try {
-    // Get pending sync data from IndexedDB
-    const syncData = await getPendingSyncData();
-
-    if (syncData && syncData.length > 0) {
-      // Send data to sync service
-      await sendSyncData(syncData);
-
-      // Clear pending sync data
-      await clearPendingSyncData();
-    }
-  } catch (error) {
-    console.error('Background sync failed:', error);
-  }
-}
-
-// Placeholder functions for sync operations
-async function getPendingSyncData() {
-  // This would retrieve pending sync operations from IndexedDB
-  return null;
-}
-
-async function sendSyncData(data) {
-  // This would send data to sync service
-  console.log('Sending sync data:', data);
-}
-
-async function clearPendingSyncData() {
-  // This would clear processed sync data from IndexedDB
-  console.log('Clearing pending sync data');
-}
-
-// Push notifications (for future use)
-self.addEventListener('push', (event) => {
-  if (event.data) {
-    const data = event.data.json();
-    const options = {
-      body: data.body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png'
-    };
-
-    event.waitUntil(
-      self.registration.showNotification(data.title, options)
-    );
-  }
-});
-
-// Notification click handler
+// Notification click
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-
-  event.waitUntil(
-    clients.openWindow('/')
-  );
+  event.waitUntil(clients.openWindow('/'));
 });

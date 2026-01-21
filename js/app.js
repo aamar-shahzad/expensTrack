@@ -2,25 +2,42 @@
  * ExpenseTracker PWA - Main Application
  */
 
+// PWA Install prompt
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  
+  // Show install banner if not already installed
+  const banner = document.getElementById('install-banner');
+  if (banner && !window.matchMedia('(display-mode: standalone)').matches) {
+    banner.classList.remove('hidden');
+  }
+});
+
 // Global app state
 const App = {
   currentView: 'home',
   isOnline: navigator.onLine,
   db: null,
-  peer: null,
 
-  // Initialize the application
   async init() {
     try {
       // Register service worker
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js')
-          .then(registration => {
-            console.log('SW registered:', registration);
-          })
-          .catch(error => {
-            console.log('SW registration failed:', error);
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        console.log('SW registered:', registration.scope);
+        
+        // Check for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              this.showToast('Update available! Refresh to update.', 'success');
+            }
           });
+        });
       }
 
       // Initialize IndexedDB
@@ -29,44 +46,82 @@ const App = {
       // Initialize UI
       if (typeof UI !== 'undefined') {
         UI.init();
-      } else {
-        throw new Error('UI module not loaded');
       }
 
       // Initialize modules
-      await Camera.init();
-      await Expenses.init();
-      await People.init();
-      await Settlement.init();
-      await Sync.init();
+      if (typeof Camera !== 'undefined') await Camera.init();
+      if (typeof Expenses !== 'undefined') await Expenses.init();
+      if (typeof People !== 'undefined') await People.init();
+      if (typeof Settlement !== 'undefined') await Settlement.init();
+      if (typeof Sync !== 'undefined') await Sync.init();
 
       // Setup network listeners
       window.addEventListener('online', () => {
         this.isOnline = true;
-        UI.updateOnlineStatus(true);
+        this.showToast('Back online', 'success');
       });
 
       window.addEventListener('offline', () => {
         this.isOnline = false;
-        UI.updateOnlineStatus(false);
+        this.showToast('You\'re offline', 'error');
       });
 
-      // Hide loading screen and show app
+      // Setup install button
+      this.setupInstallButton();
+
+      // Hide loading screen
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('nav').classList.remove('hidden');
 
+      // Check URL for view parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      
       // Load initial view
-      this.navigateTo('home');
+      this.navigateTo(viewParam || 'home');
 
-      console.log('ExpenseTracker initialized successfully');
+      console.log('ExpenseTracker ready');
 
     } catch (error) {
-      console.error('Failed to initialize app:', error);
-      this.showError('Failed to initialize the app. Please refresh and try again.');
+      console.error('Init failed:', error);
+      document.getElementById('loading').innerHTML = `
+        <p style="color: white; text-align: center; padding: 20px;">
+          Failed to load app.<br>Please refresh the page.
+        </p>
+      `;
     }
   },
 
-  // Navigate to a specific view
+  setupInstallButton() {
+    const installBtn = document.getElementById('install-btn');
+    const dismissBtn = document.getElementById('install-dismiss');
+    const banner = document.getElementById('install-banner');
+
+    if (installBtn) {
+      installBtn.addEventListener('click', async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log('Install outcome:', outcome);
+          deferredPrompt = null;
+          banner.classList.add('hidden');
+        }
+      });
+    }
+
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => {
+        banner.classList.add('hidden');
+        localStorage.setItem('installDismissed', 'true');
+      });
+    }
+
+    // Don't show if already dismissed
+    if (localStorage.getItem('installDismissed')) {
+      banner?.classList.add('hidden');
+    }
+  },
+
   navigateTo(view) {
     this.currentView = view;
 
@@ -77,56 +132,48 @@ const App = {
 
     // Load the view
     UI.loadView(view);
+
+    // Update URL without reload
+    const url = new URL(window.location);
+    if (view === 'home') {
+      url.searchParams.delete('view');
+    } else {
+      url.searchParams.set('view', view);
+    }
+    window.history.replaceState({}, '', url);
   },
 
-  // Show error message
   showError(message) {
     this.showToast(message, 'error');
   },
 
-  // Show success message
   showSuccess(message) {
     this.showToast(message, 'success');
   },
 
-  // Show toast notification
   showToast(message, type = 'success') {
     // Remove existing toasts
-    const existingToasts = document.querySelectorAll('.toast');
-    existingToasts.forEach(toast => toast.remove());
+    document.querySelectorAll('.toast').forEach(t => t.remove());
 
-    // Create new toast
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = message;
-
     document.body.appendChild(toast);
 
-    // Auto remove after delay
-    const duration = type === 'error' ? 5000 : 3000;
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.remove();
-      }
-    }, duration);
+    setTimeout(() => toast.remove(), 3000);
   }
 };
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  // Wait for all scripts to load
-  window.addEventListener('load', () => {
-    App.init();
-  });
-});
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => App.init());
+} else {
+  App.init();
+}
 
-// Global error handler
-window.addEventListener('error', (event) => {
-  console.error('Global error:', event.error);
-  App.showError('An unexpected error occurred. Please try again.');
-});
-
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled promise rejection:', event.reason);
-  App.showError('An unexpected error occurred. Please try again.');
+// Handle app installed event
+window.addEventListener('appinstalled', () => {
+  console.log('App installed');
+  deferredPrompt = null;
+  document.getElementById('install-banner')?.classList.add('hidden');
 });
