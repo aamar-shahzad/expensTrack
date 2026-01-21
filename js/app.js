@@ -3,6 +3,7 @@
  */
 
 let deferredPrompt = null;
+let newWorker = null;
 
 // PWA Install prompt
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -26,20 +27,34 @@ const App = {
 
   async init() {
     try {
-      // Register service worker
+      // Register service worker with update handling
       if ('serviceWorker' in navigator) {
         try {
           const reg = await navigator.serviceWorker.register('./sw.js');
           console.log('SW registered');
           
+          // Check for updates on page load
+          reg.update();
+          
+          // Check for updates periodically (every 30 min)
+          setInterval(() => reg.update(), 30 * 60 * 1000);
+          
           reg.addEventListener('updatefound', () => {
-            const newSW = reg.installing;
-            newSW?.addEventListener('statechange', () => {
-              if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-                this.showToast('Update available - refresh to update', 'success');
+            newWorker = reg.installing;
+            
+            newWorker?.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New version available
+                this.showUpdateBanner();
               }
             });
           });
+
+          // Handle controller change (when new SW takes over)
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            window.location.reload();
+          });
+
         } catch (e) {
           console.warn('SW registration failed:', e);
         }
@@ -83,6 +98,31 @@ const App = {
       console.error('Init failed:', e);
       document.getElementById('loading').innerHTML = 
         '<p style="color:white;padding:20px;text-align:center;">Failed to load. Please refresh.</p>';
+    }
+  },
+
+  showUpdateBanner() {
+    // Remove existing update banner
+    document.getElementById('update-banner')?.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'update-banner';
+    banner.className = 'update-banner';
+    banner.innerHTML = `
+      <span>New version available</span>
+      <button id="update-btn">Update Now</button>
+    `;
+    document.body.appendChild(banner);
+
+    document.getElementById('update-btn').onclick = () => {
+      this.applyUpdate();
+    };
+  },
+
+  applyUpdate() {
+    if (newWorker) {
+      // Tell the new SW to skip waiting and take over
+      newWorker.postMessage({ type: 'SKIP_WAITING' });
     }
   },
 

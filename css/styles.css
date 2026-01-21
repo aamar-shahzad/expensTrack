@@ -975,5 +975,35 @@ h1 {
   box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
 }
 
+/* Update Banner */
+.update-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #34c759;
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 9999;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.update-banner span {
+  font-weight: 500;
+}
+
+.update-banner button {
+  background: white;
+  color: #34c759;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* Hidden */
 .hidden { display: none !important; }

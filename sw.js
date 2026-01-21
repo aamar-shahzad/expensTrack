@@ -2,7 +2,7 @@
  * Service Worker for Expense Tracker PWA
  */
 
-const CACHE_VERSION = 17;
+const CACHE_VERSION = 18;
 const CACHE_NAME = `expense-tracker-v${CACHE_VERSION}`;
 
 const ASSETS = [
@@ -22,16 +22,15 @@ const ASSETS = [
   './icons/icon-512.png'
 ];
 
-// Install
+// Install - cache assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
   );
 });
 
-// Activate
+// Activate - clean old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
@@ -43,17 +42,15 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch
+// Fetch - serve from cache, update in background
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
     caches.match(event.request)
       .then(cached => {
-        // Return cached version or fetch new
         const fetchPromise = fetch(event.request)
           .then(response => {
-            // Cache successful responses
             if (response.ok) {
               const clone = response.clone();
               caches.open(CACHE_NAME)
@@ -66,4 +63,11 @@ self.addEventListener('fetch', (event) => {
         return cached || fetchPromise;
       })
   );
+});
+
+// Listen for skip waiting message from app
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
