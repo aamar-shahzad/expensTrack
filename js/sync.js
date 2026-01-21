@@ -212,12 +212,15 @@ const Sync = {
     try {
       const localData = await DB.getAllData();
       
+      // Convert image blobs to base64 for transfer
+      const imagesForSync = await this.prepareImagesForSync(localData.images || []);
+      
       const message = {
         type: 'sync_request',
         data: {
           expenses: localData.expenses || [],
           people: localData.people || [],
-          images: localData.images || []
+          images: imagesForSync
         },
         deviceId: this.deviceId,
         timestamp: Date.now()
@@ -245,6 +248,48 @@ const Sync = {
     }
   },
 
+  // Convert blobs to base64 for P2P transfer
+  async prepareImagesForSync(images) {
+    const prepared = [];
+    for (const img of images) {
+      try {
+        const imgCopy = { ...img };
+        if (img.blob instanceof Blob) {
+          imgCopy.blobBase64 = await this.blobToBase64(img.blob);
+          delete imgCopy.blob;
+        }
+        if (img.thumbnail instanceof Blob) {
+          imgCopy.thumbnailBase64 = await this.blobToBase64(img.thumbnail);
+          delete imgCopy.thumbnail;
+        }
+        prepared.push(imgCopy);
+      } catch (e) {
+        console.warn('Failed to prepare image:', img.id);
+      }
+    }
+    return prepared;
+  },
+
+  blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  },
+
+  base64ToBlob(base64) {
+    const parts = base64.split(',');
+    const mime = parts[0].match(/:(.*?);/)[1];
+    const data = atob(parts[1]);
+    const array = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i++) {
+      array[i] = data.charCodeAt(i);
+    }
+    return new Blob([array], { type: mime });
+  },
+
   async handleMessage(message, fromPeer) {
     if (!message || !message.type) return;
 
@@ -255,6 +300,7 @@ const Sync = {
         await this.mergeData(message.data);
         
         const localData = await DB.getAllData();
+        const imagesForSync = await this.prepareImagesForSync(localData.images || []);
         const conn = this.connections.get(fromPeer);
         
         if (conn) {
@@ -263,7 +309,7 @@ const Sync = {
             data: {
               expenses: localData.expenses || [],
               people: localData.people || [],
-              images: localData.images || []
+              images: imagesForSync
             },
             deviceId: this.deviceId,
             timestamp: Date.now()
@@ -290,6 +336,7 @@ const Sync = {
     try {
       const localData = await DB.getAllData();
 
+      // Merge expenses
       const localExpenseIds = new Set(
         (localData.expenses || []).map(e => e.syncId).filter(Boolean)
       );
@@ -300,6 +347,7 @@ const Sync = {
         }
       }
 
+      // Merge people
       const localPeopleIds = new Set(
         (localData.people || []).map(p => p.syncId).filter(Boolean)
       );
@@ -310,13 +358,24 @@ const Sync = {
         }
       }
 
+      // Merge images (convert base64 back to blobs)
       const localImageIds = new Set(
         (localData.images || []).map(i => i.id).filter(Boolean)
       );
       
       for (const image of (remoteData.images || [])) {
         if (image.id && !localImageIds.has(image.id)) {
-          await DB.addImageRaw(image);
+          // Convert base64 back to blobs
+          const imageToSave = { ...image };
+          if (image.blobBase64) {
+            imageToSave.blob = this.base64ToBlob(image.blobBase64);
+            delete imageToSave.blobBase64;
+          }
+          if (image.thumbnailBase64) {
+            imageToSave.thumbnail = this.base64ToBlob(image.thumbnailBase64);
+            delete imageToSave.thumbnailBase64;
+          }
+          await DB.addImageRaw(imageToSave);
         }
       }
 

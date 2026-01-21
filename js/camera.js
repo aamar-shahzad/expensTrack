@@ -1,5 +1,7 @@
 /**
  * Camera and Image Capture Module
+ * - Compresses images to max 800px for storage efficiency
+ * - Creates thumbnails for list views
  */
 
 const Camera = {
@@ -7,9 +9,9 @@ const Camera = {
   canvasElement: null,
   stream: null,
   capturedImage: null,
+  MAX_IMAGE_SIZE: 800, // Max width/height for stored images
 
   async init() {
-    // Create hidden video and canvas elements for camera
     this.videoElement = document.createElement('video');
     this.canvasElement = document.createElement('canvas');
     this.videoElement.style.display = 'none';
@@ -20,21 +22,19 @@ const Camera = {
 
   async capturePhoto() {
     try {
-      // Request camera permission
       this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }, // Rear camera
+        video: { facingMode: 'environment' },
         audio: false
       });
 
       this.videoElement.srcObject = this.stream;
       await this.videoElement.play();
 
-      // Show camera preview modal
       this.showCameraModal();
 
     } catch (error) {
       console.error('Camera access failed:', error);
-      App.showError('Camera access denied or not available');
+      App.showError('Camera access denied');
     }
   },
 
@@ -53,7 +53,7 @@ const Camera = {
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary modal-close">Cancel</button>
-          <button class="btn btn-primary" id="take-photo">📸 Capture</button>
+          <button class="btn btn-primary" id="take-photo">Capture</button>
         </div>
       </div>
     `;
@@ -63,7 +63,6 @@ const Camera = {
     const videoPreview = modal.querySelector('#camera-preview');
     videoPreview.srcObject = this.stream;
 
-    // Setup events
     modal.querySelectorAll('.modal-close').forEach(btn => {
       btn.addEventListener('click', () => {
         this.stopCamera();
@@ -83,27 +82,21 @@ const Camera = {
     const video = this.videoElement;
     const context = canvas.getContext('2d');
 
-    // Set canvas size to video size
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-
-    // Draw current video frame to canvas
     context.drawImage(video, 0, 0);
 
-    // Convert to blob
     canvas.toBlob(async (blob) => {
       try {
-        // Create thumbnail
-        const thumbnail = await this.createThumbnail(blob);
+        // Compress the image
+        const compressed = await this.compressImage(blob);
+        const thumbnail = await this.createThumbnail(compressed);
 
-        // Save image to DB
-        const imageData = await DB.saveImage(blob, thumbnail);
+        const imageData = await DB.saveImage(compressed, thumbnail);
         this.capturedImage = imageData;
 
-        // Show preview
         this.showImagePreview(imageData.id);
-
-        App.showSuccess('Photo captured successfully');
+        App.showSuccess('Photo captured');
 
       } catch (error) {
         console.error('Failed to save photo:', error);
@@ -122,17 +115,15 @@ const Camera = {
       if (!file) return;
 
       try {
-        // Create thumbnail
-        const thumbnail = await this.createThumbnail(file);
+        // Compress the image before storing
+        const compressed = await this.compressImage(file);
+        const thumbnail = await this.createThumbnail(compressed);
 
-        // Save image to DB
-        const imageData = await DB.saveImage(file, thumbnail);
+        const imageData = await DB.saveImage(compressed, thumbnail);
         this.capturedImage = imageData;
 
-        // Show preview
         this.showImagePreview(imageData.id);
-
-        App.showSuccess('Photo selected successfully');
+        App.showSuccess('Photo added');
 
       } catch (error) {
         console.error('Failed to save photo:', error);
@@ -143,6 +134,41 @@ const Camera = {
     input.click();
   },
 
+  // Compress image to max size for efficient storage and sync
+  async compressImage(blob) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        let { width, height } = img;
+
+        // Only resize if larger than max
+        if (width > this.MAX_IMAGE_SIZE || height > this.MAX_IMAGE_SIZE) {
+          if (width > height) {
+            height = (height * this.MAX_IMAGE_SIZE) / width;
+            width = this.MAX_IMAGE_SIZE;
+          } else {
+            width = (width * this.MAX_IMAGE_SIZE) / height;
+            height = this.MAX_IMAGE_SIZE;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob((result) => {
+          URL.revokeObjectURL(img.src);
+          resolve(result);
+        }, 'image/jpeg', 0.7); // 70% quality for good balance
+      };
+
+      img.src = URL.createObjectURL(blob);
+    });
+  },
+
   async createThumbnail(blob) {
     return new Promise((resolve) => {
       const img = new Image();
@@ -150,8 +176,7 @@ const Camera = {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        // Thumbnail size
-        const maxSize = 200;
+        const maxSize = 150;
         let { width, height } = img;
 
         if (width > height) {
@@ -166,39 +191,14 @@ const Camera = {
         canvas.height = height;
         ctx.drawImage(img, 0, 0, width, height);
 
-        canvas.toBlob(resolve, 'image/jpeg', 0.7);
+        canvas.toBlob((result) => {
+          URL.revokeObjectURL(img.src);
+          resolve(result);
+        }, 'image/jpeg', 0.6);
       };
+
       img.src = URL.createObjectURL(blob);
     });
-  },
-
-  async showImagePreview(imageId) {
-    const preview = document.getElementById('image-preview');
-    if (!preview) return;
-
-    try {
-      const imageData = await DB.getImage(imageId);
-      if (!imageData) return;
-
-      const thumbUrl = URL.createObjectURL(imageData.thumbnail || imageData.blob);
-      preview.classList.remove('hidden');
-      preview.innerHTML = `
-        <img src="${thumbUrl}" alt="Receipt">
-        <div class="preview-info">Receipt attached</div>
-        <button class="btn-danger btn-small" onclick="Camera.removeImage()">Remove</button>
-      `;
-    } catch (error) {
-      console.error('Failed to show image preview:', error);
-    }
-  },
-
-  removeImage() {
-    this.capturedImage = null;
-    const preview = document.getElementById('image-preview');
-    if (preview) {
-      preview.classList.add('hidden');
-      preview.innerHTML = '';
-    }
   },
 
   stopCamera() {
@@ -208,7 +208,35 @@ const Camera = {
     }
   },
 
-  getCapturedImage() {
-    return this.capturedImage;
+  showImagePreview(imageId) {
+    const preview = document.getElementById('image-preview');
+    if (!preview) return;
+
+    DB.getImage(imageId).then(img => {
+      if (img && img.thumbnail) {
+        const url = URL.createObjectURL(img.thumbnail);
+        preview.innerHTML = `
+          <div class="image-preview-box">
+            <img src="${url}" alt="Receipt">
+            <span>Receipt attached</span>
+            <button type="button" onclick="Camera.removeImage()">Remove</button>
+          </div>
+        `;
+        preview.classList.remove('hidden');
+      }
+    });
+  },
+
+  removeImage() {
+    if (this.capturedImage) {
+      DB.deleteImage(this.capturedImage.id);
+      this.capturedImage = null;
+    }
+
+    const preview = document.getElementById('image-preview');
+    if (preview) {
+      preview.innerHTML = '';
+      preview.classList.add('hidden');
+    }
   }
 };
