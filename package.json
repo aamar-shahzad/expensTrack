@@ -1,0 +1,14 @@
+{
+  "name": "expense-tracker-pwa",
+  "version": "1.0.0",
+  "description": "Mobile expense tracker with P2P sync",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "deploy:netlify": "echo 'Deploy to Netlify: https://app.netlify.com/drop'",
+    "deploy:vercel": "echo 'Deploy to Vercel: https://vercel.com/new'"
+  },
+  "keywords": ["pwa", "expenses", "mobile", "sync"],
+  "author": "ExpenseTracker",
+  "license": "MIT"
+}
