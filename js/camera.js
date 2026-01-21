@@ -108,7 +108,8 @@ const Camera = {
   async chooseFromGallery() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+    input.capture = ''; // Prevent camera capture on mobile
 
     input.onchange = async (e) => {
       const file = e.target.files[0];

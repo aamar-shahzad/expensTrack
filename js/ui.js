@@ -339,16 +339,23 @@ const UI = {
       </div>
       
       <div class="card">
-        <label>Data</label>
-        <button class="btn-secondary" id="export-btn" style="margin-bottom:10px">Export Data (JSON)</button>
-        <button class="btn-secondary" id="import-btn">Import Data</button>
+        <label>Backup & Restore</label>
+        <div class="settings-btn-group">
+          <button class="btn-secondary" id="export-btn">
+            <span>📤</span> Export Data
+          </button>
+          <button class="btn-secondary" id="import-btn">
+            <span>📥</span> Import Data
+          </button>
+        </div>
         <input type="file" id="import-file" accept=".json" style="display:none">
+        <p class="help-text">Export saves expenses and people as JSON (images not included).</p>
       </div>
       
       <div class="card danger-zone">
         <label>Danger Zone</label>
-        <button class="btn-danger" id="clear-data-btn" style="margin-bottom:10px">Clear Account Data</button>
-        ${accounts.length > 1 ? `<button class="btn-danger" id="delete-account-btn">Delete This Account</button>` : ''}
+        <button class="btn-danger" id="clear-data-btn">Clear Account Data</button>
+        ${accounts.length > 1 ? `<button class="btn-danger" id="delete-account-btn" style="margin-top:10px">Delete This Account</button>` : ''}
         <p class="help-text">Permanently delete all data in this account.</p>
       </div>
     `;

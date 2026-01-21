@@ -1493,5 +1493,20 @@ h1 {
   cursor: pointer;
 }
 
+/* Settings Button Group */
+.settings-btn-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.settings-btn-group button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 /* Hidden */
 .hidden { display: none !important; }
