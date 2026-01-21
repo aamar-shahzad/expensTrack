@@ -20,7 +20,6 @@ const UI = {
   },
 
   setupModals() {
-    // Modal backdrop click to close
     document.addEventListener('click', (e) => {
       if (e.target.classList.contains('modal-backdrop')) {
         this.closeModal();
@@ -54,231 +53,188 @@ const UI = {
   renderHomeView() {
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = `
-      <div class="home-view">
-        <h1 class="text-center mb-4">Expenses</h1>
+      <h1>Expenses</h1>
 
-        <!-- Month Navigation -->
-        <div class="month-nav card mb-4">
-          <div class="flex items-center justify-between">
-            <button class="btn btn-secondary" id="prev-month">← Prev</button>
-            <h2 id="current-month">December 2025</h2>
-            <button class="btn btn-secondary" id="next-month">Next →</button>
-          </div>
-        </div>
+      <div class="month-nav">
+        <button id="prev-month">‹</button>
+        <h2 id="current-month">January 2026</h2>
+        <button id="next-month">›</button>
+      </div>
 
-        <!-- Summary Cards -->
-        <div class="summary-cards mb-4">
-          <div class="card">
-            <h3>Total Expenses</h3>
-            <p class="total-amount">$0.00</p>
-          </div>
-        </div>
+      <div class="summary-header">
+        <h3>Total Spent</h3>
+        <div class="summary-amount" id="total-amount">$0.00</div>
+      </div>
 
-        <!-- Expenses List -->
-        <div id="expenses-list" class="expenses-list">
-          <div class="card text-center">
-            <p>No expenses yet. Add your first expense!</p>
-          </div>
+      <div id="expenses-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">📝</div>
+          <p>No expenses this month</p>
+          <button class="btn btn-primary" onclick="App.navigateTo('add')" style="width: auto; padding: 12px 24px;">Add Expense</button>
         </div>
       </div>
     `;
 
-    // Setup month navigation
     this.setupMonthNavigation();
-    // Load expenses for current month
     Expenses.loadCurrentMonth();
   },
 
   renderAddView() {
     const mainContent = document.getElementById('main-content');
+    const today = new Date().toISOString().split('T')[0];
+    
     mainContent.innerHTML = `
-      <div class="add-view">
-        <h1 class="text-center mb-4">Add Expense</h1>
+      <h1>Add Expense</h1>
 
-        <div class="card">
-          <form id="expense-form">
-            <div class="form-group">
-              <label class="form-label">Description</label>
-              <input type="text" class="form-input" id="expense-description" required>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Amount</label>
-              <input type="number" class="form-input" id="expense-amount" step="0.01" required>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Date</label>
-              <input type="date" class="form-input" id="expense-date" required>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Paid by</label>
-              <select class="form-select" id="expense-payer" required>
-                <option value="">Select person...</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Receipt Photo (optional)</label>
-              <div class="camera-controls">
-                <button type="button" class="btn btn-secondary" id="capture-photo">
-                  📸 Take Photo
-                </button>
-                <button type="button" class="btn btn-secondary" id="choose-photo">
-                  📁 Choose from Gallery
-                </button>
-              </div>
-              <div id="image-preview" class="image-preview hidden"></div>
-            </div>
-
-            <div class="flex gap-2 mt-4">
-              <button type="submit" class="btn btn-primary flex-1">Save Expense</button>
-              <button type="button" class="btn btn-secondary" onclick="App.navigateTo('home')">Cancel</button>
-            </div>
-          </form>
+      <form id="expense-form">
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <input type="text" class="form-input" id="expense-description" placeholder="What did you buy?" required>
         </div>
-      </div>
+
+        <div class="form-group">
+          <label class="form-label">Amount</label>
+          <input type="number" class="form-input" id="expense-amount" placeholder="0.00" step="0.01" inputmode="decimal" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input type="date" class="form-input" id="expense-date" value="${today}" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Paid By</label>
+          <select class="form-select" id="expense-payer" required>
+            <option value="">Select person...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Receipt (Optional)</label>
+          <div class="camera-buttons">
+            <button type="button" class="btn btn-secondary" id="capture-photo">📷 Camera</button>
+            <button type="button" class="btn btn-secondary" id="choose-photo">🖼 Gallery</button>
+          </div>
+          <div id="image-preview" class="image-preview hidden"></div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Expense</button>
+      </form>
     `;
 
-    // Setup form handling
     this.setupExpenseForm();
-    // Load people for dropdown
     People.loadForDropdown();
   },
 
   renderPeopleView() {
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = `
-      <div class="people-view">
-        <div class="flex justify-between items-center mb-4">
-          <h1>People</h1>
-          <button class="btn btn-primary" id="add-person-btn">+ Add Person</button>
-        </div>
+      <div class="flex items-center justify-between mb-4">
+        <h1>People</h1>
+        <button class="btn btn-primary btn-small" id="add-person-btn">+ Add</button>
+      </div>
 
-        <div id="people-list" class="people-list">
-          <div class="card text-center">
-            <p>Loading people...</p>
-          </div>
+      <div id="people-list" class="card">
+        <div class="empty-state">
+          <div class="empty-state-icon">👥</div>
+          <p>No people added yet</p>
         </div>
       </div>
     `;
 
-    // Setup add person button
     document.getElementById('add-person-btn').addEventListener('click', () => {
       this.showAddPersonModal();
     });
 
-    // Load people list
     People.loadPeopleList();
   },
 
   renderSettleView() {
     const mainContent = document.getElementById('main-content');
     mainContent.innerHTML = `
-      <div class="settle-view">
-        <h1 class="text-center mb-4">Settlement Calculator</h1>
+      <h1>Settlement</h1>
 
-        <div class="card">
-          <div id="settlement-results">
-            <p class="text-center">Calculating settlements...</p>
-          </div>
+      <div class="card card-padded" id="settlement-results">
+        <div class="empty-state">
+          <div class="empty-state-icon">💰</div>
+          <p>Add expenses to see who owes whom</p>
         </div>
       </div>
     `;
 
-    // Load settlement calculation
     Settlement.calculate();
   },
 
   renderSyncView() {
     const mainContent = document.getElementById('main-content');
-    const deviceId = Sync.getDeviceId();
+    const peerId = Sync.peerId || Sync.deviceId || 'Connecting...';
+    const isReady = Sync.isInitialized;
     const connectionCount = Sync.getConnectionCount();
 
     mainContent.innerHTML = `
-      <div class="sync-view">
-        <h1 class="text-center mb-4">P2P Sync</h1>
+      <h1>Sync</h1>
 
-        <!-- Device Info -->
-        <div class="card mb-4">
-          <h3 class="mb-3">Your Device</h3>
-          <div class="device-info">
-            <p><strong>Device ID:</strong> <code>${deviceId ? deviceId.slice(0, 8) + '...' : 'Not connected'}</code></p>
-            <p><strong>Connected Devices:</strong> <span id="connection-count">${connectionCount}</span></p>
-            <button class="btn btn-secondary btn-sm" onclick="UI.copyDeviceId()">Copy Full ID</button>
-          </div>
+      <div class="sync-status">
+        <div class="sync-status-dot ${isReady ? '' : 'offline'}"></div>
+        <div class="flex-1">
+          <div style="font-weight: 600;">${isReady ? 'Connected' : 'Connecting...'}</div>
+          <div style="font-size: 13px; color: #8e8e93;">${connectionCount} device${connectionCount !== 1 ? 's' : ''} paired</div>
         </div>
+      </div>
 
-        <!-- Connect to Device -->
-        <div class="card mb-4">
-          <h3 class="mb-3">Connect to Another Device</h3>
-          <div class="form-group">
-            <label class="form-label">Enter Device ID to connect:</label>
-            <input type="text" class="form-input" id="remote-device-id" placeholder="Paste device ID here...">
-          </div>
-          <button class="btn btn-primary" id="connect-device">Connect</button>
-        </div>
+      <div class="section-header">Your Peer ID</div>
+      <div class="card card-padded">
+        <div class="peer-id-box">${peerId}</div>
+        <button class="btn btn-secondary" onclick="UI.copyPeerId()">Copy ID</button>
+      </div>
 
-        <!-- Instructions -->
-        <div class="card">
-          <h3 class="mb-3">How to Sync</h3>
-          <ol class="instructions">
-            <li>Share your Device ID with family/friends</li>
-            <li>Enter their Device ID above and click Connect</li>
-            <li>Expenses, photos, and people will sync automatically</li>
-            <li>No internet required - direct device-to-device connection</li>
-          </ol>
+      <div class="section-header">Connect to Device</div>
+      <div class="card card-padded">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <input type="text" class="form-input" id="remote-device-id" placeholder="Paste peer ID here">
         </div>
+        <button class="btn btn-primary" id="connect-device">Connect</button>
+      </div>
+
+      <div class="section-header">How to Sync</div>
+      <div class="card card-padded" style="color: #8e8e93; font-size: 15px; line-height: 1.6;">
+        <p style="margin-bottom: 8px;">1. Share your Peer ID with others</p>
+        <p style="margin-bottom: 8px;">2. Enter their ID above and tap Connect</p>
+        <p style="margin-bottom: 8px;">3. Data syncs automatically</p>
+        <p>4. Works offline via direct connection</p>
       </div>
     `;
 
-    // Setup connect button
     document.getElementById('connect-device').addEventListener('click', () => {
       const remoteId = document.getElementById('remote-device-id').value.trim();
       if (remoteId) {
         Sync.connectToDevice(remoteId);
       } else {
-        App.showError('Please enter a device ID');
+        App.showError('Enter a peer ID first');
       }
     });
-
-    // Add some CSS for the sync view
-    const style = document.createElement('style');
-    style.textContent = `
-      .device-info { margin-bottom: 1rem; }
-      .device-info code { background: #f1f5f9; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-family: monospace; }
-      .instructions { padding-left: 1.5rem; }
-      .instructions li { margin-bottom: 0.5rem; }
-      .btn-sm { padding: 0.5rem 1rem; font-size: 0.875rem; }
-    `;
-    document.head.appendChild(style);
   },
 
-  copyDeviceId() {
-    const deviceId = Sync.getDeviceId();
-    if (deviceId) {
-      navigator.clipboard.writeText(deviceId).then(() => {
-        App.showSuccess('Device ID copied to clipboard');
+  copyPeerId() {
+    const peerId = Sync.peerId || Sync.deviceId;
+    if (peerId) {
+      navigator.clipboard.writeText(peerId).then(() => {
+        App.showSuccess('Copied!');
       }).catch(() => {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = deviceId;
-        document.body.appendChild(textArea);
-        textArea.select();
+        const ta = document.createElement('textarea');
+        ta.value = peerId;
+        document.body.appendChild(ta);
+        ta.select();
         document.execCommand('copy');
-        document.body.removeChild(textArea);
-        App.showSuccess('Device ID copied to clipboard');
+        document.body.removeChild(ta);
+        App.showSuccess('Copied!');
       });
     }
   },
 
   setupMonthNavigation() {
-    const prevBtn = document.getElementById('prev-month');
-    const nextBtn = document.getElementById('next-month');
-
-    prevBtn.addEventListener('click', () => Expenses.navigateMonth(-1));
-    nextBtn.addEventListener('click', () => Expenses.navigateMonth(1));
+    document.getElementById('prev-month').addEventListener('click', () => Expenses.navigateMonth(-1));
+    document.getElementById('next-month').addEventListener('click', () => Expenses.navigateMonth(1));
   },
 
   setupExpenseForm() {
@@ -302,44 +258,61 @@ const UI = {
       <div class="modal-backdrop"></div>
       <div class="modal">
         <div class="modal-header">
-          <h3 class="modal-title">Add Person</h3>
-          <button class="modal-close">&times;</button>
+          <button class="modal-close" onclick="UI.closeModal()">Cancel</button>
+          <span class="modal-title">Add Person</span>
+          <button class="modal-close" id="save-person" style="color: #007aff; font-weight: 600;">Save</button>
         </div>
         <div class="modal-body">
-          <form id="person-form">
-            <div class="form-group">
-              <label class="form-label">Name</label>
-              <input type="text" class="form-input" id="person-name" required>
-            </div>
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary modal-close">Cancel</button>
-          <button class="btn btn-primary" id="save-person">Save</button>
+          <div class="form-group" style="margin: 0;">
+            <input type="text" class="form-input" id="person-name" placeholder="Name" autofocus>
+          </div>
         </div>
       </div>
     `;
 
     document.getElementById('modals').appendChild(modal);
 
-    // Setup modal events
-    modal.querySelectorAll('.modal-close').forEach(btn => {
-      btn.addEventListener('click', () => modal.remove());
-    });
-
     document.getElementById('save-person').addEventListener('click', () => {
       People.savePerson();
       modal.remove();
     });
+
+    document.getElementById('person-name').focus();
   },
 
   closeModal() {
-    const modals = document.querySelectorAll('.modal-container');
-    modals.forEach(modal => modal.remove());
+    document.querySelectorAll('.modal-container').forEach(m => m.remove());
   },
 
   updateOnlineStatus(isOnline) {
-    // Could add visual indicator for online/offline status
-    console.log('Network status:', isOnline ? 'online' : 'offline');
+    console.log('Network:', isOnline ? 'online' : 'offline');
+  },
+
+  // Helper to render expense list items
+  renderExpenseItem(expense) {
+    return `
+      <div class="list-item" data-id="${expense.id}">
+        <div class="list-item-icon">💵</div>
+        <div class="list-item-content">
+          <div class="list-item-title">${expense.description}</div>
+          <div class="list-item-subtitle">${expense.payer} • ${new Date(expense.date).toLocaleDateString()}</div>
+        </div>
+        <div class="list-item-value">$${parseFloat(expense.amount).toFixed(2)}</div>
+      </div>
+    `;
+  },
+
+  // Helper to render person list items
+  renderPersonItem(person) {
+    const initial = person.name.charAt(0).toUpperCase();
+    return `
+      <div class="list-item" data-id="${person.id}">
+        <div class="avatar">${initial}</div>
+        <div class="list-item-content">
+          <div class="list-item-title">${person.name}</div>
+        </div>
+        <button class="delete-btn" onclick="People.deletePerson('${person.id}')">Delete</button>
+      </div>
+    `;
   }
 };

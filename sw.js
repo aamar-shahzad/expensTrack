@@ -2,8 +2,8 @@
  * Service Worker for ExpenseTracker PWA
  */
 
-const CACHE_NAME = 'expense-tracker-v4';
-const STATIC_CACHE = 'expense-tracker-static-v4';
+const CACHE_NAME = 'expense-tracker-v6';
+const STATIC_CACHE = 'expense-tracker-static-v6';
 
 // Assets to cache
 const STATIC_ASSETS = [

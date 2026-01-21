@@ -6,6 +6,7 @@
 const Sync = {
   peer: null,
   deviceId: null,
+  peerId: null,
   connections: new Map(),
   isInitialized: false,
   initAttempts: 0,
@@ -13,29 +14,26 @@ const Sync = {
 
   async init() {
     try {
-      // Get or create device ID
+      // Get or create device ID (persistent)
       this.deviceId = localStorage.getItem('expenseTracker_deviceId');
       if (!this.deviceId) {
         this.deviceId = crypto.randomUUID();
         localStorage.setItem('expenseTracker_deviceId', this.deviceId);
       }
 
-      // Initialize PeerJS with default cloud server (more reliable)
-      // Using a shorter ID to avoid issues
-      const peerId = 'et-' + this.deviceId.slice(0, 8);
+      // Generate a unique peer ID for this session
+      // Using random suffix to avoid "unavailable-id" errors
+      const randomSuffix = Math.random().toString(36).substring(2, 6);
+      this.peerId = 'et' + this.deviceId.slice(0, 6) + randomSuffix;
       
-      this.peer = new Peer(peerId, {
-        debug: 0, // Disable debug logging
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-          ]
-        }
+      // Initialize PeerJS - let it use default cloud server
+      this.peer = new Peer(this.peerId, {
+        debug: 0
       });
 
       this.peer.on('open', (id) => {
         console.log('P2P sync ready with ID:', id);
+        this.peerId = id;
         this.isInitialized = true;
         this.initAttempts = 0;
       });
@@ -46,33 +44,24 @@ const Sync = {
 
       this.peer.on('error', (error) => {
         console.warn('P2P sync unavailable:', error.type);
-        // Don't show error to user - P2P is optional
-        // App works fully offline without it
         this.isInitialized = false;
         
-        // Retry once after a delay
-        if (this.initAttempts < this.maxAttempts) {
+        // Only retry for certain error types
+        if (error.type === 'unavailable-id' && this.initAttempts < this.maxAttempts) {
           this.initAttempts++;
-          setTimeout(() => this.retryInit(), 5000);
+          // Generate new ID and retry
+          setTimeout(() => this.retryInit(), 2000);
         }
       });
 
       this.peer.on('disconnected', () => {
-        console.log('P2P disconnected, attempting reconnect...');
-        if (this.peer && !this.peer.destroyed) {
-          setTimeout(() => {
-            try {
-              this.peer.reconnect();
-            } catch (e) {
-              console.warn('Reconnect failed:', e);
-            }
-          }, 3000);
-        }
+        // Don't auto-reconnect, it causes issues
+        console.log('P2P disconnected');
+        this.isInitialized = false;
       });
 
     } catch (error) {
       console.warn('P2P sync not available:', error);
-      // App continues to work without P2P
     }
   },
 
@@ -84,6 +73,7 @@ const Sync = {
     }
     this.peer = null;
     this.isInitialized = false;
+    this.peerId = null;
     await this.init();
   },
 
