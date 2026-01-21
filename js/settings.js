@@ -11,6 +11,10 @@ const Settings = {
     mode: 'shared' // 'single' or 'shared'
   },
 
+  // Initialize with defaults (will be overwritten by init())
+  currency: '$',
+  mode: 'shared',
+
   currencies: [
     { symbol: '$', name: 'USD - Dollar' },
     { symbol: '€', name: 'EUR - Euro' },
@@ -28,6 +32,7 @@ const Settings = {
     // Load settings from localStorage
     this.currency = localStorage.getItem('et_currency') || this.defaults.currency;
     this.mode = localStorage.getItem('et_mode') || this.defaults.mode;
+    console.log('Settings initialized:', this.currency, this.mode);
   },
 
   getCurrency() {
