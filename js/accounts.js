@@ -90,13 +90,15 @@ const Accounts = {
     const index = this.accounts.findIndex(a => a.id === id);
     if (index === -1) return false;
     
+    // Don't allow changing mode after creation
+    delete updates.mode;
+    
     this.accounts[index] = { ...this.accounts[index], ...updates };
     this.save();
     
     // If updating current account, update settings
     if (id === this.currentAccountId) {
       if (updates.currency) Settings.setCurrency(updates.currency);
-      if (updates.mode) Settings.setMode(updates.mode);
     }
     
     return true;

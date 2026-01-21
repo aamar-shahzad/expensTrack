@@ -310,7 +310,6 @@ const UI = {
     const currentAccount = Accounts.getCurrentAccount();
     const accounts = Accounts.getAll();
     const currentCurrency = currentAccount?.currency || '$';
-    const currentMode = currentAccount?.mode || 'shared';
     
     const currencyOptions = Settings.currencies.map(c => 
       `<option value="${c.symbol}" ${c.symbol === currentCurrency ? 'selected' : ''}>${c.symbol} - ${c.name}</option>`
@@ -337,23 +336,7 @@ const UI = {
       </div>
       
       <div class="card">
-        <label>Current Account: ${currentAccount?.name || 'None'}</label>
-        <div class="mode-toggle">
-          <button class="mode-btn ${currentMode === 'single' ? 'active' : ''}" data-mode="single">
-            <span class="mode-icon">👤</span>
-            <span class="mode-name">Private</span>
-            <span class="mode-desc">No sync/share</span>
-          </button>
-          <button class="mode-btn ${currentMode === 'shared' ? 'active' : ''}" data-mode="shared">
-            <span class="mode-icon">👥</span>
-            <span class="mode-name">Shared</span>
-            <span class="mode-desc">Can sync</span>
-          </button>
-        </div>
-      </div>
-      
-      <div class="card">
-        <label>Currency</label>
+        <label>Currency for ${currentAccount?.name || 'Account'}</label>
         <select id="currency-select" class="form-select">
           ${currencyOptions}
         </select>
@@ -387,18 +370,6 @@ const UI = {
     
     // Add account
     document.getElementById('add-account-btn').onclick = () => this.showAddAccountModal();
-    
-    // Mode toggle
-    document.querySelectorAll('.mode-btn').forEach(btn => {
-      btn.onclick = () => {
-        const mode = btn.dataset.mode;
-        Accounts.updateAccount(Accounts.currentAccountId, { mode });
-        Settings.setMode(mode);
-        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        App.showSuccess(`Switched to ${mode === 'single' ? 'private' : 'shared'} mode`);
-      };
-    });
     
     // Currency select
     document.getElementById('currency-select').onchange = (e) => {
