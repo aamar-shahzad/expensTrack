@@ -686,35 +686,3 @@ h1 {
 
 /* Hidden */
 .hidden { display: none !important; }
-
-/* Dark Mode */
-@media (prefers-color-scheme: dark) {
-  body { background: #000; color: #fff; }
-  
-  .main-content { background: #000; }
-  
-  .bottom-nav { background: #1c1c1e; border-top-color: #333; }
-  .nav-btn { color: #888; }
-  .nav-btn.active { color: #0a84ff; }
-  
-  .month-nav, .card, .expense-item, .list-item, .status-box {
-    background: #1c1c1e;
-  }
-  
-  .month-nav button { background: #2c2c2e; color: #0a84ff; }
-  
-  .form-group input, .form-group select, .card input {
-    background: #1c1c1e;
-    border-color: #333;
-    color: #fff;
-  }
-  
-  .btn-secondary { background: #2c2c2e; color: #fff; }
-  
-  .peer-id { background: #2c2c2e; }
-  
-  .modal-box { background: #1c1c1e; }
-  .modal-header, .modal-footer { border-color: #333; }
-  
-  .tag { background: #2c2c2e; color: #888; }
-}
