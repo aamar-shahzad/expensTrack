@@ -1,63 +1,64 @@
 /**
- * P2P Sync Module - Bug-free version
+ * P2P Sync Module
+ * - Permanent device ID for sharing
  * - Manual sync only
  * - 5 min idle timeout
- * - Robust error handling
  */
 
 const Sync = {
   peer: null,
   deviceId: null,
-  peerId: null,
   connections: new Map(),
   isInitialized: false,
   isConnecting: false,
+  retryCount: 0,
+  maxRetries: 3,
   idleTimeout: null,
-  IDLE_TIMEOUT_MS: 5 * 60 * 1000, // 5 minutes
+  IDLE_TIMEOUT_MS: 5 * 60 * 1000,
 
   async init() {
-    // Get or create persistent device ID
+    // Get or create PERMANENT device ID (never changes)
     this.deviceId = localStorage.getItem('et_deviceId');
     if (!this.deviceId) {
-      this.deviceId = this.generateId();
+      // Create a short, easy to share ID
+      this.deviceId = this.generateShortId();
       localStorage.setItem('et_deviceId', this.deviceId);
     }
-    
-    // Don't auto-connect, wait for user to open sync tab
   },
 
-  generateId() {
-    return 'xxxxxxxx'.replace(/x/g, () => 
-      Math.floor(Math.random() * 16).toString(16)
-    );
+  generateShortId() {
+    // Generate 6 character alphanumeric ID (easy to share)
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No confusing chars (0,O,1,I)
+    let id = '';
+    for (let i = 0; i < 6; i++) {
+      id += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return id;
   },
 
   async connect() {
-    // Prevent multiple connection attempts
     if (this.isConnecting) return;
     if (this.peer && !this.peer.destroyed && this.isInitialized) return;
 
     this.isConnecting = true;
 
-    // Clean up old peer if exists
+    // Clean up old peer
     if (this.peer) {
       try { this.peer.destroy(); } catch (e) {}
       this.peer = null;
     }
 
-    // Generate unique peer ID for this session
-    const sessionId = this.generateId().substring(0, 4);
-    this.peerId = 'et' + this.deviceId + sessionId;
+    // Use permanent device ID as peer ID
+    const peerId = 'et-' + this.deviceId;
 
     try {
-      // Check if PeerJS is loaded
       if (typeof Peer === 'undefined') {
         console.warn('PeerJS not loaded');
         this.isConnecting = false;
         return;
       }
 
-      this.peer = new Peer(this.peerId, { 
+      this.peer = new Peer(peerId, { 
         debug: 0,
         config: {
           iceServers: [
@@ -69,12 +70,11 @@ const Sync = {
 
       this.peer.on('open', (id) => {
         console.log('Sync ready:', id);
-        this.peerId = id;
         this.isInitialized = true;
         this.isConnecting = false;
+        this.retryCount = 0;
         this.startIdleTimer();
         
-        // Update UI if on sync page
         if (App.currentView === 'sync') {
           UI.renderSync();
         }
@@ -89,11 +89,21 @@ const Sync = {
         this.isConnecting = false;
         
         if (err.type === 'unavailable-id') {
-          // ID taken, retry with new ID
-          this.peer = null;
-          setTimeout(() => this.connect(), 500);
+          // ID is taken (maybe old session still active on server)
+          // Wait a bit and retry - PeerJS server will release it
+          this.retryCount++;
+          if (this.retryCount <= this.maxRetries) {
+            App.showError(`Connecting... (attempt ${this.retryCount})`);
+            setTimeout(() => {
+              this.peer = null;
+              this.connect();
+            }, 2000 * this.retryCount);
+          } else {
+            App.showError('Connection busy. Try again in a minute.');
+            this.retryCount = 0;
+          }
         } else if (err.type === 'peer-unavailable') {
-          App.showError('Device not found');
+          App.showError('Device not found or offline');
         }
       });
 
@@ -104,12 +114,12 @@ const Sync = {
         }
       });
 
-      // Timeout for connection
+      // Connection timeout
       setTimeout(() => {
         if (this.isConnecting) {
           this.isConnecting = false;
         }
-      }, 10000);
+      }, 15000);
 
     } catch (e) {
       console.error('Failed to create peer:', e);
@@ -153,11 +163,18 @@ const Sync = {
   },
 
   connectToDevice(remoteId) {
-    const id = (remoteId || '').trim();
+    let id = (remoteId || '').trim().toUpperCase();
     
     if (!id) {
       App.showError('Enter a device ID');
       return;
+    }
+
+    // Add prefix if user didn't include it
+    if (!id.startsWith('ET-')) {
+      id = 'et-' + id;
+    } else {
+      id = 'et-' + id.substring(3);
     }
 
     if (!this.peer || !this.isInitialized) {
@@ -182,7 +199,6 @@ const Sync = {
     }
   },
 
-  // Manual sync - triggered by user
   async syncNow() {
     const count = this.connections.size;
     
@@ -194,7 +210,6 @@ const Sync = {
     this.startIdleTimer();
 
     try {
-      // Get all local data
       const localData = await DB.getAllData();
       
       const message = {
@@ -208,7 +223,6 @@ const Sync = {
         timestamp: Date.now()
       };
 
-      // Send to all connected devices
       let sent = 0;
       for (const [peerId, conn] of this.connections) {
         try {
@@ -234,14 +248,12 @@ const Sync = {
   async handleMessage(message, fromPeer) {
     if (!message || !message.type) return;
 
-    console.log('Received:', message.type, 'from:', fromPeer);
+    console.log('Received:', message.type);
 
     try {
       if (message.type === 'sync_request') {
-        // Merge incoming data
         await this.mergeData(message.data);
         
-        // Send back our data
         const localData = await DB.getAllData();
         const conn = this.connections.get(fromPeer);
         
@@ -262,7 +274,6 @@ const Sync = {
         this.refreshView();
 
       } else if (message.type === 'sync_response') {
-        // Merge incoming data
         await this.mergeData(message.data);
         App.showSuccess('Sync complete!');
         this.refreshView();
@@ -279,7 +290,6 @@ const Sync = {
     try {
       const localData = await DB.getAllData();
 
-      // Merge expenses (by syncId to avoid duplicates)
       const localExpenseIds = new Set(
         (localData.expenses || []).map(e => e.syncId).filter(Boolean)
       );
@@ -290,7 +300,6 @@ const Sync = {
         }
       }
 
-      // Merge people (by syncId)
       const localPeopleIds = new Set(
         (localData.people || []).map(p => p.syncId).filter(Boolean)
       );
@@ -301,7 +310,6 @@ const Sync = {
         }
       }
 
-      // Merge images (by id)
       const localImageIds = new Set(
         (localData.images || []).map(i => i.id).filter(Boolean)
       );
@@ -334,7 +342,6 @@ const Sync = {
     }
   },
 
-  // Idle timeout - disconnect after 5 min of no activity
   startIdleTimer() {
     if (this.idleTimeout) {
       clearTimeout(this.idleTimeout);
@@ -348,13 +355,11 @@ const Sync = {
   disconnect() {
     console.log('Disconnecting (idle timeout)');
 
-    // Close all connections
     for (const conn of this.connections.values()) {
       try { conn.close(); } catch (e) {}
     }
     this.connections.clear();
 
-    // Destroy peer
     if (this.peer) {
       try { this.peer.destroy(); } catch (e) {}
       this.peer = null;
@@ -369,7 +374,6 @@ const Sync = {
     }
   },
 
-  // Called when user opens sync tab
   async refresh() {
     if (!this.isInitialized && !this.isConnecting) {
       await this.connect();

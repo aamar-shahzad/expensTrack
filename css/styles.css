@@ -517,6 +517,19 @@ h1 {
   margin-bottom: 12px;
 }
 
+.device-id {
+  background: #007aff;
+  color: white;
+  padding: 16px;
+  border-radius: 12px;
+  font-family: monospace;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
 .help-text {
   font-size: 13px;
   color: #888;

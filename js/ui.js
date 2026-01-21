@@ -136,49 +136,48 @@ const UI = {
   renderSync() {
     const main = document.getElementById('main-content');
     const isReady = Sync.isInitialized;
-    const peerId = Sync.peerId || 'Connecting...';
+    const deviceId = Sync.getDeviceId() || '------';
     const connections = Sync.getConnectionCount();
-    const knownCount = Sync.knownDevices?.length || 0;
     
     main.innerHTML = `
       <h1>Sync</h1>
       
       <div class="status-box ${isReady ? 'online' : 'offline'}">
         <div class="status-dot"></div>
-        <div class="status-text">${isReady ? 'Ready' : 'Connecting...'}</div>
-        <div class="status-info">${connections} connected${knownCount > 0 ? ` • ${knownCount} known` : ''}</div>
+        <div class="status-text">${isReady ? 'Ready to connect' : 'Connecting...'}</div>
+        <div class="status-info">${connections} device${connections !== 1 ? 's' : ''} connected</div>
       </div>
       
       <div class="card">
-        <label>Your Device ID</label>
-        <div class="peer-id">${peerId}</div>
-        <button class="btn-secondary" onclick="UI.copyPeerId()">Copy ID</button>
+        <label>Your Device ID (never changes)</label>
+        <div class="device-id">${deviceId}</div>
+        <button class="btn-secondary" onclick="UI.copyDeviceId()">Copy ID</button>
       </div>
       
       <div class="card">
-        <label>Connect to Device</label>
-        <input type="text" id="remote-id" placeholder="Paste device ID here">
+        <label>Connect to Another Device</label>
+        <input type="text" id="remote-id" placeholder="Enter their 6-letter ID" maxlength="6" style="text-transform:uppercase">
         <button class="btn-primary" id="connect-btn">Connect</button>
       </div>
       
       <div class="card">
         <label>Sync Data</label>
         <button class="btn-primary" id="sync-btn" ${connections === 0 ? 'disabled' : ''}>
-          Sync Now (${connections} device${connections !== 1 ? 's' : ''})
+          Sync Now ${connections > 0 ? `(${connections} device${connections !== 1 ? 's' : ''})` : ''}
         </button>
         <p class="help-text">
-          Syncs expenses, people, and photos with connected devices.<br>
-          Connection auto-closes after 5 min idle.
+          Syncs expenses, people, and photos.<br>
+          Auto-disconnects after 5 min idle.
         </p>
       </div>
       
       <div class="card">
-        <label>How to Use</label>
+        <label>How to Sync</label>
         <ol class="help-list">
-          <li>Share your Device ID with others</li>
-          <li>Enter their ID and tap Connect</li>
-          <li>Tap "Sync Now" to share data both ways</li>
-          <li>Both devices get updated data</li>
+          <li>Share your 6-letter ID with the other person</li>
+          <li>Enter their ID above and tap Connect</li>
+          <li>Once connected, tap "Sync Now"</li>
+          <li>Both devices will have the same data</li>
         </ol>
       </div>
     `;
@@ -197,13 +196,13 @@ const UI = {
     };
   },
 
-  copyPeerId() {
-    const id = Sync.peerId || Sync.deviceId;
+  copyDeviceId() {
+    const id = Sync.getDeviceId();
     if (id) {
       navigator.clipboard.writeText(id).then(() => {
         App.showSuccess('Copied!');
       }).catch(() => {
-        App.showSuccess('ID: ' + id);
+        App.showError('ID: ' + id);
       });
     }
   },
