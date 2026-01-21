@@ -1,61 +1,62 @@
 /**
- * ExpenseTracker PWA - Main Application
+ * Expense Tracker PWA - Main App
  */
 
-// PWA Install prompt
 let deferredPrompt = null;
 
+// PWA Install prompt
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
   
-  // Show install banner if not already installed
   const banner = document.getElementById('install-banner');
   if (banner && !window.matchMedia('(display-mode: standalone)').matches) {
     banner.classList.remove('hidden');
   }
 });
 
-// Global app state
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  document.getElementById('install-banner')?.classList.add('hidden');
+});
+
 const App = {
   currentView: 'home',
   isOnline: navigator.onLine,
-  db: null,
 
   async init() {
     try {
-      // Register service worker (relative path for GitHub Pages)
+      // Register service worker
       if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.register('./sw.js');
-        console.log('SW registered:', registration.scope);
-        
-        // Check for updates
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              this.showToast('Update available! Refresh to update.', 'success');
-            }
+        try {
+          const reg = await navigator.serviceWorker.register('./sw.js');
+          console.log('SW registered');
+          
+          reg.addEventListener('updatefound', () => {
+            const newSW = reg.installing;
+            newSW?.addEventListener('statechange', () => {
+              if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                this.showToast('Update available - refresh to update', 'success');
+              }
+            });
           });
-        });
+        } catch (e) {
+          console.warn('SW registration failed:', e);
+        }
       }
 
-      // Initialize IndexedDB
-      this.db = await DB.init();
-
-      // Initialize UI
-      if (typeof UI !== 'undefined') {
-        UI.init();
-      }
+      // Initialize database
+      await DB.init();
 
       // Initialize modules
-      if (typeof Camera !== 'undefined') await Camera.init();
-      if (typeof Expenses !== 'undefined') await Expenses.init();
-      if (typeof People !== 'undefined') await People.init();
-      if (typeof Settlement !== 'undefined') await Settlement.init();
-      if (typeof Sync !== 'undefined') await Sync.init();
+      UI.init();
+      await Camera.init();
+      await Expenses.init();
+      await People.init();
+      await Settlement.init();
+      await Sync.init();
 
-      // Setup network listeners
+      // Network status
       window.addEventListener('online', () => {
         this.isOnline = true;
         this.showToast('Back online', 'success');
@@ -63,60 +64,48 @@ const App = {
 
       window.addEventListener('offline', () => {
         this.isOnline = false;
-        this.showToast('You\'re offline', 'error');
+        this.showToast('Offline mode', 'error');
       });
 
       // Setup install button
-      this.setupInstallButton();
+      this.setupInstall();
 
-      // Hide loading screen
+      // Hide loading, show app
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('nav').classList.remove('hidden');
 
-      // Check URL for view parameter
-      const urlParams = new URLSearchParams(window.location.search);
-      const viewParam = urlParams.get('view');
-      
       // Load initial view
-      this.navigateTo(viewParam || 'home');
+      this.navigateTo('home');
 
-      console.log('ExpenseTracker ready');
+      console.log('App ready');
 
-    } catch (error) {
-      console.error('Init failed:', error);
-      document.getElementById('loading').innerHTML = `
-        <p style="color: white; text-align: center; padding: 20px;">
-          Failed to load app.<br>Please refresh the page.
-        </p>
-      `;
+    } catch (e) {
+      console.error('Init failed:', e);
+      document.getElementById('loading').innerHTML = 
+        '<p style="color:white;padding:20px;text-align:center;">Failed to load. Please refresh.</p>';
     }
   },
 
-  setupInstallButton() {
+  setupInstall() {
     const installBtn = document.getElementById('install-btn');
     const dismissBtn = document.getElementById('install-dismiss');
     const banner = document.getElementById('install-banner');
 
-    if (installBtn) {
-      installBtn.addEventListener('click', async () => {
-        if (deferredPrompt) {
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          console.log('Install outcome:', outcome);
-          deferredPrompt = null;
-          banner.classList.add('hidden');
-        }
-      });
-    }
+    installBtn?.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const result = await deferredPrompt.userChoice;
+        console.log('Install:', result.outcome);
+        deferredPrompt = null;
+        banner?.classList.add('hidden');
+      }
+    });
 
-    if (dismissBtn) {
-      dismissBtn.addEventListener('click', () => {
-        banner.classList.add('hidden');
-        localStorage.setItem('installDismissed', 'true');
-      });
-    }
+    dismissBtn?.addEventListener('click', () => {
+      banner?.classList.add('hidden');
+      localStorage.setItem('installDismissed', '1');
+    });
 
-    // Don't show if already dismissed
     if (localStorage.getItem('installDismissed')) {
       banner?.classList.add('hidden');
     }
@@ -125,55 +114,39 @@ const App = {
   navigateTo(view) {
     this.currentView = view;
 
-    // Update navigation buttons
+    // Update nav buttons
     document.querySelectorAll('.nav-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.view === view);
     });
 
-    // Load the view
+    // Load view
     UI.loadView(view);
-
-    // Update URL without reload
-    const url = new URL(window.location);
-    if (view === 'home') {
-      url.searchParams.delete('view');
-    } else {
-      url.searchParams.set('view', view);
-    }
-    window.history.replaceState({}, '', url);
   },
 
-  showError(message) {
-    this.showToast(message, 'error');
+  showError(msg) {
+    this.showToast(msg, 'error');
   },
 
-  showSuccess(message) {
-    this.showToast(message, 'success');
+  showSuccess(msg) {
+    this.showToast(msg, 'success');
   },
 
-  showToast(message, type = 'success') {
-    // Remove existing toasts
+  showToast(msg, type = 'success') {
+    // Remove existing
     document.querySelectorAll('.toast').forEach(t => t.remove());
 
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.textContent = message;
+    toast.textContent = msg;
     document.body.appendChild(toast);
 
     setTimeout(() => toast.remove(), 3000);
   }
 };
 
-// Initialize when DOM is ready
+// Start app
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => App.init());
 } else {
   App.init();
 }
-
-// Handle app installed event
-window.addEventListener('appinstalled', () => {
-  console.log('App installed');
-  deferredPrompt = null;
-  document.getElementById('install-banner')?.classList.add('hidden');
-});

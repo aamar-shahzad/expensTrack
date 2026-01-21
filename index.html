@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>ExpenseTracker</title>
+    <title>Expense Tracker</title>
     <meta name="description" content="Track shared expenses with friends and family">
     <meta name="theme-color" content="#007aff">
     
@@ -12,26 +12,20 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Expenses">
-    <meta name="application-name" content="ExpenseTracker">
-    <meta name="msapplication-TileColor" content="#007aff">
-    <meta name="msapplication-tap-highlight" content="no">
+    <meta name="application-name" content="Expense Tracker">
+    <meta name="format-detection" content="telephone=no">
     
     <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="./manifest.json">
     
     <!-- Icons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
-    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" type="image/png" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="css/styles.css">
-    
-    <!-- Preconnect for performance -->
-    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
-    <!-- Main App Container -->
     <div id="app">
         <!-- Loading Screen -->
         <div id="loading" class="loading-screen">
@@ -39,14 +33,14 @@
             <p>Loading...</p>
         </div>
 
-        <!-- Install Banner (hidden by default) -->
+        <!-- Install Banner -->
         <div id="install-banner" class="install-banner hidden">
             <span>Install app for better experience</span>
             <button id="install-btn" class="install-btn">Install</button>
             <button id="install-dismiss" class="install-dismiss">×</button>
         </div>
 
-        <!-- Main Navigation -->
+        <!-- Bottom Navigation -->
         <nav id="nav" class="bottom-nav hidden">
             <button class="nav-btn active" data-view="home">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -84,25 +78,24 @@
             </button>
         </nav>
 
-        <!-- Views Container -->
-        <main id="main-content" class="main-content">
-        </main>
+        <!-- Main Content -->
+        <main id="main-content" class="main-content"></main>
     </div>
 
-    <!-- Modals Container -->
+    <!-- Modals -->
     <div id="modals" class="modals"></div>
 
-    <!-- Third-party libraries -->
+    <!-- PeerJS for sync -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" defer></script>
 
     <!-- App Scripts -->
-    <script src="js/db.js" defer></script>
-    <script src="js/ui.js" defer></script>
-    <script src="js/camera.js" defer></script>
-    <script src="js/expenses.js" defer></script>
-    <script src="js/people.js" defer></script>
-    <script src="js/settlement.js" defer></script>
-    <script src="js/sync.js" defer></script>
-    <script src="js/app.js" defer></script>
+    <script src="./js/db.js" defer></script>
+    <script src="./js/ui.js" defer></script>
+    <script src="./js/camera.js" defer></script>
+    <script src="./js/expenses.js" defer></script>
+    <script src="./js/people.js" defer></script>
+    <script src="./js/settlement.js" defer></script>
+    <script src="./js/sync.js" defer></script>
+    <script src="./js/app.js" defer></script>
 </body>
 </html>

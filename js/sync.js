@@ -1,8 +1,8 @@
 /**
- * P2P Sync Module
- * - Manual sync trigger
- * - Auto timeout after 5 min idle
- * - Keeps device info for reconnection
+ * P2P Sync Module - Bug-free version
+ * - Manual sync only
+ * - 5 min idle timeout
+ * - Robust error handling
  */
 
 const Sync = {
@@ -10,90 +10,134 @@ const Sync = {
   deviceId: null,
   peerId: null,
   connections: new Map(),
-  knownDevices: [], // Remember devices for reconnection
   isInitialized: false,
+  isConnecting: false,
   idleTimeout: null,
   IDLE_TIMEOUT_MS: 5 * 60 * 1000, // 5 minutes
 
   async init() {
-    // Get or create device ID
-    this.deviceId = localStorage.getItem('expenseTracker_deviceId');
+    // Get or create persistent device ID
+    this.deviceId = localStorage.getItem('et_deviceId');
     if (!this.deviceId) {
-      this.deviceId = crypto.randomUUID();
-      localStorage.setItem('expenseTracker_deviceId', this.deviceId);
+      this.deviceId = this.generateId();
+      localStorage.setItem('et_deviceId', this.deviceId);
     }
+    
+    // Don't auto-connect, wait for user to open sync tab
+  },
 
-    // Load known devices from storage
-    const saved = localStorage.getItem('expenseTracker_knownDevices');
-    if (saved) {
-      try {
-        this.knownDevices = JSON.parse(saved);
-      } catch (e) {}
-    }
-
-    await this.connect();
+  generateId() {
+    return 'xxxxxxxx'.replace(/x/g, () => 
+      Math.floor(Math.random() * 16).toString(16)
+    );
   },
 
   async connect() {
-    if (this.peer && !this.peer.destroyed) {
-      return; // Already connected
+    // Prevent multiple connection attempts
+    if (this.isConnecting) return;
+    if (this.peer && !this.peer.destroyed && this.isInitialized) return;
+
+    this.isConnecting = true;
+
+    // Clean up old peer if exists
+    if (this.peer) {
+      try { this.peer.destroy(); } catch (e) {}
+      this.peer = null;
     }
 
-    // Create peer with random suffix
-    const suffix = Math.random().toString(36).substring(2, 6);
-    this.peerId = 'et' + this.deviceId.substring(0, 6) + suffix;
+    // Generate unique peer ID for this session
+    const sessionId = this.generateId().substring(0, 4);
+    this.peerId = 'et' + this.deviceId + sessionId;
 
     try {
-      this.peer = new Peer(this.peerId, { debug: 0 });
+      // Check if PeerJS is loaded
+      if (typeof Peer === 'undefined') {
+        console.warn('PeerJS not loaded');
+        this.isConnecting = false;
+        return;
+      }
+
+      this.peer = new Peer(this.peerId, { 
+        debug: 0,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
+      });
 
       this.peer.on('open', (id) => {
         console.log('Sync ready:', id);
         this.peerId = id;
         this.isInitialized = true;
-        this.resetIdleTimeout();
+        this.isConnecting = false;
+        this.startIdleTimer();
+        
+        // Update UI if on sync page
+        if (App.currentView === 'sync') {
+          UI.renderSync();
+        }
       });
 
       this.peer.on('connection', (conn) => {
-        this.handleConnection(conn);
+        this.setupConnection(conn);
       });
 
       this.peer.on('error', (err) => {
-        console.warn('Sync error:', err.type);
+        console.warn('Peer error:', err.type);
+        this.isConnecting = false;
+        
         if (err.type === 'unavailable-id') {
-          // Try again with different ID
-          setTimeout(() => this.connect(), 1000);
+          // ID taken, retry with new ID
+          this.peer = null;
+          setTimeout(() => this.connect(), 500);
+        } else if (err.type === 'peer-unavailable') {
+          App.showError('Device not found');
         }
       });
 
       this.peer.on('disconnected', () => {
         this.isInitialized = false;
+        if (App.currentView === 'sync') {
+          UI.renderSync();
+        }
       });
 
+      // Timeout for connection
+      setTimeout(() => {
+        if (this.isConnecting) {
+          this.isConnecting = false;
+        }
+      }, 10000);
+
     } catch (e) {
-      console.warn('Sync not available:', e);
+      console.error('Failed to create peer:', e);
+      this.isConnecting = false;
     }
   },
 
-  handleConnection(conn) {
+  setupConnection(conn) {
+    const peerId = conn.peer;
+
     conn.on('open', () => {
-      this.connections.set(conn.peer, conn);
-      this.saveKnownDevice(conn.peer);
+      this.connections.set(peerId, conn);
       this.updateBadge();
-      this.resetIdleTimeout();
-      App.showSuccess('Device connected');
+      this.startIdleTimer();
+      App.showSuccess('Connected!');
       
       if (App.currentView === 'sync') {
         UI.renderSync();
       }
     });
 
-    conn.on('data', (data) => {
-      this.handleData(data, conn.peer);
-      this.resetIdleTimeout();
+    conn.on('data', async (message) => {
+      this.startIdleTimer();
+      await this.handleMessage(message, peerId);
     });
 
     conn.on('close', () => {
-      this.connections.delete(conn.peer);
+      this.connections.delete(peerId);
       this.updateBadge();
       
       if (App.currentView === 'sync') {
@@ -101,205 +145,250 @@ const Sync = {
       }
     });
 
-    conn.on('error', () => {
-      this.connections.delete(conn.peer);
+    conn.on('error', (err) => {
+      console.warn('Connection error:', err);
+      this.connections.delete(peerId);
+      this.updateBadge();
     });
   },
 
   connectToDevice(remoteId) {
+    const id = (remoteId || '').trim();
+    
+    if (!id) {
+      App.showError('Enter a device ID');
+      return;
+    }
+
     if (!this.peer || !this.isInitialized) {
-      App.showError('Connecting... try again');
+      App.showError('Not ready. Please wait...');
       this.connect();
       return;
     }
 
-    const id = remoteId.trim();
-    if (!id) {
-      App.showError('Enter device ID');
+    if (this.connections.has(id)) {
+      App.showError('Already connected');
       return;
     }
 
     try {
-      const conn = this.peer.connect(id);
-      this.handleConnection(conn);
       App.showSuccess('Connecting...');
-      this.resetIdleTimeout();
+      const conn = this.peer.connect(id, { reliable: true });
+      this.setupConnection(conn);
+      this.startIdleTimer();
     } catch (e) {
+      console.error('Connect failed:', e);
       App.showError('Connection failed');
     }
   },
 
-  // Manual sync - sends data and requests data back
+  // Manual sync - triggered by user
   async syncNow() {
-    if (this.connections.size === 0) {
+    const count = this.connections.size;
+    
+    if (count === 0) {
       App.showError('No devices connected');
       return;
     }
 
-    App.showSuccess('Syncing...');
-    this.resetIdleTimeout();
+    this.startIdleTimer();
 
     try {
-      const data = await DB.getAllData();
+      // Get all local data
+      const localData = await DB.getAllData();
       
       const message = {
         type: 'sync_request',
-        data: data,
-        timestamp: Date.now(),
-        from: this.deviceId
+        data: {
+          expenses: localData.expenses || [],
+          people: localData.people || [],
+          images: localData.images || []
+        },
+        deviceId: this.deviceId,
+        timestamp: Date.now()
       };
 
-      for (const conn of this.connections.values()) {
-        conn.send(message);
+      // Send to all connected devices
+      let sent = 0;
+      for (const [peerId, conn] of this.connections) {
+        try {
+          conn.send(message);
+          sent++;
+        } catch (e) {
+          console.warn('Failed to send to', peerId);
+        }
+      }
+
+      if (sent > 0) {
+        App.showSuccess(`Syncing with ${sent} device(s)...`);
+      } else {
+        App.showError('Failed to send');
       }
 
     } catch (e) {
-      console.error('Sync failed:', e);
+      console.error('Sync error:', e);
       App.showError('Sync failed');
     }
   },
 
-  async handleData(message, fromPeer) {
-    console.log('Received:', message.type);
+  async handleMessage(message, fromPeer) {
+    if (!message || !message.type) return;
+
+    console.log('Received:', message.type, 'from:', fromPeer);
 
     try {
       if (message.type === 'sync_request') {
-        // Apply received data
+        // Merge incoming data
         await this.mergeData(message.data);
         
-        // Send our data back
-        const myData = await DB.getAllData();
+        // Send back our data
+        const localData = await DB.getAllData();
         const conn = this.connections.get(fromPeer);
+        
         if (conn) {
           conn.send({
             type: 'sync_response',
-            data: myData,
-            timestamp: Date.now(),
-            from: this.deviceId
+            data: {
+              expenses: localData.expenses || [],
+              people: localData.people || [],
+              images: localData.images || []
+            },
+            deviceId: this.deviceId,
+            timestamp: Date.now()
           });
         }
 
-        App.showSuccess('Sync received');
-        this.refreshCurrentView();
+        App.showSuccess('Data received & sent back');
+        this.refreshView();
 
       } else if (message.type === 'sync_response') {
-        // Apply received data
+        // Merge incoming data
         await this.mergeData(message.data);
-        App.showSuccess('Sync complete');
-        this.refreshCurrentView();
+        App.showSuccess('Sync complete!');
+        this.refreshView();
       }
 
     } catch (e) {
-      console.error('Failed to process sync:', e);
+      console.error('Handle message error:', e);
     }
   },
 
   async mergeData(remoteData) {
-    const localData = await DB.getAllData();
-    
-    // Merge expenses by syncId
-    const localExpenseIds = new Set(localData.expenses.map(e => e.syncId));
-    for (const expense of remoteData.expenses || []) {
-      if (expense.syncId && !localExpenseIds.has(expense.syncId)) {
-        await DB.addExpenseRaw(expense);
-      }
-    }
+    if (!remoteData) return;
 
-    // Merge people by syncId
-    const localPeopleIds = new Set(localData.people.map(p => p.syncId));
-    for (const person of remoteData.people || []) {
-      if (person.syncId && !localPeopleIds.has(person.syncId)) {
-        await DB.addPersonRaw(person);
-      }
-    }
+    try {
+      const localData = await DB.getAllData();
 
-    // Merge images by id
-    const localImageIds = new Set(localData.images.map(i => i.id));
-    for (const image of remoteData.images || []) {
-      if (image.id && !localImageIds.has(image.id)) {
-        await DB.addImageRaw(image);
+      // Merge expenses (by syncId to avoid duplicates)
+      const localExpenseIds = new Set(
+        (localData.expenses || []).map(e => e.syncId).filter(Boolean)
+      );
+      
+      for (const expense of (remoteData.expenses || [])) {
+        if (expense.syncId && !localExpenseIds.has(expense.syncId)) {
+          await DB.addExpenseRaw(expense);
+        }
       }
+
+      // Merge people (by syncId)
+      const localPeopleIds = new Set(
+        (localData.people || []).map(p => p.syncId).filter(Boolean)
+      );
+      
+      for (const person of (remoteData.people || [])) {
+        if (person.syncId && !localPeopleIds.has(person.syncId)) {
+          await DB.addPersonRaw(person);
+        }
+      }
+
+      // Merge images (by id)
+      const localImageIds = new Set(
+        (localData.images || []).map(i => i.id).filter(Boolean)
+      );
+      
+      for (const image of (remoteData.images || [])) {
+        if (image.id && !localImageIds.has(image.id)) {
+          await DB.addImageRaw(image);
+        }
+      }
+
+    } catch (e) {
+      console.error('Merge error:', e);
     }
   },
 
-  refreshCurrentView() {
-    // Refresh the current view to show new data
-    if (App.currentView === 'home') {
-      Expenses.loadCurrentMonth();
-    } else if (App.currentView === 'people') {
-      People.loadPeopleList();
-    } else if (App.currentView === 'settle') {
-      Settlement.calculate();
-    } else if (App.currentView === 'sync') {
-      UI.renderSync();
+  refreshView() {
+    switch (App.currentView) {
+      case 'home':
+        Expenses.loadCurrentMonth();
+        break;
+      case 'people':
+        People.loadPeopleList();
+        break;
+      case 'settle':
+        Settlement.calculate();
+        break;
+      case 'sync':
+        UI.renderSync();
+        break;
     }
   },
 
-  // Idle timeout management
-  resetIdleTimeout() {
+  // Idle timeout - disconnect after 5 min of no activity
+  startIdleTimer() {
     if (this.idleTimeout) {
       clearTimeout(this.idleTimeout);
     }
 
     this.idleTimeout = setTimeout(() => {
-      this.disconnectIdle();
+      this.disconnect();
     }, this.IDLE_TIMEOUT_MS);
   },
 
-  disconnectIdle() {
-    console.log('Idle timeout - disconnecting sync');
-    
-    // Close connections but keep known devices
+  disconnect() {
+    console.log('Disconnecting (idle timeout)');
+
+    // Close all connections
     for (const conn of this.connections.values()) {
       try { conn.close(); } catch (e) {}
     }
     this.connections.clear();
 
     // Destroy peer
-    if (this.peer && !this.peer.destroyed) {
+    if (this.peer) {
       try { this.peer.destroy(); } catch (e) {}
+      this.peer = null;
     }
-    this.peer = null;
+
     this.isInitialized = false;
-
+    this.isConnecting = false;
     this.updateBadge();
-  },
 
-  // Save known device for later reconnection
-  saveKnownDevice(peerId) {
-    // Extract device part (first 8 chars after 'et')
-    const devicePart = peerId.substring(0, 10);
-    
-    if (!this.knownDevices.includes(devicePart)) {
-      this.knownDevices.push(devicePart);
-      // Keep only last 10 devices
-      if (this.knownDevices.length > 10) {
-        this.knownDevices.shift();
-      }
-      localStorage.setItem('expenseTracker_knownDevices', JSON.stringify(this.knownDevices));
+    if (App.currentView === 'sync') {
+      UI.renderSync();
     }
   },
 
-  // Refresh connection when user opens sync tab
+  // Called when user opens sync tab
   async refresh() {
-    // Reconnect if disconnected
-    if (!this.peer || this.peer.destroyed || !this.isInitialized) {
+    if (!this.isInitialized && !this.isConnecting) {
       await this.connect();
     }
-    this.resetIdleTimeout();
+    this.startIdleTimer();
   },
 
   updateBadge() {
     const count = this.connections.size;
-    const syncBtn = document.querySelector('[data-view="sync"]');
-    if (!syncBtn) return;
+    const btn = document.querySelector('[data-view="sync"]');
+    if (!btn) return;
 
-    let badge = syncBtn.querySelector('.badge');
+    let badge = btn.querySelector('.badge');
+    
     if (count > 0) {
       if (!badge) {
         badge = document.createElement('span');
         badge.className = 'badge';
-        syncBtn.appendChild(badge);
+        btn.appendChild(badge);
       }
       badge.textContent = count;
     } else if (badge) {
