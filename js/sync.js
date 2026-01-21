@@ -1,5 +1,6 @@
 /**
  * P2P Sync Module using PeerJS
+ * Note: P2P sync is optional - app works fully offline without it
  */
 
 const Sync = {
@@ -7,6 +8,8 @@ const Sync = {
   deviceId: null,
   connections: new Map(),
   isInitialized: false,
+  initAttempts: 0,
+  maxAttempts: 2,
 
   async init() {
     try {
@@ -17,17 +20,24 @@ const Sync = {
         localStorage.setItem('expenseTracker_deviceId', this.deviceId);
       }
 
-      // Initialize PeerJS
-      this.peer = new Peer(this.deviceId, {
-        host: 'peerjs.com',
-        port: 443,
-        path: '/myapp',
-        secure: true
+      // Initialize PeerJS with default cloud server (more reliable)
+      // Using a shorter ID to avoid issues
+      const peerId = 'et-' + this.deviceId.slice(0, 8);
+      
+      this.peer = new Peer(peerId, {
+        debug: 0, // Disable debug logging
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
       });
 
       this.peer.on('open', (id) => {
-        console.log('PeerJS connected with ID:', id);
+        console.log('P2P sync ready with ID:', id);
         this.isInitialized = true;
+        this.initAttempts = 0;
       });
 
       this.peer.on('connection', (conn) => {
@@ -35,13 +45,46 @@ const Sync = {
       });
 
       this.peer.on('error', (error) => {
-        console.error('PeerJS error:', error);
-        App.showError('P2P sync connection failed');
+        console.warn('P2P sync unavailable:', error.type);
+        // Don't show error to user - P2P is optional
+        // App works fully offline without it
+        this.isInitialized = false;
+        
+        // Retry once after a delay
+        if (this.initAttempts < this.maxAttempts) {
+          this.initAttempts++;
+          setTimeout(() => this.retryInit(), 5000);
+        }
+      });
+
+      this.peer.on('disconnected', () => {
+        console.log('P2P disconnected, attempting reconnect...');
+        if (this.peer && !this.peer.destroyed) {
+          setTimeout(() => {
+            try {
+              this.peer.reconnect();
+            } catch (e) {
+              console.warn('Reconnect failed:', e);
+            }
+          }, 3000);
+        }
       });
 
     } catch (error) {
-      console.error('Failed to initialize sync:', error);
+      console.warn('P2P sync not available:', error);
+      // App continues to work without P2P
     }
+  },
+
+  async retryInit() {
+    if (this.peer) {
+      try {
+        this.peer.destroy();
+      } catch (e) {}
+    }
+    this.peer = null;
+    this.isInitialized = false;
+    await this.init();
   },
 
   handleConnection(conn) {
@@ -70,13 +113,20 @@ const Sync = {
 
   async connectToDevice(remoteId) {
     if (!this.peer || !this.isInitialized) {
-      App.showError('P2P sync not ready yet');
+      App.showError('P2P sync is connecting... Please try again in a moment');
       return;
     }
 
     try {
-      const conn = this.peer.connect(remoteId.trim());
+      const cleanId = remoteId.trim();
+      if (!cleanId) {
+        App.showError('Please enter a device ID');
+        return;
+      }
+      
+      const conn = this.peer.connect(cleanId);
       this.handleConnection(conn);
+      App.showSuccess('Connecting to device...');
     } catch (error) {
       console.error('Failed to connect:', error);
       App.showError('Failed to connect to device');
@@ -210,5 +260,13 @@ const Sync = {
 
   getConnectionCount() {
     return this.connections.size;
+  },
+
+  isReady() {
+    return this.isInitialized && this.peer && !this.peer.destroyed;
+  },
+
+  getPeerId() {
+    return this.peer?.id || this.deviceId;
   }
 };
