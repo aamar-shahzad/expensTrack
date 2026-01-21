@@ -40,41 +40,44 @@ const Camera = {
 
   showCameraModal() {
     const modal = document.createElement('div');
-    modal.className = 'modal-container';
+    modal.className = 'modal-overlay';
     modal.innerHTML = `
-      <div class="modal-backdrop"></div>
-      <div class="modal">
-        <div class="modal-header">
-          <h3 class="modal-title">Take Photo</h3>
-          <button class="modal-close">&times;</button>
+      <div class="modal-sheet camera-modal">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" id="camera-cancel">Cancel</button>
+          <span class="sheet-title">Take Photo</span>
+          <button class="sheet-save" id="take-photo">Capture</button>
         </div>
-        <div class="modal-body">
-          <video id="camera-preview" autoplay playsinline></video>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary modal-close">Cancel</button>
-          <button class="btn btn-primary" id="take-photo">Capture</button>
+        <div class="camera-preview-container">
+          <video id="camera-preview" autoplay playsinline muted></video>
         </div>
       </div>
     `;
 
-    document.getElementById('modals').appendChild(modal);
+    document.body.appendChild(modal);
 
     const videoPreview = modal.querySelector('#camera-preview');
     videoPreview.srcObject = this.stream;
 
-    modal.querySelectorAll('.modal-close').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.stopCamera();
-        modal.remove();
-      });
-    });
+    modal.querySelector('#camera-cancel').onclick = () => {
+      this.stopCamera();
+      modal.remove();
+    };
 
-    modal.querySelector('#take-photo').addEventListener('click', () => {
+    modal.querySelector('#take-photo').onclick = () => {
       this.takePhoto();
       this.stopCamera();
       modal.remove();
-    });
+    };
+
+    // Close on backdrop tap
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        this.stopCamera();
+        modal.remove();
+      }
+    };
   },
 
   async takePhoto() {

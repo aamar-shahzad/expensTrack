@@ -1508,5 +1508,24 @@ h1 {
   gap: 8px;
 }
 
+/* Camera Modal */
+.camera-modal {
+  max-height: 85vh;
+}
+
+.camera-preview-container {
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.camera-preview-container video {
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+}
+
 /* Hidden */
 .hidden { display: none !important; }
