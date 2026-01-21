@@ -36,18 +36,117 @@ const Expenses = {
     people.forEach(p => names[p.id] = p.name);
 
     list.innerHTML = expenses.map(exp => `
-      <div class="expense-item">
+      <div class="expense-item" onclick="Expenses.showDetail('${exp.id}')">
+        ${exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : '<div class="expense-icon">💵</div>'}
         <div class="expense-main">
           <div class="expense-desc">${exp.description}</div>
           <div class="expense-meta">${names[exp.payerId] || 'Unknown'} • ${this.formatDate(exp.date)}</div>
         </div>
-        <div class="expense-right">
-          <div class="expense-amount">$${parseFloat(exp.amount).toFixed(2)}</div>
-          <button class="btn-delete" onclick="Expenses.deleteExpense('${exp.id}')">×</button>
-        </div>
-        ${exp.imageId ? `<div class="expense-image" onclick="Expenses.showImage('${exp.imageId}')">📷</div>` : ''}
+        <div class="expense-amount">$${parseFloat(exp.amount).toFixed(2)}</div>
       </div>
     `).join('');
+
+    // Load thumbnails
+    this.loadThumbnails();
+  },
+
+  async loadThumbnails() {
+    const thumbs = document.querySelectorAll('.expense-thumb[data-img]');
+    for (const thumb of thumbs) {
+      const imgId = thumb.dataset.img;
+      try {
+        const img = await DB.getImage(imgId);
+        if (img && img.thumbnail) {
+          const url = URL.createObjectURL(img.thumbnail);
+          thumb.style.backgroundImage = `url(${url})`;
+        }
+      } catch (e) {}
+    }
+  },
+
+  async showDetail(id) {
+    const exp = await DB.getExpenseById(id);
+    if (!exp) return;
+
+    const people = await DB.getPeople();
+    const payer = people.find(p => p.id === exp.payerId);
+
+    let imageHtml = '';
+    if (exp.imageId) {
+      try {
+        const img = await DB.getImage(exp.imageId);
+        if (img && img.blob) {
+          const url = URL.createObjectURL(img.blob);
+          imageHtml = `<div class="detail-image"><img src="${url}" onclick="Expenses.showFullImage('${exp.imageId}')"></div>`;
+        }
+      } catch (e) {}
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box">
+        <div class="modal-header">
+          <span>Expense Detail</span>
+          <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+        </div>
+        <div class="modal-body">
+          ${imageHtml}
+          <div class="detail-row">
+            <span class="detail-label">Description</span>
+            <span class="detail-value">${exp.description}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Amount</span>
+            <span class="detail-value detail-amount">$${parseFloat(exp.amount).toFixed(2)}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Date</span>
+            <span class="detail-value">${new Date(exp.date).toLocaleDateString()}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Paid By</span>
+            <span class="detail-value">${payer?.name || 'Unknown'}</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-danger" onclick="Expenses.deleteExpense('${exp.id}'); this.closest('.modal-overlay').remove();">Delete</button>
+        </div>
+      </div>
+    `;
+
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+
+    document.body.appendChild(modal);
+  },
+
+  async showFullImage(imageId) {
+    try {
+      const img = await DB.getImage(imageId);
+      if (!img || !img.blob) return;
+
+      const url = URL.createObjectURL(img.blob);
+      
+      const viewer = document.createElement('div');
+      viewer.className = 'image-viewer';
+      viewer.innerHTML = `
+        <div class="image-viewer-close" onclick="this.parentElement.remove()">×</div>
+        <img src="${url}">
+      `;
+      
+      viewer.onclick = (e) => {
+        if (e.target === viewer) {
+          URL.revokeObjectURL(url);
+          viewer.remove();
+        }
+      };
+      
+      document.body.appendChild(viewer);
+    } catch (e) {
+      console.error('Failed to show image:', e);
+    }
   },
 
   formatDate(dateStr) {
@@ -150,37 +249,4 @@ const Expenses = {
     }
   },
 
-  async showImage(imageId) {
-    try {
-      const img = await DB.getImage(imageId);
-      if (!img) return;
-
-      const url = URL.createObjectURL(img.blob);
-      
-      const modal = document.createElement('div');
-      modal.className = 'modal-overlay';
-      modal.innerHTML = `
-        <div class="modal-box">
-          <div class="modal-header">
-            <span>Receipt</span>
-            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
-          </div>
-          <div class="modal-body">
-            <img src="${url}" style="max-width:100%; max-height:70vh;">
-          </div>
-        </div>
-      `;
-      
-      modal.onclick = (e) => {
-        if (e.target === modal) {
-          URL.revokeObjectURL(url);
-          modal.remove();
-        }
-      };
-      
-      document.body.appendChild(modal);
-    } catch (e) {
-      console.error('Failed to show image:', e);
-    }
-  }
 };

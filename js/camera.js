@@ -180,11 +180,12 @@ const Camera = {
       const imageData = await DB.getImage(imageId);
       if (!imageData) return;
 
-      const blobUrl = URL.createObjectURL(imageData.blob);
+      const thumbUrl = URL.createObjectURL(imageData.thumbnail || imageData.blob);
       preview.classList.remove('hidden');
       preview.innerHTML = `
-        <img src="${blobUrl}" alt="Receipt" style="max-width: 100%; border-radius: 0.5rem;">
-        <button class="btn btn-danger btn-sm" onclick="Camera.removeImage()">Remove</button>
+        <img src="${thumbUrl}" alt="Receipt">
+        <div class="preview-info">Receipt attached</div>
+        <button class="btn-danger btn-small" onclick="Camera.removeImage()">Remove</button>
       `;
     } catch (error) {
       console.error('Failed to show image preview:', error);
