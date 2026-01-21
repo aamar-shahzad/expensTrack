@@ -18,6 +18,12 @@ const UI = {
   loadView(view) {
     const main = document.getElementById('main-content');
     
+    // Redirect to home if trying to access hidden views in single mode
+    if (Accounts.isSingleMode() && ['people', 'settle', 'sync'].includes(view)) {
+      App.navigateTo('home');
+      return;
+    }
+    
     switch (view) {
       case 'home': this.renderHome(); break;
       case 'add': this.renderAdd(); break;
@@ -509,12 +515,14 @@ const UI = {
   async exportData() {
     try {
       const data = await DB.getAllData();
+      const account = Accounts.getCurrentAccount();
       const exportData = {
         version: 1,
         exportedAt: new Date().toISOString(),
+        accountName: account?.name || 'Unknown',
         settings: {
-          currency: Settings.getCurrency(),
-          mode: Settings.getMode()
+          currency: account?.currency || '$',
+          mode: account?.mode || 'shared'
         },
         expenses: data.expenses,
         people: data.people

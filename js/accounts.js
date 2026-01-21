@@ -74,8 +74,14 @@ const Accounts = {
     Settings.setCurrency(account.currency);
     Settings.setMode(account.mode);
     
-    // Reload current view
-    App.navigateTo(App.currentView);
+    // Update navigation visibility
+    Settings.updateNavigation();
+    
+    // Reload current view (go to home if current view is hidden)
+    const view = (account.mode === 'single' && ['people', 'settle', 'sync'].includes(App.currentView)) 
+      ? 'home' 
+      : App.currentView;
+    App.navigateTo(view);
     
     return true;
   },

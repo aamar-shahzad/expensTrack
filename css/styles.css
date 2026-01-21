@@ -152,6 +152,13 @@ h1 {
   font-size: 20px;
   cursor: pointer;
   color: #007aff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.month-nav button:active {
+  background: #e0e0e0;
 }
 
 .month-nav span {
@@ -739,6 +746,23 @@ h1 {
 
 .input-group input::placeholder {
   color: #c7c7cc;
+}
+
+.input-group select {
+  width: 100%;
+  padding: 8px 16px 14px;
+  border: none;
+  font-size: 17px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.input-group select:focus {
+  outline: none;
+}
+
+.input-group + .input-group {
+  margin-top: 12px;
 }
 
 .modal-header {
