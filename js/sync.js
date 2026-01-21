@@ -216,6 +216,13 @@ const Sync = {
       return;
     }
 
+    // Disable sync button during sync
+    const syncBtn = document.getElementById('sync-btn');
+    if (syncBtn) {
+      syncBtn.disabled = true;
+      syncBtn.textContent = 'Syncing...';
+    }
+
     this.startIdleTimer();
 
     try {
@@ -249,11 +256,19 @@ const Sync = {
         App.showSuccess(`Syncing with ${sent} device(s)...`);
       } else {
         App.showError('Failed to send');
+        if (syncBtn) {
+          syncBtn.disabled = false;
+          syncBtn.textContent = 'Sync Now';
+        }
       }
 
     } catch (e) {
       console.error('Sync error:', e);
       App.showError('Sync failed');
+      if (syncBtn) {
+        syncBtn.disabled = false;
+        syncBtn.textContent = 'Sync Now';
+      }
     }
   },
 
@@ -331,6 +346,14 @@ const Sync = {
       } else if (message.type === 'sync_response') {
         await this.mergeData(message.data);
         App.showSuccess('Sync complete!');
+        
+        // Re-enable sync button
+        const syncBtn = document.getElementById('sync-btn');
+        if (syncBtn) {
+          syncBtn.disabled = false;
+          syncBtn.textContent = 'Sync Now';
+        }
+        
         this.refreshView();
       }
 

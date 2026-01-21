@@ -7,6 +7,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Prevent double-tap zoom on buttons */
+button, input, select {
+  touch-action: manipulation;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #f5f5f5;
@@ -430,8 +435,14 @@ h1 {
   cursor: pointer;
 }
 
+.btn-primary:active {
+  background: #0056b3;
+  transform: scale(0.98);
+}
+
 .btn-primary:disabled {
   opacity: 0.5;
+  pointer-events: none;
 }
 
 .btn-secondary {
@@ -444,6 +455,11 @@ h1 {
   cursor: pointer;
 }
 
+.btn-secondary:active {
+  background: #e0e0e0;
+  transform: scale(0.98);
+}
+
 .btn-danger {
   background: #ff3b30;
   color: white;
@@ -452,6 +468,11 @@ h1 {
   border-radius: 8px;
   font-size: 14px;
   cursor: pointer;
+}
+
+.btn-danger:active {
+  background: #cc0000;
+  transform: scale(0.98);
 }
 
 .btn-small {
@@ -797,7 +818,19 @@ h1 {
   text-align: center;
   font-weight: 500;
   z-index: 9999;
-  animation: fadeIn 0.2s ease;
+  animation: slideDown 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .toast.success { background: #34c759; }

@@ -177,8 +177,8 @@ const Expenses = {
       const date = document.getElementById('edit-date').value;
       const payerId = document.getElementById('edit-payer').value;
 
-      if (!desc || !amount || !date || !payerId) {
-        App.showError('Fill all fields');
+      if (!desc || isNaN(amount) || amount <= 0 || !date || !payerId) {
+        App.showError('Fill all fields correctly');
         return;
       }
 
