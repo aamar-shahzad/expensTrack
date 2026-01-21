@@ -1,6 +1,5 @@
 /**
- * P2P Sync Module using PeerJS
- * Note: P2P sync is optional - app works fully offline without it
+ * P2P Sync Module - Manual sync, background operation
  */
 
 const Sync = {
@@ -9,254 +8,203 @@ const Sync = {
   peerId: null,
   connections: new Map(),
   isInitialized: false,
-  initAttempts: 0,
-  maxAttempts: 2,
 
   async init() {
-    try {
-      // Get or create device ID (persistent)
-      this.deviceId = localStorage.getItem('expenseTracker_deviceId');
-      if (!this.deviceId) {
-        this.deviceId = crypto.randomUUID();
-        localStorage.setItem('expenseTracker_deviceId', this.deviceId);
-      }
+    // Get or create device ID
+    this.deviceId = localStorage.getItem('expenseTracker_deviceId');
+    if (!this.deviceId) {
+      this.deviceId = crypto.randomUUID();
+      localStorage.setItem('expenseTracker_deviceId', this.deviceId);
+    }
 
-      // Generate a unique peer ID for this session
-      // Using random suffix to avoid "unavailable-id" errors
-      const randomSuffix = Math.random().toString(36).substring(2, 6);
-      this.peerId = 'et' + this.deviceId.slice(0, 6) + randomSuffix;
-      
-      // Initialize PeerJS - let it use default cloud server
-      this.peer = new Peer(this.peerId, {
-        debug: 0
-      });
+    // Create peer with random suffix to avoid conflicts
+    const suffix = Math.random().toString(36).substring(2, 6);
+    this.peerId = 'et' + this.deviceId.substring(0, 6) + suffix;
+
+    try {
+      this.peer = new Peer(this.peerId, { debug: 0 });
 
       this.peer.on('open', (id) => {
-        console.log('P2P sync ready with ID:', id);
+        console.log('Sync ready:', id);
         this.peerId = id;
         this.isInitialized = true;
-        this.initAttempts = 0;
       });
 
       this.peer.on('connection', (conn) => {
         this.handleConnection(conn);
       });
 
-      this.peer.on('error', (error) => {
-        console.warn('P2P sync unavailable:', error.type);
-        this.isInitialized = false;
-        
-        // Only retry for certain error types
-        if (error.type === 'unavailable-id' && this.initAttempts < this.maxAttempts) {
-          this.initAttempts++;
-          // Generate new ID and retry
-          setTimeout(() => this.retryInit(), 2000);
-        }
-      });
-
-      this.peer.on('disconnected', () => {
-        // Don't auto-reconnect, it causes issues
-        console.log('P2P disconnected');
+      this.peer.on('error', (err) => {
+        console.warn('Sync error:', err.type);
         this.isInitialized = false;
       });
 
-    } catch (error) {
-      console.warn('P2P sync not available:', error);
+    } catch (e) {
+      console.warn('Sync not available:', e);
     }
-  },
-
-  async retryInit() {
-    if (this.peer) {
-      try {
-        this.peer.destroy();
-      } catch (e) {}
-    }
-    this.peer = null;
-    this.isInitialized = false;
-    this.peerId = null;
-    await this.init();
   },
 
   handleConnection(conn) {
-    console.log('New connection from:', conn.peer);
-
     conn.on('open', () => {
       this.connections.set(conn.peer, conn);
-      this.updateConnectionCount();
-      App.showSuccess(`Connected to device: ${conn.peer.slice(0, 8)}`);
+      this.updateBadge();
+      App.showSuccess('Device connected');
+      
+      // Refresh sync view if open
+      if (App.currentView === 'sync') {
+        UI.renderSync();
+      }
     });
 
     conn.on('data', (data) => {
-      this.handleIncomingData(data, conn.peer);
+      this.handleData(data);
     });
 
     conn.on('close', () => {
       this.connections.delete(conn.peer);
-      this.updateConnectionCount();
-      App.showSuccess('Device disconnected');
-    });
-
-    conn.on('error', (error) => {
-      console.error('Connection error:', error);
+      this.updateBadge();
+      
+      if (App.currentView === 'sync') {
+        UI.renderSync();
+      }
     });
   },
 
-  async connectToDevice(remoteId) {
+  connectToDevice(remoteId) {
     if (!this.peer || !this.isInitialized) {
-      App.showError('P2P sync is connecting... Please try again in a moment');
+      App.showError('Sync not ready, try again');
       return;
     }
 
     try {
-      const cleanId = remoteId.trim();
-      if (!cleanId) {
-        App.showError('Please enter a device ID');
-        return;
-      }
-      
-      const conn = this.peer.connect(cleanId);
+      const conn = this.peer.connect(remoteId.trim());
       this.handleConnection(conn);
-      App.showSuccess('Connecting to device...');
-    } catch (error) {
-      console.error('Failed to connect:', error);
-      App.showError('Failed to connect to device');
+      App.showSuccess('Connecting...');
+    } catch (e) {
+      App.showError('Connection failed');
     }
   },
 
-  async handleIncomingData(data, fromPeer) {
-    console.log('Received data from:', fromPeer, data);
+  // Manual sync trigger
+  async syncNow() {
+    if (this.connections.size === 0) {
+      App.showError('No devices connected');
+      return;
+    }
+
+    App.showSuccess('Syncing...');
 
     try {
-      switch (data.type) {
-        case 'sync_request':
-          await this.sendFullSync(fromPeer);
-          break;
+      // Get all local data
+      const data = await DB.getAllData();
+      
+      // Send to all connected devices
+      const message = {
+        type: 'full_sync',
+        data: data,
+        timestamp: Date.now(),
+        from: this.deviceId
+      };
 
-        case 'sync_response':
-          await this.applySyncData(data.payload);
+      for (const conn of this.connections.values()) {
+        conn.send(message);
+      }
+
+      App.showSuccess('Sync sent to ' + this.connections.size + ' device(s)');
+
+    } catch (e) {
+      console.error('Sync failed:', e);
+      App.showError('Sync failed');
+    }
+  },
+
+  async handleData(message) {
+    console.log('Received:', message.type);
+
+    try {
+      switch (message.type) {
+        case 'full_sync':
+          await this.applySync(message.data);
+          App.showSuccess('Data received and merged');
+          
+          // Refresh current view
+          UI.loadView(App.currentView);
           break;
 
         case 'expense_add':
-          await DB.addExpense(data.payload);
-          Expenses.loadCurrentMonth();
+          await DB.addExpense(message.data);
+          if (App.currentView === 'home') Expenses.loadCurrentMonth();
           break;
 
         case 'expense_delete':
-          await DB.deleteExpense(data.payload.id);
-          Expenses.loadCurrentMonth();
+          await DB.deleteExpense(message.data.id);
+          if (App.currentView === 'home') Expenses.loadCurrentMonth();
           break;
 
         case 'person_add':
-          await DB.addPerson(data.payload);
-          People.loadPeopleList();
-          People.loadForDropdown();
+          await DB.addPerson(message.data);
+          if (App.currentView === 'people') People.loadPeopleList();
           break;
       }
-
-      App.showSuccess('Data synced successfully');
-
-    } catch (error) {
-      console.error('Failed to handle incoming data:', error);
-      App.showError('Failed to sync data');
+    } catch (e) {
+      console.error('Failed to process sync data:', e);
     }
   },
 
-  async sendFullSync(toPeer) {
-    try {
-      const data = await DB.getAllData();
-      const message = {
-        type: 'sync_response',
-        payload: data,
-        timestamp: Date.now(),
-        deviceId: this.deviceId
-      };
-
-      const conn = this.connections.get(toPeer);
-      if (conn) {
-        conn.send(message);
+  async applySync(remoteData) {
+    // Merge remote data with local
+    // Using syncId to avoid duplicates
+    
+    const localData = await DB.getAllData();
+    
+    // Merge expenses
+    const localExpenseIds = new Set(localData.expenses.map(e => e.syncId));
+    for (const expense of remoteData.expenses) {
+      if (!localExpenseIds.has(expense.syncId)) {
+        await DB.addExpenseRaw(expense);
       }
-    } catch (error) {
-      console.error('Failed to send sync data:', error);
     }
-  },
 
-  async applySyncData(syncData) {
-    try {
-      await DB.applySyncData(syncData);
-      // Refresh all views
-      Expenses.loadCurrentMonth();
-      People.loadPeopleList();
-      People.loadForDropdown();
-      Settlement.calculate();
-    } catch (error) {
-      console.error('Failed to apply sync data:', error);
+    // Merge people
+    const localPeopleIds = new Set(localData.people.map(p => p.syncId));
+    for (const person of remoteData.people) {
+      if (!localPeopleIds.has(person.syncId)) {
+        await DB.addPersonRaw(person);
+      }
     }
-  },
 
-  async broadcastChange(type, payload) {
-    if (this.connections.size === 0) return;
-
-    const message = {
-      type,
-      payload,
-      timestamp: Date.now(),
-      deviceId: this.deviceId
-    };
-
-    for (const conn of this.connections.values()) {
-      try {
-        conn.send(message);
-      } catch (error) {
-        console.error('Failed to broadcast to peer:', error);
+    // Merge images
+    const localImageIds = new Set(localData.images.map(i => i.id));
+    for (const image of remoteData.images) {
+      if (!localImageIds.has(image.id)) {
+        await DB.addImageRaw(image);
       }
     }
   },
 
-  updateConnectionCount() {
+  updateBadge() {
     const count = this.connections.size;
-    // Update UI indicator if exists
-    const indicator = document.getElementById('connection-count');
-    if (indicator) {
-      indicator.textContent = count;
-      indicator.style.display = count > 0 ? 'inline' : 'none';
-    }
-
-    // Update navigation badge
-    this.updateNavBadge(count);
-  },
-
-  updateNavBadge(count) {
-    const syncBtn = document.querySelector('.nav-btn[data-view="sync"]');
+    const syncBtn = document.querySelector('[data-view="sync"]');
     if (!syncBtn) return;
 
-    // Remove existing badge
-    const existingBadge = syncBtn.querySelector('.nav-badge');
-    if (existingBadge) {
-      existingBadge.remove();
-    }
-
-    // Add badge if connected
+    let badge = syncBtn.querySelector('.badge');
     if (count > 0) {
-      const badge = document.createElement('span');
-      badge.className = 'nav-badge';
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'badge';
+        syncBtn.appendChild(badge);
+      }
       badge.textContent = count;
-      syncBtn.appendChild(badge);
+    } else if (badge) {
+      badge.remove();
     }
-  },
-
-  getDeviceId() {
-    return this.deviceId;
   },
 
   getConnectionCount() {
     return this.connections.size;
   },
 
-  isReady() {
-    return this.isInitialized && this.peer && !this.peer.destroyed;
-  },
-
-  getPeerId() {
-    return this.peer?.id || this.deviceId;
+  getDeviceId() {
+    return this.deviceId;
   }
 };

@@ -238,5 +238,33 @@ const DB = {
         imageStore.put(image);
       });
     });
+  },
+
+  // Raw add methods for sync (preserves original IDs)
+  async addExpenseRaw(expense) {
+    const store = await this.transaction('expenses', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.put(expense);
+      request.onsuccess = () => resolve(expense);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async addPersonRaw(person) {
+    const store = await this.transaction('people', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.put(person);
+      request.onsuccess = () => resolve(person);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async addImageRaw(image) {
+    const store = await this.transaction('images', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.put(image);
+      request.onsuccess = () => resolve(image);
+      request.onerror = () => reject(request.error);
+    });
   }
 };

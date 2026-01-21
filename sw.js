@@ -2,7 +2,7 @@
  * Service Worker for ExpenseTracker PWA
  */
 
-const CACHE_VERSION = 7;
+const CACHE_VERSION = 8;
 const CACHE_NAME = `expense-tracker-v${CACHE_VERSION}`;
 
 // Assets to cache immediately

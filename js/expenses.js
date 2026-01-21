@@ -7,91 +7,77 @@ const Expenses = {
   currentYear: new Date().getFullYear(),
 
   async init() {
-    // Set default date to today
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('expense-date')?.setAttribute('value', today);
+    // Nothing needed
   },
 
   async loadCurrentMonth() {
     try {
       const expenses = await DB.getExpenses(this.currentMonth, this.currentYear);
-      await this.renderExpenses(expenses);
+      this.renderExpenses(expenses);
       this.updateMonthDisplay();
       this.updateSummary(expenses);
-    } catch (error) {
-      console.error('Failed to load expenses:', error);
-      App.showError('Failed to load expenses');
+    } catch (e) {
+      console.error('Failed to load expenses:', e);
     }
   },
 
   async renderExpenses(expenses) {
-    const listElement = document.getElementById('expenses-list');
-    if (!listElement) return;
+    const list = document.getElementById('expenses-list');
+    if (!list) return;
 
     if (expenses.length === 0) {
-      listElement.innerHTML = `
-        <div class="card text-center">
-          <p>No expenses for this month. Add your first expense!</p>
-        </div>
-      `;
+      list.innerHTML = '<div class="empty-msg">No expenses this month</div>';
       return;
     }
 
-    // Load people data for names
+    // Get people names
     const people = await DB.getPeople();
-    const peopleMap = {};
-    people.forEach(person => {
-      peopleMap[person.id] = person.name;
-    });
+    const names = {};
+    people.forEach(p => names[p.id] = p.name);
 
-    listElement.innerHTML = expenses.map(expense => `
-      <div class="card expense-item">
-        <div class="flex justify-between items-start">
-          <div class="flex-1">
-            <h3 class="mb-1">${expense.description}</h3>
-            <p class="text-sm text-gray-600">${new Date(expense.date).toLocaleDateString()}</p>
-            <p class="text-sm">Paid by: ${peopleMap[expense.payerId] || 'Unknown'}</p>
-          </div>
-          <div class="text-right">
-            <p class="text-lg font-bold">$${expense.amount.toFixed(2)}</p>
-            <button class="btn btn-danger btn-sm" onclick="Expenses.deleteExpense('${expense.id}')">Delete</button>
-          </div>
+    list.innerHTML = expenses.map(exp => `
+      <div class="expense-item">
+        <div class="expense-main">
+          <div class="expense-desc">${exp.description}</div>
+          <div class="expense-meta">${names[exp.payerId] || 'Unknown'} • ${this.formatDate(exp.date)}</div>
         </div>
-        ${expense.imageId ? `
-          <div class="mt-2">
-            <img src="" alt="Receipt" class="receipt-thumb" onclick="Expenses.showFullImage('${expense.imageId}')" data-image-id="${expense.imageId}">
-          </div>
-        ` : ''}
+        <div class="expense-right">
+          <div class="expense-amount">$${parseFloat(exp.amount).toFixed(2)}</div>
+          <button class="btn-delete" onclick="Expenses.deleteExpense('${exp.id}')">×</button>
+        </div>
+        ${exp.imageId ? `<div class="expense-image" onclick="Expenses.showImage('${exp.imageId}')">📷</div>` : ''}
       </div>
     `).join('');
+  },
 
-    // Load image thumbnails
-    await this.loadExpenseThumbnails(expenses);
+  formatDate(dateStr) {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   },
 
   updateMonthDisplay() {
-    const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
-    const monthElement = document.getElementById('current-month');
-    if (monthElement) {
-      monthElement.textContent = `${monthNames[this.currentMonth]} ${this.currentYear}`;
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    const el = document.getElementById('current-month');
+    if (el) {
+      el.textContent = `${months[this.currentMonth]} ${this.currentYear}`;
     }
   },
 
   updateSummary(expenses) {
-    const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-    const totalElement = document.querySelector('.total-amount');
-    if (totalElement) {
-      totalElement.textContent = `$${total.toFixed(2)}`;
-    }
+    const total = expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    
+    const totalEl = document.getElementById('total-amount');
+    if (totalEl) totalEl.textContent = `$${total.toFixed(2)}`;
+    
+    const countEl = document.getElementById('expense-count');
+    if (countEl) countEl.textContent = `${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`;
   },
 
-  navigateMonth(direction) {
-    this.currentMonth += direction;
-
+  navigateMonth(dir) {
+    this.currentMonth += dir;
+    
     if (this.currentMonth < 0) {
       this.currentMonth = 11;
       this.currentYear--;
@@ -99,142 +85,102 @@ const Expenses = {
       this.currentMonth = 0;
       this.currentYear++;
     }
-
+    
     this.loadCurrentMonth();
   },
 
   async saveExpense() {
-    const form = document.getElementById('expense-form');
-    if (!form.checkValidity()) {
-      form.reportValidity();
-      return;
-    }
-
-    const description = document.getElementById('expense-description').value.trim();
+    const desc = document.getElementById('expense-description').value.trim();
     const amount = parseFloat(document.getElementById('expense-amount').value);
     const date = document.getElementById('expense-date').value;
     const payerId = document.getElementById('expense-payer').value;
-    const imageId = Camera.getCapturedImage()?.id;
+    const imageId = Camera.capturedImage?.id || null;
 
-    if (!description || amount <= 0 || !payerId) {
-      App.showError('Please fill in all required fields');
+    if (!desc) {
+      App.showError('Enter description');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      App.showError('Enter valid amount');
+      return;
+    }
+    if (!payerId) {
+      App.showError('Select who paid');
       return;
     }
 
     try {
-      const expenseData = {
-        description,
-        amount,
-        date,
-        payerId,
-        imageId
-      };
+      await DB.addExpense({
+        description: desc,
+        amount: amount,
+        date: date,
+        payerId: payerId,
+        imageId: imageId
+      });
 
-      const savedExpense = await DB.addExpense(expenseData);
-
-      // Broadcast to connected devices
-      if (Sync.getConnectionCount() > 0) {
-        await Sync.broadcastChange('expense_add', savedExpense);
-      }
-
-      // Reset form and camera
-      form.reset();
-      Camera.removeImage();
-      // Reset date to today
+      // Reset
+      document.getElementById('expense-form').reset();
       document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
+      Camera.removeImage();
 
-      App.showSuccess('Expense saved successfully');
+      App.showSuccess('Saved!');
       App.navigateTo('home');
-
-    } catch (error) {
-      console.error('Failed to save expense:', error);
-      App.showError('Failed to save expense');
+    } catch (e) {
+      console.error('Failed to save:', e);
+      App.showError('Failed to save');
     }
   },
 
   async deleteExpense(id) {
-    if (!confirm('Are you sure you want to delete this expense?')) return;
+    if (!confirm('Delete this expense?')) return;
 
     try {
-      // Get expense to check for image
-      const expense = await DB.getExpenseById(id);
+      const exp = await DB.getExpenseById(id);
       await DB.deleteExpense(id);
-
-      // Delete associated image if exists
-      if (expense?.imageId) {
-        await DB.deleteImage(expense.imageId);
+      
+      if (exp?.imageId) {
+        await DB.deleteImage(exp.imageId);
       }
 
-      // Broadcast deletion to connected devices
-      if (Sync.getConnectionCount() > 0) {
-        await Sync.broadcastChange('expense_delete', { id });
-      }
-
-      App.showSuccess('Expense deleted successfully');
+      App.showSuccess('Deleted');
       this.loadCurrentMonth();
-
-    } catch (error) {
-      console.error('Failed to delete expense:', error);
-      App.showError('Failed to delete expense');
+    } catch (e) {
+      console.error('Failed to delete:', e);
+      App.showError('Failed to delete');
     }
   },
 
-  async loadExpenseThumbnails(expenses) {
-    const imagesToLoad = expenses.filter(expense => expense.imageId);
-
-    for (const expense of imagesToLoad) {
-      try {
-        const imageData = await DB.getImage(expense.imageId);
-        if (imageData && imageData.thumbnail) {
-          const imgElement = document.querySelector(`[data-image-id="${expense.imageId}"]`);
-          if (imgElement) {
-            const blobUrl = URL.createObjectURL(imageData.thumbnail);
-            imgElement.src = blobUrl;
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load thumbnail:', error);
-      }
-    }
-  },
-
-  async showFullImage(imageId) {
+  async showImage(imageId) {
     try {
-      const imageData = await DB.getImage(imageId);
-      if (!imageData) return;
+      const img = await DB.getImage(imageId);
+      if (!img) return;
 
-      const blobUrl = URL.createObjectURL(imageData.blob);
-
-      // Create full image modal
+      const url = URL.createObjectURL(img.blob);
+      
       const modal = document.createElement('div');
-      modal.className = 'modal-container';
+      modal.className = 'modal-overlay';
       modal.innerHTML = `
-        <div class="modal-backdrop"></div>
-        <div class="modal">
+        <div class="modal-box">
           <div class="modal-header">
-            <h3 class="modal-title">Receipt</h3>
-            <button class="modal-close">&times;</button>
+            <span>Receipt</span>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
           </div>
-          <div class="modal-body text-center">
-            <img src="${blobUrl}" alt="Receipt" style="max-width: 100%; max-height: 70vh; border-radius: 0.5rem;">
+          <div class="modal-body">
+            <img src="${url}" style="max-width:100%; max-height:70vh;">
           </div>
         </div>
       `;
-
-      document.getElementById('modals').appendChild(modal);
-
-      modal.querySelector('.modal-close').addEventListener('click', () => {
-        URL.revokeObjectURL(blobUrl); // Clean up blob URL
-        modal.remove();
-      });
-      modal.querySelector('.modal-backdrop').addEventListener('click', () => {
-        URL.revokeObjectURL(blobUrl); // Clean up blob URL
-        modal.remove();
-      });
-
-    } catch (error) {
-      console.error('Failed to show full image:', error);
-      App.showError('Failed to load image');
+      
+      modal.onclick = (e) => {
+        if (e.target === modal) {
+          URL.revokeObjectURL(url);
+          modal.remove();
+        }
+      };
+      
+      document.body.appendChild(modal);
+    } catch (e) {
+      console.error('Failed to show image:', e);
     }
   }
 };
