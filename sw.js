@@ -2,7 +2,7 @@
  * Service Worker for Expense Tracker PWA
  */
 
-const CACHE_VERSION = 24;
+const CACHE_VERSION = 26;
 const CACHE_NAME = `expense-tracker-v${CACHE_VERSION}`;
 
 const ASSETS = [
@@ -12,6 +12,7 @@ const ASSETS = [
   './css/styles.css',
   './js/app.js',
   './js/db.js',
+  './js/settings.js',
   './js/ui.js',
   './js/camera.js',
   './js/expenses.js',

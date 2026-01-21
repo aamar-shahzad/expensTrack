@@ -24,10 +24,10 @@ const UI = {
       case 'people': this.renderPeople(); break;
       case 'settle': this.renderSettle(); break;
       case 'sync': 
-        // Refresh connection when opening sync tab
         Sync.refresh();
         this.renderSync(); 
         break;
+      case 'settings': this.renderSettings(); break;
     }
   },
 
@@ -44,8 +44,21 @@ const UI = {
       
       <div class="summary-box">
         <div class="summary-label">Total This Month</div>
-        <div class="summary-amount" id="total-amount">$0.00</div>
+        <div class="summary-amount" id="total-amount">${Settings.getCurrency()}0.00</div>
         <div class="summary-count" id="expense-count">0 expenses</div>
+      </div>
+      
+      <div class="filter-row">
+        <button class="filter-btn active" data-filter="month">This Month</button>
+        <button class="filter-btn" data-filter="all">All Time</button>
+        <button class="filter-btn" data-filter="custom">Custom</button>
+      </div>
+      
+      <div id="custom-date-range" class="custom-range hidden">
+        <input type="date" id="filter-from">
+        <span>to</span>
+        <input type="date" id="filter-to">
+        <button class="btn-small btn-primary" id="apply-filter">Apply</button>
       </div>
       
       <div id="expenses-list"></div>
@@ -54,12 +67,51 @@ const UI = {
     document.getElementById('prev-month').onclick = () => Expenses.navigateMonth(-1);
     document.getElementById('next-month').onclick = () => Expenses.navigateMonth(1);
     
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        const filter = btn.dataset.filter;
+        const customRange = document.getElementById('custom-date-range');
+        const monthNav = document.querySelector('.month-nav');
+        
+        if (filter === 'custom') {
+          customRange.classList.remove('hidden');
+          monthNav.classList.add('hidden');
+        } else {
+          customRange.classList.add('hidden');
+          monthNav.classList.remove('hidden');
+          
+          if (filter === 'all') {
+            Expenses.loadAllExpenses();
+          } else {
+            Expenses.loadCurrentMonth();
+          }
+        }
+      };
+    });
+    
+    // Apply custom filter
+    document.getElementById('apply-filter').onclick = () => {
+      const from = document.getElementById('filter-from').value;
+      const to = document.getElementById('filter-to').value;
+      if (from && to) {
+        Expenses.loadDateRange(from, to);
+      } else {
+        App.showError('Select both dates');
+      }
+    };
+    
     Expenses.loadCurrentMonth();
   },
 
   renderAdd() {
     const main = document.getElementById('main-content');
     const today = new Date().toISOString().split('T')[0];
+    const isShared = Settings.isSharedMode();
+    const currency = Settings.getCurrency();
     
     main.innerHTML = `
       <h1>Add Expense</h1>
@@ -71,7 +123,7 @@ const UI = {
         </div>
         
         <div class="form-group">
-          <label>Amount</label>
+          <label>Amount (${currency})</label>
           <input type="number" id="expense-amount" placeholder="0.00" step="0.01" inputmode="decimal" required>
         </div>
         
@@ -80,11 +132,25 @@ const UI = {
           <input type="date" id="expense-date" value="${today}" required>
         </div>
         
+        ${isShared ? `
         <div class="form-group">
           <label>Paid By</label>
           <select id="expense-payer" required>
             <option value="">Select person...</option>
           </select>
+        </div>
+        ` : '<input type="hidden" id="expense-payer" value="self">'}
+        
+        <div class="form-group">
+          <label>Notes (Optional)</label>
+          <input type="text" id="expense-notes" placeholder="Add notes...">
+        </div>
+        
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="expense-recurring">
+            <span>Recurring monthly expense</span>
+          </label>
         </div>
         
         <div class="form-group">
@@ -108,7 +174,9 @@ const UI = {
     document.getElementById('capture-photo').onclick = () => Camera.capturePhoto();
     document.getElementById('choose-photo').onclick = () => Camera.chooseFromGallery();
     
-    People.loadForDropdown();
+    if (isShared) {
+      People.loadForDropdown();
+    }
   },
 
   renderPeople() {
@@ -225,6 +293,169 @@ const UI = {
         App.showError('ID: ' + id);
       });
     }
+  },
+
+  renderSettings() {
+    const main = document.getElementById('main-content');
+    const currentCurrency = Settings.getCurrency();
+    const currentMode = Settings.getMode();
+    
+    const currencyOptions = Settings.currencies.map(c => 
+      `<option value="${c.symbol}" ${c.symbol === currentCurrency ? 'selected' : ''}>${c.symbol} - ${c.name}</option>`
+    ).join('');
+    
+    main.innerHTML = `
+      <h1>Settings</h1>
+      
+      <div class="card">
+        <label>App Mode</label>
+        <div class="mode-toggle">
+          <button class="mode-btn ${currentMode === 'single' ? 'active' : ''}" data-mode="single">
+            <span class="mode-icon">👤</span>
+            <span class="mode-name">Single</span>
+            <span class="mode-desc">Personal tracking</span>
+          </button>
+          <button class="mode-btn ${currentMode === 'shared' ? 'active' : ''}" data-mode="shared">
+            <span class="mode-icon">👥</span>
+            <span class="mode-name">Shared</span>
+            <span class="mode-desc">Split with others</span>
+          </button>
+        </div>
+        <p class="help-text">Single mode hides People, Settle, and Sync tabs.</p>
+      </div>
+      
+      <div class="card">
+        <label>Currency</label>
+        <select id="currency-select" class="form-select">
+          ${currencyOptions}
+        </select>
+      </div>
+      
+      <div class="card">
+        <label>Data</label>
+        <button class="btn-secondary" id="export-btn" style="margin-bottom:10px">Export Data (JSON)</button>
+        <button class="btn-secondary" id="import-btn">Import Data</button>
+        <input type="file" id="import-file" accept=".json" style="display:none">
+      </div>
+      
+      <div class="card danger-zone">
+        <label>Danger Zone</label>
+        <button class="btn-danger" id="clear-data-btn">Clear All Data</button>
+        <p class="help-text">Permanently delete all expenses, people, and photos.</p>
+      </div>
+    `;
+    
+    // Mode toggle
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.onclick = () => {
+        const mode = btn.dataset.mode;
+        Settings.setMode(mode);
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        App.showSuccess(`Switched to ${mode} mode`);
+      };
+    });
+    
+    // Currency select
+    document.getElementById('currency-select').onchange = (e) => {
+      Settings.setCurrency(e.target.value);
+      App.showSuccess('Currency updated');
+    };
+    
+    // Export
+    document.getElementById('export-btn').onclick = () => this.exportData();
+    
+    // Import
+    document.getElementById('import-btn').onclick = () => {
+      document.getElementById('import-file').click();
+    };
+    document.getElementById('import-file').onchange = (e) => this.importData(e);
+    
+    // Clear data
+    document.getElementById('clear-data-btn').onclick = () => this.clearAllData();
+  },
+
+  async exportData() {
+    try {
+      const data = await DB.getAllData();
+      const exportData = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        settings: {
+          currency: Settings.getCurrency(),
+          mode: Settings.getMode()
+        },
+        expenses: data.expenses,
+        people: data.people
+        // Note: images not exported (too large)
+      };
+      
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `expense-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      App.showSuccess('Data exported');
+    } catch (e) {
+      App.showError('Export failed');
+    }
+  },
+
+  async importData(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      if (!data.expenses || !data.people) {
+        App.showError('Invalid backup file');
+        return;
+      }
+      
+      if (!confirm(`Import ${data.expenses.length} expenses and ${data.people.length} people? This will add to existing data.`)) {
+        return;
+      }
+      
+      // Import people first
+      for (const person of data.people) {
+        await DB.addPersonRaw(person);
+      }
+      
+      // Import expenses
+      for (const expense of data.expenses) {
+        await DB.addExpenseRaw(expense);
+      }
+      
+      // Import settings if present
+      if (data.settings) {
+        if (data.settings.currency) Settings.setCurrency(data.settings.currency);
+        if (data.settings.mode) Settings.setMode(data.settings.mode);
+      }
+      
+      App.showSuccess('Data imported');
+      App.navigateTo('home');
+    } catch (e) {
+      App.showError('Import failed - invalid file');
+    }
+    
+    e.target.value = '';
+  },
+
+  clearAllData() {
+    if (!confirm('Delete ALL data? This cannot be undone!')) return;
+    if (!confirm('Are you sure? All expenses, people, and photos will be permanently deleted.')) return;
+
+    DB.clearAllData().then(() => {
+      App.showSuccess('All data cleared');
+      App.navigateTo('home');
+    }).catch(() => {
+      App.showError('Failed to clear data');
+    });
   },
 
   showAddPersonModal() {

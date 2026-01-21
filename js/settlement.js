@@ -109,16 +109,18 @@ const Settlement = {
   renderSettlement(totalExpenses, personTotals, sharePerPerson, settlements, people, balances) {
     const el = document.getElementById('settlement-results');
     if (!el) return;
+    
+    const currency = Settings.getCurrency();
 
     el.innerHTML = `
       <div class="settle-summary">
         <div class="settle-stat">
           <div class="settle-stat-label">Total Spent</div>
-          <div class="settle-stat-value">$${totalExpenses.toFixed(2)}</div>
+          <div class="settle-stat-value">${Settings.formatAmount(totalExpenses)}</div>
         </div>
         <div class="settle-stat">
           <div class="settle-stat-label">Per Person</div>
-          <div class="settle-stat-value">$${sharePerPerson.toFixed(2)}</div>
+          <div class="settle-stat-value">${Settings.formatAmount(sharePerPerson)}</div>
         </div>
       </div>
 
@@ -128,14 +130,14 @@ const Settlement = {
           const spent = personTotals[p.id] || 0;
           const balance = balances[p.id] || 0;
           const balanceClass = balance > 0.01 ? 'positive' : balance < -0.01 ? 'negative' : '';
-          const balanceText = balance > 0.01 ? `gets back $${balance.toFixed(2)}` : 
-                              balance < -0.01 ? `owes $${(-balance).toFixed(2)}` : 'settled';
+          const balanceText = balance > 0.01 ? `gets back ${Settings.formatAmount(balance)}` : 
+                              balance < -0.01 ? `owes ${Settings.formatAmount(-balance)}` : 'settled';
           return `
             <div class="settle-person">
               <div class="settle-person-avatar">${p.name.charAt(0).toUpperCase()}</div>
               <div class="settle-person-info">
                 <div class="settle-person-name">${p.name}</div>
-                <div class="settle-person-spent">Spent $${spent.toFixed(2)}</div>
+                <div class="settle-person-spent">Spent ${Settings.formatAmount(spent)}</div>
               </div>
               <div class="settle-person-balance ${balanceClass}">${balanceText}</div>
             </div>
@@ -152,7 +154,7 @@ const Settlement = {
               <div class="settle-payment-from">${s.from}</div>
               <div class="settle-payment-arrow">→</div>
               <div class="settle-payment-to">${s.to}</div>
-              <div class="settle-payment-amount">$${s.amount.toFixed(2)}</div>
+              <div class="settle-payment-amount">${Settings.formatAmount(s.amount)}</div>
             </div>
           `).join('')
         }

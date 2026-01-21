@@ -58,7 +58,7 @@ const People = {
             <div class="avatar">${p.name.charAt(0).toUpperCase()}</div>
             <div class="item-info">
               <div class="item-name">${p.name}</div>
-              <div class="item-meta">${count} expense${count !== 1 ? 's' : ''} • $${total.toFixed(2)} paid</div>
+              <div class="item-meta">${count} expense${count !== 1 ? 's' : ''} • ${Settings.formatAmount(total)} paid</div>
             </div>
             <button class="btn-icon" onclick="People.deletePerson('${p.id}', ${count})">🗑️</button>
           </div>

@@ -41,16 +41,20 @@ const Expenses = {
     const names = {};
     people.forEach(p => names[p.id] = p.name);
 
-    list.innerHTML = expenses.map(exp => `
-      <div class="expense-item" onclick="Expenses.showDetail('${exp.id}')">
-        ${exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : '<div class="expense-icon">💵</div>'}
-        <div class="expense-main">
-          <div class="expense-desc">${exp.description}</div>
-          <div class="expense-meta">${names[exp.payerId] || 'Unknown'} • ${this.formatDate(exp.date)}</div>
+    list.innerHTML = expenses.map(exp => {
+      const recurringBadge = exp.recurring ? '<span class="recurring-badge">🔄</span>' : '';
+      const payerName = Settings.isSharedMode() ? `${names[exp.payerId] || 'Unknown'} • ` : '';
+      return `
+        <div class="expense-item" onclick="Expenses.showDetail('${exp.id}')">
+          ${exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : '<div class="expense-icon">💵</div>'}
+          <div class="expense-main">
+            <div class="expense-desc">${exp.description}${recurringBadge}</div>
+            <div class="expense-meta">${payerName}${this.formatDate(exp.date)}</div>
+          </div>
+          <div class="expense-amount">${Settings.formatAmount(exp.amount)}</div>
         </div>
-        <div class="expense-amount">$${parseFloat(exp.amount).toFixed(2)}</div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     // Load thumbnails
     this.loadThumbnails();
@@ -76,6 +80,7 @@ const Expenses = {
 
     const people = await DB.getPeople();
     const payer = people.find(p => p.id === exp.payerId);
+    const isShared = Settings.isSharedMode();
 
     let imageHtml = '';
     if (exp.imageId) {
@@ -100,20 +105,34 @@ const Expenses = {
           ${imageHtml}
           <div class="detail-row">
             <span class="detail-label">Description</span>
-            <span class="detail-value">${exp.description}</span>
+            <span class="detail-value">${exp.description}${exp.recurring ? ' 🔄' : ''}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">Amount</span>
-            <span class="detail-value detail-amount">$${parseFloat(exp.amount).toFixed(2)}</span>
+            <span class="detail-value detail-amount">${Settings.formatAmount(exp.amount)}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">Date</span>
             <span class="detail-value">${new Date(exp.date).toLocaleDateString()}</span>
           </div>
+          ${isShared ? `
           <div class="detail-row">
             <span class="detail-label">Paid By</span>
             <span class="detail-value">${payer?.name || 'Unknown'}</span>
           </div>
+          ` : ''}
+          ${exp.notes ? `
+          <div class="detail-row">
+            <span class="detail-label">Notes</span>
+            <span class="detail-value">${exp.notes}</span>
+          </div>
+          ` : ''}
+          ${exp.recurring ? `
+          <div class="detail-row">
+            <span class="detail-label">Type</span>
+            <span class="detail-value">Recurring monthly</span>
+          </div>
+          ` : ''}
         </div>
         <div class="modal-footer">
           <button class="btn-secondary" onclick="Expenses.editExpense('${exp.id}'); this.closest('.modal-overlay').remove();">Edit</button>
@@ -243,7 +262,7 @@ const Expenses = {
     const total = expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
     
     const totalEl = document.getElementById('total-amount');
-    if (totalEl) totalEl.textContent = `$${total.toFixed(2)}`;
+    if (totalEl) totalEl.textContent = Settings.formatAmount(total);
     
     const countEl = document.getElementById('expense-count');
     if (countEl) countEl.textContent = `${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`;
@@ -263,11 +282,52 @@ const Expenses = {
     this.loadCurrentMonth();
   },
 
+  async loadAllExpenses() {
+    try {
+      const expenses = await DB.getExpenses();
+      this.renderExpenses(expenses);
+      
+      // Update summary label
+      const label = document.querySelector('.summary-label');
+      if (label) label.textContent = 'Total All Time';
+      
+      this.updateSummary(expenses);
+    } catch (e) {
+      console.error('Failed to load expenses:', e);
+    }
+  },
+
+  async loadDateRange(from, to) {
+    try {
+      const allExpenses = await DB.getExpenses();
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59); // Include full end day
+      
+      const expenses = allExpenses.filter(e => {
+        const date = new Date(e.date);
+        return date >= fromDate && date <= toDate;
+      });
+      
+      this.renderExpenses(expenses);
+      
+      // Update summary label
+      const label = document.querySelector('.summary-label');
+      if (label) label.textContent = `${this.formatDate(from)} - ${this.formatDate(to)}`;
+      
+      this.updateSummary(expenses);
+    } catch (e) {
+      console.error('Failed to load expenses:', e);
+    }
+  },
+
   async saveExpense() {
     const desc = document.getElementById('expense-description').value.trim();
     const amount = parseFloat(document.getElementById('expense-amount').value);
     const date = document.getElementById('expense-date').value;
     const payerId = document.getElementById('expense-payer').value;
+    const notes = document.getElementById('expense-notes')?.value.trim() || '';
+    const recurring = document.getElementById('expense-recurring')?.checked || false;
     const imageId = Camera.capturedImage?.id || null;
 
     if (!desc) {
@@ -278,7 +338,7 @@ const Expenses = {
       App.showError('Enter valid amount');
       return;
     }
-    if (!payerId) {
+    if (Settings.isSharedMode() && !payerId) {
       App.showError('Select who paid');
       return;
     }
@@ -289,6 +349,8 @@ const Expenses = {
         amount: amount,
         date: date,
         payerId: payerId,
+        notes: notes,
+        recurring: recurring,
         imageId: imageId
       });
 

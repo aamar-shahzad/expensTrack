@@ -63,6 +63,9 @@ const App = {
       // Initialize database
       await DB.init();
 
+      // Initialize settings first
+      Settings.init();
+
       // Initialize modules
       UI.init();
       await Camera.init();
@@ -70,6 +73,9 @@ const App = {
       await People.init();
       await Settlement.init();
       await Sync.init();
+
+      // Apply mode settings to navigation
+      Settings.updateNavigation();
 
       // Network status
       window.addEventListener('online', () => {
