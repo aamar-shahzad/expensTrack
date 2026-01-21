@@ -130,11 +130,18 @@ const Sync = {
   setupConnection(conn) {
     const peerId = conn.peer;
 
+    // Check if already connected to this peer
+    if (this.connections.has(peerId)) {
+      console.log('Already connected to', peerId);
+      return;
+    }
+
     conn.on('open', () => {
+      console.log('Connection opened with', peerId);
       this.connections.set(peerId, conn);
       this.updateBadge();
       this.startIdleTimer();
-      App.showSuccess('Connected!');
+      App.showSuccess('Device connected!');
       
       if (App.currentView === 'sync') {
         UI.renderSync();
@@ -147,8 +154,10 @@ const Sync = {
     });
 
     conn.on('close', () => {
+      console.log('Connection closed with', peerId);
       this.connections.delete(peerId);
       this.updateBadge();
+      App.showError('Device disconnected');
       
       if (App.currentView === 'sync') {
         UI.renderSync();
@@ -156,7 +165,7 @@ const Sync = {
     });
 
     conn.on('error', (err) => {
-      console.warn('Connection error:', err);
+      console.warn('Connection error with', peerId, err);
       this.connections.delete(peerId);
       this.updateBadge();
     });

@@ -190,10 +190,13 @@ const UI = {
         <label>How to Sync</label>
         <ol class="help-list">
           <li>Share your 6-letter ID with the other person</li>
-          <li>Enter their ID above and tap Connect</li>
-          <li>Once connected, tap "Sync Now"</li>
-          <li>Both devices will have the same data</li>
+          <li>Either person enters the other's ID and taps Connect</li>
+          <li>Both devices will show as connected</li>
+          <li>Either person can tap "Sync Now" to share data</li>
         </ol>
+        <p class="help-text" style="margin-top:12px">
+          <strong>Note:</strong> Only one person needs to connect. The connection works both ways automatically.
+        </p>
       </div>
       ` : ''}
     `;
