@@ -307,61 +307,88 @@ const UI = {
     const accounts = Accounts.getAll();
     const currentCurrency = currentAccount?.currency || '$';
     
-    const currencyOptions = Settings.currencies.map(c => 
-      `<option value="${c.symbol}" ${c.symbol === currentCurrency ? 'selected' : ''}>${c.symbol} - ${c.name}</option>`
-    ).join('');
+    const currencyName = Settings.currencies.find(c => c.symbol === currentCurrency)?.name || 'Dollar';
     
     main.innerHTML = `
       <h1>Settings</h1>
       
-      <div class="card">
-        <label>Accounts</label>
-        <div class="account-list">
+      <div class="settings-section">
+        <div class="settings-section-title">Account</div>
+        <div class="settings-list">
           ${accounts.map(acc => `
-            <div class="account-item ${acc.id === currentAccount?.id ? 'active' : ''}" data-id="${acc.id}">
-              <div class="account-icon">${acc.mode === 'single' ? '👤' : '👥'}</div>
-              <div class="account-info">
-                <div class="account-name">${acc.name}</div>
-                <div class="account-meta">${acc.mode === 'single' ? 'Private' : 'Shared'} • ${acc.currency}</div>
+            <div class="settings-item ${acc.id === currentAccount?.id ? 'active' : ''}" data-id="${acc.id}">
+              <div class="settings-item-icon">${acc.mode === 'single' ? '👤' : '👥'}</div>
+              <div class="settings-item-content">
+                <div class="settings-item-title">${acc.name}</div>
+                <div class="settings-item-subtitle">${acc.mode === 'single' ? 'Private' : 'Shared'} • ${acc.currency}</div>
               </div>
-              ${acc.id === currentAccount?.id ? '<span class="account-check">✓</span>' : ''}
+              ${acc.id === currentAccount?.id ? '<span class="settings-item-check">✓</span>' : ''}
             </div>
           `).join('')}
+          <div class="settings-item" id="add-account-btn">
+            <div class="settings-item-icon add">+</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Add New Account</div>
+            </div>
+          </div>
         </div>
-        <button class="btn-secondary" id="add-account-btn" style="margin-top:12px">+ Add Account</button>
       </div>
       
-      <div class="card">
-        <label>Currency for ${currentAccount?.name || 'Account'}</label>
-        <select id="currency-select" class="form-select">
-          ${currencyOptions}
-        </select>
+      <div class="settings-section">
+        <div class="settings-section-title">Preferences</div>
+        <div class="settings-list">
+          <div class="settings-item" id="currency-item">
+            <div class="settings-item-icon">💰</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Currency</div>
+              <div class="settings-item-subtitle">${currentCurrency} - ${currencyName}</div>
+            </div>
+            <span class="settings-item-arrow">›</span>
+          </div>
+        </div>
       </div>
       
-      <div class="card">
-        <label>Backup & Restore</label>
-        <div class="settings-btn-group">
-          <button class="btn-secondary" id="export-btn">
-            <span>📤</span> Export Data
-          </button>
-          <button class="btn-secondary" id="import-btn">
-            <span>📥</span> Import Data
-          </button>
+      <div class="settings-section">
+        <div class="settings-section-title">Data</div>
+        <div class="settings-list">
+          <div class="settings-item" id="export-btn">
+            <div class="settings-item-icon">📤</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Export Data</div>
+              <div class="settings-item-subtitle">Save backup as JSON file</div>
+            </div>
+          </div>
+          <div class="settings-item" id="import-btn">
+            <div class="settings-item-icon">📥</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Import Data</div>
+              <div class="settings-item-subtitle">Restore from backup file</div>
+            </div>
+          </div>
         </div>
         <input type="file" id="import-file" accept=".json" style="display:none">
-        <p class="help-text">Export saves expenses and people as JSON (images not included).</p>
       </div>
       
-      <div class="card danger-zone">
-        <label>Danger Zone</label>
-        <button class="btn-danger" id="clear-data-btn">Clear Account Data</button>
-        ${accounts.length > 1 ? `<button class="btn-danger" id="delete-account-btn" style="margin-top:10px">Delete This Account</button>` : ''}
-        <p class="help-text">Permanently delete all data in this account.</p>
+      <div class="settings-section">
+        <div class="settings-list danger">
+          <div class="settings-item" id="clear-data-btn">
+            <div class="settings-item-content">
+              <div class="settings-item-title danger">Clear Account Data</div>
+            </div>
+          </div>
+          ${accounts.length > 1 ? `
+          <div class="settings-item" id="delete-account-btn">
+            <div class="settings-item-content">
+              <div class="settings-item-title danger">Delete This Account</div>
+            </div>
+          </div>
+          ` : ''}
+        </div>
       </div>
     `;
     
     // Account selection
-    document.querySelectorAll('.account-item').forEach(item => {
+    document.querySelectorAll('.settings-item[data-id]').forEach(item => {
       item.onclick = async () => {
         const id = item.dataset.id;
         if (id !== Accounts.currentAccountId) {
@@ -374,13 +401,8 @@ const UI = {
     // Add account
     document.getElementById('add-account-btn').onclick = () => this.showAddAccountModal();
     
-    // Currency select
-    document.getElementById('currency-select').onchange = (e) => {
-      const currency = e.target.value;
-      Accounts.updateAccount(Accounts.currentAccountId, { currency });
-      Settings.setCurrency(currency);
-      App.showSuccess('Currency updated');
-    };
+    // Currency
+    document.getElementById('currency-item').onclick = () => this.showCurrencyModal();
     
     // Export
     document.getElementById('export-btn').onclick = () => this.exportData();
@@ -396,6 +418,51 @@ const UI = {
     
     // Delete account
     document.getElementById('delete-account-btn')?.addEventListener('click', () => this.deleteCurrentAccount());
+  },
+
+  showCurrencyModal() {
+    const currentCurrency = Accounts.getCurrentAccount()?.currency || '$';
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">Currency</span>
+          <span></span>
+        </div>
+        <div class="sheet-body" style="padding:0">
+          <div class="settings-list">
+            ${Settings.currencies.map(c => `
+              <div class="settings-item currency-option" data-currency="${c.symbol}">
+                <div class="settings-item-content">
+                  <div class="settings-item-title">${c.symbol} - ${c.name}</div>
+                </div>
+                ${c.symbol === currentCurrency ? '<span class="settings-item-check">✓</span>' : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    modal.querySelectorAll('.currency-option').forEach(item => {
+      item.onclick = () => {
+        const currency = item.dataset.currency;
+        Accounts.updateAccount(Accounts.currentAccountId, { currency });
+        Settings.setCurrency(currency);
+        modal.remove();
+        this.renderSettings();
+        App.showSuccess('Currency updated');
+      };
+    });
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
   },
 
   showAddAccountModal() {
