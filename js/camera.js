@@ -42,15 +42,18 @@ const Camera = {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
-      <div class="modal-sheet camera-modal">
-        <div class="sheet-handle"></div>
-        <div class="sheet-header">
-          <button class="sheet-cancel" id="camera-cancel">Cancel</button>
-          <span class="sheet-title">Take Photo</span>
-          <button class="sheet-save" id="take-photo">Capture</button>
+      <div class="camera-fullscreen">
+        <div class="camera-header">
+          <button class="camera-close" id="camera-cancel">✕</button>
         </div>
         <div class="camera-preview-container">
           <video id="camera-preview" autoplay playsinline muted></video>
+        </div>
+        <div class="camera-controls">
+          <div class="camera-hint">Tap button to capture photo</div>
+          <button class="camera-shutter" id="take-photo">
+            <div class="shutter-inner"></div>
+          </button>
         </div>
       </div>
     `;
@@ -69,14 +72,6 @@ const Camera = {
       this.takePhoto();
       this.stopCamera();
       modal.remove();
-    };
-
-    // Close on backdrop tap
-    modal.onclick = (e) => {
-      if (e.target === modal) {
-        this.stopCamera();
-        modal.remove();
-      }
     };
   },
 

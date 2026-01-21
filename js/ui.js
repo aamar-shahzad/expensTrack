@@ -139,31 +139,39 @@ const UI = {
           </div>
           
           <input type="text" id="expense-description" class="desc-input" placeholder="What was it for?" required>
-          
-          <div class="form-row">
-            <div class="form-field">
+        </div>
+        
+        <div class="form-card">
+          <div class="form-field-row">
+            <div class="form-field-icon">📅</div>
+            <div class="form-field-content">
               <label>Date</label>
               <input type="date" id="expense-date" value="${today}" required>
             </div>
-            ${isShared ? `
-            <div class="form-field">
+          </div>
+          ${isShared ? `
+          <div class="form-field-row">
+            <div class="form-field-icon">👤</div>
+            <div class="form-field-content">
               <label>Paid By</label>
               <select id="expense-payer" required>
-                <option value="">Select...</option>
+                <option value="">Select person...</option>
               </select>
             </div>
-            ` : '<input type="hidden" id="expense-payer" value="self">'}
           </div>
+          ` : '<input type="hidden" id="expense-payer" value="self">'}
         </div>
         
-        <div class="photo-section">
+        <div class="form-card">
           <div id="image-preview" class="hidden"></div>
-          <div class="photo-btns">
-            <button type="button" class="photo-btn" id="capture-photo">
-              <span>📷</span> Camera
+          <div class="photo-row">
+            <button type="button" class="photo-option" id="capture-photo">
+              <div class="photo-option-icon">📷</div>
+              <span>Take Photo</span>
             </button>
-            <button type="button" class="photo-btn" id="choose-photo">
-              <span>🖼️</span> Gallery
+            <button type="button" class="photo-option" id="choose-photo">
+              <div class="photo-option-icon">🖼️</div>
+              <span>Gallery</span>
             </button>
           </div>
         </div>
