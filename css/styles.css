@@ -554,6 +554,35 @@ h1 {
   margin-bottom: 12px;
 }
 
+/* Connected Peers List */
+.peer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.peer-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f0f8ff;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #007aff30;
+}
+
+.peer-icon {
+  font-size: 24px;
+}
+
+.peer-id-display {
+  flex: 1;
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 2px;
+}
+
 .help-text {
   font-size: 13px;
   color: #888;

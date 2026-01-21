@@ -138,6 +138,29 @@ const UI = {
     const isReady = Sync.isInitialized;
     const deviceId = Sync.getDeviceId() || '------';
     const connections = Sync.getConnectionCount();
+    const connectedPeers = Sync.getConnectedPeers();
+    
+    // Build connected devices HTML
+    let connectedHtml = '';
+    if (connectedPeers.length > 0) {
+      connectedHtml = `
+        <div class="card">
+          <label>Connected Devices</label>
+          <div class="peer-list">
+            ${connectedPeers.map(peer => `
+              <div class="peer-item">
+                <div class="peer-icon">📱</div>
+                <div class="peer-id-display">${peer.displayId}</div>
+                <button class="btn-icon" onclick="Sync.disconnectPeer('${peer.id}')">✕</button>
+              </div>
+            `).join('')}
+          </div>
+          <button class="btn-primary" id="sync-btn" style="margin-top:12px">
+            Sync Now
+          </button>
+        </div>
+      `;
+    }
     
     main.innerHTML = `
       <h1>Sync</h1>
@@ -154,23 +177,15 @@ const UI = {
         <button class="btn-secondary" onclick="UI.copyDeviceId()">Copy ID</button>
       </div>
       
+      ${connectedHtml}
+      
       <div class="card">
         <label>Connect to Another Device</label>
         <input type="text" id="remote-id" placeholder="Enter their 6-letter ID" maxlength="6" style="text-transform:uppercase">
         <button class="btn-primary" id="connect-btn">Connect</button>
       </div>
       
-      <div class="card">
-        <label>Sync Data</label>
-        <button class="btn-primary" id="sync-btn" ${connections === 0 ? 'disabled' : ''}>
-          Sync Now ${connections > 0 ? `(${connections} device${connections !== 1 ? 's' : ''})` : ''}
-        </button>
-        <p class="help-text">
-          Syncs expenses, people, and photos.<br>
-          Auto-disconnects after 5 min idle.
-        </p>
-      </div>
-      
+      ${connections === 0 ? `
       <div class="card">
         <label>How to Sync</label>
         <ol class="help-list">
@@ -180,12 +195,7 @@ const UI = {
           <li>Both devices will have the same data</li>
         </ol>
       </div>
-
-      <div class="card danger-zone">
-        <label>Danger Zone</label>
-        <button class="btn-danger" id="clear-data-btn">Clear All Data</button>
-        <p class="help-text">Permanently delete all expenses, people, and photos from this device.</p>
-      </div>
+      ` : ''}
     `;
     
     document.getElementById('connect-btn').onclick = () => {
@@ -197,9 +207,10 @@ const UI = {
       }
     };
     
-    document.getElementById('sync-btn').onclick = () => {
-      Sync.syncNow();
-    };
+    const syncBtn = document.getElementById('sync-btn');
+    if (syncBtn) {
+      syncBtn.onclick = () => Sync.syncNow();
+    }
   },
 
   copyDeviceId() {

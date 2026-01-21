@@ -465,5 +465,34 @@ const Sync = {
 
   getDeviceId() {
     return this.deviceId;
+  },
+
+  // Get list of connected peers for UI
+  getConnectedPeers() {
+    const peers = [];
+    for (const [peerId, conn] of this.connections) {
+      // Extract the 6-letter ID from peer ID (format: et-XXXXXX)
+      const displayId = peerId.replace('et-', '').substring(0, 6);
+      peers.push({
+        id: peerId,
+        displayId: displayId
+      });
+    }
+    return peers;
+  },
+
+  // Disconnect a specific peer
+  disconnectPeer(peerId) {
+    const conn = this.connections.get(peerId);
+    if (conn) {
+      try { conn.close(); } catch (e) {}
+      this.connections.delete(peerId);
+      this.updateBadge();
+      App.showSuccess('Disconnected');
+      
+      if (App.currentView === 'sync') {
+        UI.renderSync();
+      }
+    }
   }
 };
