@@ -131,48 +131,44 @@ const UI = {
     main.innerHTML = `
       <h1>Add Expense</h1>
       
-      <form id="expense-form">
-        <div class="form-group">
-          <label>Description</label>
-          <input type="text" id="expense-description" placeholder="What was it for?" required>
-        </div>
-        
-        <div class="form-group">
-          <label>Amount (${currency})</label>
-          <input type="number" id="expense-amount" placeholder="0.00" step="0.01" inputmode="decimal" required>
-        </div>
-        
-        <div class="form-group">
-          <label>Date</label>
-          <input type="date" id="expense-date" value="${today}" required>
-        </div>
-        
-        ${isShared ? `
-        <div class="form-group">
-          <label>Paid By</label>
-          <select id="expense-payer" required>
-            <option value="">Select person...</option>
-          </select>
-        </div>
-        ` : '<input type="hidden" id="expense-payer" value="self">'}
-        
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="expense-recurring">
-            <span>Recurring monthly expense</span>
-          </label>
-        </div>
-        
-        <div class="form-group">
-          <label>Receipt Photo (Optional)</label>
-          <div class="btn-row">
-            <button type="button" class="btn-secondary" id="capture-photo">Camera</button>
-            <button type="button" class="btn-secondary" id="choose-photo">Gallery</button>
+      <form id="expense-form" class="add-form">
+        <div class="form-card">
+          <div class="amount-input">
+            <span class="currency-symbol">${currency}</span>
+            <input type="number" id="expense-amount" placeholder="0.00" step="0.01" inputmode="decimal" required autofocus>
           </div>
-          <div id="image-preview" class="hidden"></div>
+          
+          <input type="text" id="expense-description" class="desc-input" placeholder="What was it for?" required>
+          
+          <div class="form-row">
+            <div class="form-field">
+              <label>Date</label>
+              <input type="date" id="expense-date" value="${today}" required>
+            </div>
+            ${isShared ? `
+            <div class="form-field">
+              <label>Paid By</label>
+              <select id="expense-payer" required>
+                <option value="">Select...</option>
+              </select>
+            </div>
+            ` : '<input type="hidden" id="expense-payer" value="self">'}
+          </div>
         </div>
         
-        <button type="submit" class="btn-primary">Save Expense</button>
+        <div class="photo-section">
+          <div id="image-preview" class="hidden"></div>
+          <div class="photo-btns">
+            <button type="button" class="photo-btn" id="capture-photo">
+              <span>📷</span> Camera
+            </button>
+            <button type="button" class="photo-btn" id="choose-photo">
+              <span>🖼️</span> Gallery
+            </button>
+          </div>
+        </div>
+        
+        <button type="submit" class="btn-primary btn-save">Save Expense</button>
       </form>
     `;
     

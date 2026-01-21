@@ -42,13 +42,12 @@ const Expenses = {
     people.forEach(p => names[p.id] = p.name);
 
     list.innerHTML = expenses.map(exp => {
-      const recurringBadge = exp.recurring ? '<span class="recurring-badge">🔄</span>' : '';
       const payerName = Accounts.isSharedMode() ? `${names[exp.payerId] || 'Unknown'} • ` : '';
       return `
         <div class="expense-item" onclick="Expenses.showDetail('${exp.id}')">
           ${exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : '<div class="expense-icon">💵</div>'}
           <div class="expense-main">
-            <div class="expense-desc">${exp.description}${recurringBadge}</div>
+            <div class="expense-desc">${exp.description}</div>
             <div class="expense-meta">${payerName}${this.formatDate(exp.date)}</div>
           </div>
           <div class="expense-amount">${Settings.formatAmount(exp.amount)}</div>
@@ -323,15 +322,14 @@ const Expenses = {
     const amount = parseFloat(document.getElementById('expense-amount').value);
     const date = document.getElementById('expense-date').value;
     const payerId = document.getElementById('expense-payer').value;
-    const recurring = document.getElementById('expense-recurring')?.checked || false;
     const imageId = Camera.capturedImage?.id || null;
 
-    if (!desc) {
-      App.showError('Enter description');
+    if (!amount || amount <= 0) {
+      App.showError('Enter amount');
       return;
     }
-    if (!amount || amount <= 0) {
-      App.showError('Enter valid amount');
+    if (!desc) {
+      App.showError('Enter description');
       return;
     }
     if (Accounts.isSharedMode() && !payerId) {
@@ -345,7 +343,6 @@ const Expenses = {
         amount: amount,
         date: date,
         payerId: payerId,
-        recurring: recurring,
         imageId: imageId
       });
 

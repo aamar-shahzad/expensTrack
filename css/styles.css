@@ -430,6 +430,140 @@ h1 {
   border-color: #007aff;
 }
 
+/* Add Expense Form - Clean UI */
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.amount-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.currency-symbol {
+  font-size: 32px;
+  font-weight: 600;
+  color: #007aff;
+}
+
+.amount-input input {
+  flex: 1;
+  font-size: 36px;
+  font-weight: 700;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.amount-input input:focus {
+  outline: none;
+}
+
+.amount-input input::placeholder {
+  color: #ccc;
+}
+
+.desc-input {
+  width: 100%;
+  padding: 14px 0;
+  border: none;
+  border-top: 1px solid #eee;
+  font-size: 17px;
+  background: transparent;
+}
+
+.desc-input:focus {
+  outline: none;
+}
+
+.desc-input::placeholder {
+  color: #999;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+.form-field {
+  flex: 1;
+}
+
+.form-field label {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 6px;
+}
+
+.form-field input,
+.form-field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 15px;
+  background: #f8f8f8;
+}
+
+.form-field input:focus,
+.form-field select:focus {
+  outline: none;
+  border-color: #007aff;
+  background: white;
+}
+
+.photo-section {
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.photo-btns {
+  display: flex;
+  gap: 10px;
+}
+
+.photo-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: #f5f5f5;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #333;
+  cursor: pointer;
+}
+
+.photo-btn:active {
+  background: #e8e8e8;
+}
+
+.btn-save {
+  padding: 16px;
+  font-size: 18px;
+  border-radius: 12px;
+  margin-top: 8px;
+}
+
 /* Buttons */
 .btn-primary {
   width: 100%;
@@ -1159,26 +1293,6 @@ h1 {
   font-size: 16px;
   background: white;
   cursor: pointer;
-}
-
-/* Checkbox */
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 22px;
-  height: 22px;
-  cursor: pointer;
-}
-
-/* Recurring Badge */
-.recurring-badge {
-  margin-left: 6px;
-  font-size: 12px;
 }
 
 /* Account Header */
