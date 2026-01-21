@@ -215,11 +215,9 @@ const Camera = {
       if (img && img.thumbnail) {
         const url = URL.createObjectURL(img.thumbnail);
         preview.innerHTML = `
-          <div class="image-preview-box">
-            <img src="${url}" alt="Receipt">
-            <span>Receipt attached</span>
-            <button type="button" onclick="Camera.removeImage()">Remove</button>
-          </div>
+          <img src="${url}" alt="Receipt">
+          <span>📎 Receipt attached</span>
+          <button type="button" onclick="Camera.removeImage()">Remove</button>
         `;
         preview.classList.remove('hidden');
       }

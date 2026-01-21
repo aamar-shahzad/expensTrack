@@ -250,11 +250,12 @@ h1 {
   align-items: center;
   gap: 14px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: transform 0.15s, background 0.15s;
 }
 
 .expense-item:active {
   background: var(--bg);
+  transform: scale(0.98);
 }
 
 .expense-icon {
@@ -738,15 +739,15 @@ h1 {
   display: block;
   font-size: 14px;
   font-weight: 500;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
 .card input {
   width: 100%;
   padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   font-size: 16px;
   margin-bottom: 12px;
 }
@@ -999,7 +1000,7 @@ h1 {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
   font-weight: 600;
 }
 
@@ -1024,62 +1025,75 @@ h1 {
   display: flex;
   gap: 10px;
   padding: 16px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border);
 }
 
 .modal-footer button {
   flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 /* Image Preview */
 #image-preview {
-  margin-top: 12px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #f5f5f5;
+  background: var(--bg);
   border-radius: 10px;
 }
 
 #image-preview img {
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   object-fit: cover;
   border-radius: 8px;
 }
 
-#image-preview .preview-info {
+#image-preview span {
   flex: 1;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 #image-preview button {
-  padding: 8px 12px;
+  padding: 8px 14px;
   font-size: 13px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: #ff3b30;
+  cursor: pointer;
+}
+
+#image-preview button:active {
+  background: var(--bg);
 }
 
 /* Toast */
 .toast {
   position: fixed;
-  top: 50px;
+  bottom: calc(100px + env(safe-area-inset-bottom));
   left: 16px;
   right: 16px;
   padding: 14px 20px;
-  border-radius: 10px;
+  border-radius: 12px;
   color: white;
   text-align: center;
   font-weight: 500;
   z-index: 9999;
-  animation: slideDown 0.3s ease;
+  animation: toastIn 0.3s ease;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-@keyframes slideDown {
+@keyframes toastIn {
   from {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -1136,31 +1150,38 @@ h1 {
 /* Empty States */
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
-  color: #888;
+  padding: 60px 20px;
+  color: var(--text-secondary);
 }
 
 .empty-icon {
-  font-size: 48px;
+  font-size: 56px;
   margin-bottom: 16px;
+  animation: bounce 2s ease infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
 .empty-title {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--text);
   margin-bottom: 8px;
 }
 
 .empty-text {
   font-size: 14px;
   line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .empty-msg {
   text-align: center;
   padding: 40px 20px;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 15px;
 }
 
