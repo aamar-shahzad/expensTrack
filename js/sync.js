@@ -445,11 +445,26 @@ const Sync = {
         }
         
         this.updateProgress(30, 'Receiving data...');
+        
+        // Track what syncIds they sent so we don't send them back
+        const receivedExpenseIds = new Set((message.data.expenses || []).map(e => e.syncId).filter(Boolean));
+        const receivedPeopleIds = new Set((message.data.people || []).map(p => p.syncId).filter(Boolean));
+        const receivedImageIds = new Set((message.data.images || []).map(i => i.syncId || i.id).filter(Boolean));
+        
         await this.mergeData(message.data);
         
         this.updateProgress(60, 'Preparing response...');
         const localData = await DB.getAllData();
-        const imagesForSync = await this.prepareImagesForSync(localData.images || []);
+        
+        // Only send items they don't already have
+        const newExpenses = (localData.expenses || []).filter(e => e.syncId && !receivedExpenseIds.has(e.syncId));
+        const newPeople = (localData.people || []).filter(p => p.syncId && !receivedPeopleIds.has(p.syncId));
+        const newImages = (localData.images || []).filter(i => {
+          const imgSyncId = i.syncId || i.id;
+          return imgSyncId && !receivedImageIds.has(imgSyncId);
+        });
+        
+        const imagesForSync = await this.prepareImagesForSync(newImages);
         const conn = this.connections.get(fromPeer);
         
         if (conn) {
@@ -457,8 +472,8 @@ const Sync = {
           conn.send({
             type: 'sync_response',
             data: {
-              expenses: localData.expenses || [],
-              people: localData.people || [],
+              expenses: newExpenses,
+              people: newPeople,
               images: imagesForSync
             },
             accountId: currentAccount?.id,
