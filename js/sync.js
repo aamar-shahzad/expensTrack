@@ -2,19 +2,23 @@
  * P2P Sync Module
  * - Permanent device ID for sharing
  * - Manual sync only
- * - 5 min idle timeout
+ * - Auto-reconnect on disconnect
+ * - 10 min idle timeout
  */
 
 const Sync = {
   peer: null,
   deviceId: null,
   connections: new Map(),
+  savedConnections: [], // Remember connections for auto-reconnect
   isInitialized: false,
   isConnecting: false,
   retryCount: 0,
   maxRetries: 3,
   idleTimeout: null,
-  IDLE_TIMEOUT_MS: 5 * 60 * 1000,
+  reconnectTimer: null,
+  syncProgress: 0,
+  IDLE_TIMEOUT_MS: 10 * 60 * 1000, // 10 minutes
 
   async init() {
     // Get or create PERMANENT device ID (never changes)
@@ -24,6 +28,10 @@ const Sync = {
       this.deviceId = this.generateShortId();
       localStorage.setItem('et_deviceId', this.deviceId);
     }
+    
+    // Load saved connections for auto-reconnect
+    const saved = localStorage.getItem('et_savedConnections');
+    this.savedConnections = saved ? JSON.parse(saved) : [];
   },
 
   generateShortId() {
@@ -74,6 +82,9 @@ const Sync = {
         this.isConnecting = false;
         this.retryCount = 0;
         this.startIdleTimer();
+        
+        // Auto-reconnect to saved devices
+        setTimeout(() => this.autoReconnect(), 1000);
         
         if (App.currentView === 'sync') {
           UI.renderSync();
@@ -143,6 +154,9 @@ const Sync = {
       this.startIdleTimer();
       App.showSuccess('Device connected!');
       
+      // Save this connection for auto-reconnect
+      this.saveConnection(peerId);
+      
       if (App.currentView === 'sync') {
         UI.renderSync();
       }
@@ -157,7 +171,9 @@ const Sync = {
       console.log('Connection closed with', peerId);
       this.connections.delete(peerId);
       this.updateBadge();
-      App.showError('Device disconnected');
+      
+      // Try to auto-reconnect after a short delay
+      this.scheduleReconnect(peerId);
       
       if (App.currentView === 'sync') {
         UI.renderSync();
@@ -169,6 +185,63 @@ const Sync = {
       this.connections.delete(peerId);
       this.updateBadge();
     });
+  },
+
+  // Save connection for auto-reconnect
+  saveConnection(peerId) {
+    const shortId = peerId.replace('et-', '');
+    if (!this.savedConnections.includes(shortId)) {
+      this.savedConnections.push(shortId);
+      // Keep only last 5 connections
+      if (this.savedConnections.length > 5) {
+        this.savedConnections = this.savedConnections.slice(-5);
+      }
+      localStorage.setItem('et_savedConnections', JSON.stringify(this.savedConnections));
+    }
+  },
+
+  // Remove saved connection
+  removeSavedConnection(peerId) {
+    const shortId = peerId.replace('et-', '');
+    this.savedConnections = this.savedConnections.filter(id => id !== shortId);
+    localStorage.setItem('et_savedConnections', JSON.stringify(this.savedConnections));
+  },
+
+  // Schedule auto-reconnect
+  scheduleReconnect(peerId) {
+    // Only auto-reconnect if the app is active
+    if (document.hidden) return;
+    
+    // Don't reconnect if we're on sync page and user manually disconnected
+    const shortId = peerId.replace('et-', '');
+    if (!this.savedConnections.includes(shortId)) return;
+    
+    // Try to reconnect after 3 seconds
+    setTimeout(() => {
+      if (!this.connections.has(peerId) && this.isInitialized) {
+        console.log('Auto-reconnecting to', peerId);
+        this.connectToDevice(shortId);
+      }
+    }, 3000);
+  },
+
+  // Try to reconnect to saved connections
+  async autoReconnect() {
+    if (!this.isInitialized || this.savedConnections.length === 0) return;
+    
+    for (const shortId of this.savedConnections) {
+      const peerId = 'et-' + shortId;
+      if (!this.connections.has(peerId)) {
+        // Small delay between reconnection attempts
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+          const conn = this.peer.connect(peerId, { reliable: true });
+          this.setupConnection(conn);
+        } catch (e) {
+          console.warn('Auto-reconnect failed for', shortId);
+        }
+      }
+    }
   },
 
   connectToDevice(remoteId) {
@@ -218,18 +291,23 @@ const Sync = {
 
     // Disable sync button during sync
     const syncBtn = document.getElementById('sync-btn');
+    const progressEl = document.getElementById('sync-progress');
+    
     if (syncBtn) {
       syncBtn.disabled = true;
-      syncBtn.textContent = 'Syncing...';
+      syncBtn.textContent = 'Preparing...';
     }
 
     this.startIdleTimer();
+    this.updateProgress(0, 'Gathering data...');
 
     try {
       const localData = await DB.getAllData();
+      this.updateProgress(20, 'Processing images...');
       
       // Convert image blobs to base64 for transfer
       const imagesForSync = await this.prepareImagesForSync(localData.images || []);
+      this.updateProgress(50, 'Sending data...');
       
       const message = {
         type: 'sync_request',
@@ -253,9 +331,13 @@ const Sync = {
       }
 
       if (sent > 0) {
-        App.showSuccess(`Syncing with ${sent} device(s)...`);
+        this.updateProgress(70, `Waiting for response from ${sent} device(s)...`);
+        if (syncBtn) {
+          syncBtn.textContent = 'Syncing...';
+        }
       } else {
         App.showError('Failed to send');
+        this.updateProgress(0, '');
         if (syncBtn) {
           syncBtn.disabled = false;
           syncBtn.textContent = 'Sync Now';
@@ -265,10 +347,26 @@ const Sync = {
     } catch (e) {
       console.error('Sync error:', e);
       App.showError('Sync failed');
+      this.updateProgress(0, '');
       if (syncBtn) {
         syncBtn.disabled = false;
         syncBtn.textContent = 'Sync Now';
       }
+    }
+  },
+
+  updateProgress(percent, status) {
+    this.syncProgress = percent;
+    const progressEl = document.getElementById('sync-progress');
+    const statusEl = document.getElementById('sync-status');
+    
+    if (progressEl) {
+      progressEl.style.width = `${percent}%`;
+      progressEl.parentElement.classList.toggle('hidden', percent === 0);
+    }
+    if (statusEl) {
+      statusEl.textContent = status;
+      statusEl.classList.toggle('hidden', !status);
     }
   },
 
@@ -321,13 +419,16 @@ const Sync = {
 
     try {
       if (message.type === 'sync_request') {
+        this.updateProgress(30, 'Receiving data...');
         await this.mergeData(message.data);
         
+        this.updateProgress(60, 'Preparing response...');
         const localData = await DB.getAllData();
         const imagesForSync = await this.prepareImagesForSync(localData.images || []);
         const conn = this.connections.get(fromPeer);
         
         if (conn) {
+          this.updateProgress(80, 'Sending response...');
           conn.send({
             type: 'sync_response',
             data: {
@@ -340,11 +441,16 @@ const Sync = {
           });
         }
 
+        this.updateProgress(100, 'Complete!');
         App.showSuccess('Data received & sent back');
+        setTimeout(() => this.updateProgress(0, ''), 2000);
         this.refreshView();
 
       } else if (message.type === 'sync_response') {
+        this.updateProgress(85, 'Processing received data...');
         await this.mergeData(message.data);
+        
+        this.updateProgress(100, 'Sync complete!');
         App.showSuccess('Sync complete!');
         
         // Re-enable sync button
@@ -354,11 +460,13 @@ const Sync = {
           syncBtn.textContent = 'Sync Now';
         }
         
+        setTimeout(() => this.updateProgress(0, ''), 2000);
         this.refreshView();
       }
 
     } catch (e) {
       console.error('Handle message error:', e);
+      this.updateProgress(0, '');
     }
   },
 

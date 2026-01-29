@@ -304,6 +304,7 @@ const UI = {
   async renderStats() {
     const main = document.getElementById('main-content');
     const currency = Settings.getCurrency();
+    const isShared = Accounts.isSharedMode();
     
     // Get current month expenses
     const now = new Date();
@@ -321,6 +322,10 @@ const UI = {
     const totalAllTime = allExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
     const avgPerExpense = allExpenses.length > 0 ? totalAllTime / allExpenses.length : 0;
     
+    // Calculate days with expenses this month
+    const daysWithExpenses = new Set(monthExpenses.map(e => e.date)).size;
+    const dailyAvg = daysWithExpenses > 0 ? totalThisMonth / daysWithExpenses : 0;
+    
     // Monthly trend (last 6 months)
     const monthlyTotals = [];
     for (let i = 5; i >= 0; i--) {
@@ -337,12 +342,17 @@ const UI = {
       monthlyTotals.push({ month: monthName, total });
     }
     
-    // Get people for spending breakdown (shared mode)
-    const people = await DB.getPeople();
-    const personTotals = {};
-    allExpenses.forEach(e => {
-      personTotals[e.payerId] = (personTotals[e.payerId] || 0) + parseFloat(e.amount);
-    });
+    // Get people for spending breakdown (shared mode only)
+    let people = [];
+    let personTotals = {};
+    if (isShared) {
+      people = await DB.getPeople();
+      allExpenses.forEach(e => {
+        if (e.payerId && e.payerId !== 'self') {
+          personTotals[e.payerId] = (personTotals[e.payerId] || 0) + parseFloat(e.amount);
+        }
+      });
+    }
     
     main.innerHTML = `
       <h1>Statistics</h1>
@@ -371,18 +381,26 @@ const UI = {
         <canvas id="trend-chart" class="chart-canvas"></canvas>
       </div>
       
-      ${people.length > 0 ? `
+      ${isShared && people.length > 0 ? `
       <div class="chart-container">
         <div class="chart-title">Spending by Person</div>
         <canvas id="person-chart" class="chart-canvas"></canvas>
         <div class="chart-legend" id="person-legend"></div>
       </div>
-      ` : ''}
+      ` : `
+      <div class="chart-container">
+        <div class="chart-title">Daily Average</div>
+        <div style="text-align:center;padding:20px">
+          <div class="stat-value" style="font-size:32px">${Settings.formatAmount(dailyAvg)}</div>
+          <div class="stat-label">per day (${daysWithExpenses} days with expenses)</div>
+        </div>
+      </div>
+      `}
     `;
     
     // Draw charts
     this.drawTrendChart(monthlyTotals);
-    if (people.length > 0) {
+    if (isShared && people.length > 0) {
       this.drawPersonChart(people, personTotals);
     }
   },
@@ -512,13 +530,38 @@ const UI = {
               <div class="peer-item">
                 <div class="peer-icon">📱</div>
                 <div class="peer-id-display">${peer.displayId}</div>
-                <button class="btn-icon" onclick="Sync.disconnectPeer('${peer.id}')">✕</button>
+                <button class="btn-icon" onclick="Sync.disconnectPeer('${peer.id}'); Sync.removeSavedConnection('${peer.id}')">✕</button>
               </div>
             `).join('')}
+          </div>
+          <div class="sync-progress-container hidden" style="margin-top:12px">
+            <div class="sync-progress-bar"><div id="sync-progress" class="sync-progress-fill"></div></div>
+            <div id="sync-status" class="sync-status"></div>
           </div>
           <button class="btn-primary" id="sync-btn" style="margin-top:12px">
             Sync Now
           </button>
+        </div>
+      `;
+    }
+    
+    // Show saved connections that we can auto-reconnect to
+    const savedConnections = Sync.savedConnections || [];
+    let savedHtml = '';
+    if (savedConnections.length > 0 && connectedPeers.length === 0) {
+      savedHtml = `
+        <div class="card">
+          <label>Recent Devices</label>
+          <div class="peer-list">
+            ${savedConnections.map(id => `
+              <div class="peer-item">
+                <div class="peer-icon" style="opacity:0.5">📱</div>
+                <div class="peer-id-display" style="opacity:0.5">${id}</div>
+                <button class="btn-small btn-primary" onclick="Sync.connectToDevice('${id}')">Connect</button>
+              </div>
+            `).join('')}
+          </div>
+          <p class="help-text" style="margin-top:8px;font-size:12px">Previously connected devices - tap to reconnect</p>
         </div>
       `;
     }
@@ -540,13 +583,15 @@ const UI = {
       
       ${connectedHtml}
       
+      ${savedHtml}
+      
       <div class="card">
         <label>Connect to Another Device</label>
         <input type="text" id="remote-id" placeholder="Enter their 6-letter ID" maxlength="6" style="text-transform:uppercase">
         <button class="btn-primary" id="connect-btn">Connect</button>
       </div>
       
-      ${connections === 0 ? `
+      ${connections === 0 && savedConnections.length === 0 ? `
       <div class="card">
         <label>How to Sync</label>
         <ol class="help-list">

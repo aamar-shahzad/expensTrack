@@ -1955,5 +1955,32 @@ html {
   margin-left: 6px;
 }
 
+/* Sync Progress */
+.sync-progress-container {
+  margin-bottom: 8px;
+}
+
+.sync-progress-bar {
+  height: 6px;
+  background: #e9edef;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sync-progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.sync-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 6px;
+}
+
 /* Hidden */
 .hidden { display: none !important; }
