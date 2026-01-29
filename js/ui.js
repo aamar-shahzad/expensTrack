@@ -518,6 +518,7 @@ const UI = {
     const deviceId = Sync.getDeviceId() || '------';
     const connections = Sync.getConnectionCount();
     const connectedPeers = Sync.getConnectedPeers();
+    const currentAccount = Accounts.getCurrentAccount();
     
     // Build connected devices HTML
     let connectedHtml = '';
@@ -568,6 +569,11 @@ const UI = {
     
     main.innerHTML = `
       <h1>Sync</h1>
+      
+      <div class="account-sync-info">
+        <span class="sync-account-badge">${currentAccount?.mode === 'single' ? '👤' : '👥'} ${currentAccount?.name || 'Account'}</span>
+        <span class="sync-account-hint">Only syncs data for this account</span>
+      </div>
       
       <div class="status-box ${isReady ? 'online' : 'offline'}">
         <div class="status-dot"></div>

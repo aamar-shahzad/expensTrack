@@ -2000,5 +2000,28 @@ html {
   margin-top: 8px;
 }
 
+/* Account Sync Info */
+.account-sync-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  background: rgba(7, 94, 84, 0.08);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.sync-account-badge {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--primary);
+}
+
+.sync-account-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
 /* Hidden */
 .hidden { display: none !important; }

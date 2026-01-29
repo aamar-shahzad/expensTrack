@@ -309,6 +309,8 @@ const Sync = {
       const imagesForSync = await this.prepareImagesForSync(localData.images || []);
       this.updateProgress(50, 'Sending data...');
       
+      // Include account ID so data only syncs within same account
+      const currentAccount = Accounts.getCurrentAccount();
       const message = {
         type: 'sync_request',
         data: {
@@ -316,6 +318,8 @@ const Sync = {
           people: localData.people || [],
           images: imagesForSync
         },
+        accountId: currentAccount?.id,
+        accountName: currentAccount?.name,
         deviceId: this.deviceId,
         timestamp: Date.now()
       };
@@ -415,10 +419,31 @@ const Sync = {
   async handleMessage(message, fromPeer) {
     if (!message || !message.type) return;
 
-    console.log('Received:', message.type);
+    console.log('Received:', message.type, 'from account:', message.accountName);
+    
+    const currentAccount = Accounts.getCurrentAccount();
 
     try {
       if (message.type === 'sync_request') {
+        // Check if accounts match (only sync within same account)
+        if (message.accountId && message.accountId !== currentAccount?.id) {
+          App.showError(`Different account: "${message.accountName || 'Unknown'}". Switch to same account to sync.`);
+          this.updateProgress(0, '');
+          
+          // Send rejection response
+          const conn = this.connections.get(fromPeer);
+          if (conn) {
+            conn.send({
+              type: 'sync_rejected',
+              reason: 'account_mismatch',
+              yourAccount: message.accountName,
+              myAccount: currentAccount?.name,
+              deviceId: this.deviceId
+            });
+          }
+          return;
+        }
+        
         this.updateProgress(30, 'Receiving data...');
         await this.mergeData(message.data);
         
@@ -436,6 +461,8 @@ const Sync = {
               people: localData.people || [],
               images: imagesForSync
             },
+            accountId: currentAccount?.id,
+            accountName: currentAccount?.name,
             deviceId: this.deviceId,
             timestamp: Date.now()
           });
@@ -447,26 +474,46 @@ const Sync = {
         this.refreshView();
 
       } else if (message.type === 'sync_response') {
+        // Check if accounts match
+        if (message.accountId && message.accountId !== currentAccount?.id) {
+          App.showError(`Account mismatch with "${message.accountName}"`);
+          this.resetSyncButton();
+          this.updateProgress(0, '');
+          return;
+        }
+        
         this.updateProgress(85, 'Processing received data...');
         await this.mergeData(message.data);
         
         this.updateProgress(100, 'Sync complete!');
         App.showSuccess('Sync complete!');
         
-        // Re-enable sync button
-        const syncBtn = document.getElementById('sync-btn');
-        if (syncBtn) {
-          syncBtn.disabled = false;
-          syncBtn.textContent = 'Sync Now';
-        }
-        
+        this.resetSyncButton();
         setTimeout(() => this.updateProgress(0, ''), 2000);
         this.refreshView();
+        
+      } else if (message.type === 'sync_rejected') {
+        if (message.reason === 'account_mismatch') {
+          App.showError(`Account mismatch! You: "${message.yourAccount}", They: "${message.myAccount}"`);
+        } else {
+          App.showError('Sync rejected by other device');
+        }
+        this.resetSyncButton();
+        this.updateProgress(0, '');
       }
 
     } catch (e) {
       console.error('Handle message error:', e);
       this.updateProgress(0, '');
+      this.resetSyncButton();
+    }
+  },
+
+  resetSyncButton() {
+    const syncBtn = document.getElementById('sync-btn');
+    if (syncBtn) {
+      syncBtn.disabled = false;
+      syncBtn.textContent = 'Sync Now';
     }
   },
 
