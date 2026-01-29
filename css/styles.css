@@ -2332,5 +2332,160 @@ html {
   text-align: center;
 }
 
+/* Mobile Optimizations */
+
+/* Ensure minimum touch target size (44px) */
+.nav-btn {
+  min-height: 48px;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  min-height: 48px;
+}
+
+.list-item,
+.expense-item,
+.settings-item {
+  min-height: 56px;
+}
+
+/* Prevent zoom on input focus (iOS) */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Better scrolling on iOS */
+.expenses-list,
+.main-content {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Small screens (under 375px) */
+@media (max-width: 374px) {
+  .sticky-header {
+    padding: 8px;
+  }
+  
+  .sticky-header h1 {
+    font-size: 18px;
+  }
+  
+  .summary-box {
+    padding: 10px 12px;
+  }
+  
+  .summary-amount {
+    font-size: 22px;
+  }
+  
+  .expense-item {
+    padding: 12px;
+    gap: 10px;
+  }
+  
+  .expense-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+  
+  .nav-btn {
+    font-size: 10px;
+  }
+  
+  .nav-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+  
+  .fab-main {
+    width: 50px;
+    height: 50px;
+  }
+  
+  h1 {
+    font-size: 24px;
+  }
+}
+
+/* Medium screens (375px - 414px) - Most phones */
+@media (min-width: 375px) and (max-width: 414px) {
+  .main-content {
+    padding: 14px;
+  }
+}
+
+/* Larger phones and tablets */
+@media (min-width: 500px) {
+  .main-content {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+  
+  .bottom-nav {
+    max-width: 500px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 20px 20px 0 0;
+  }
+  
+  .fab-main {
+    right: calc(50% - 250px + 16px);
+  }
+  
+  .modal-sheet {
+    max-width: 500px;
+  }
+  
+  .toast {
+    max-width: 400px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+/* Landscape mode on phones */
+@media (max-height: 500px) and (orientation: landscape) {
+  .sticky-header {
+    position: relative;
+  }
+  
+  .main-content {
+    padding-bottom: 80px;
+  }
+}
+
+/* High contrast / reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark mode support (optional - uses system preference) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111b21;
+    --white: #1f2c34;
+    --text: #e9edef;
+    --text-secondary: #8696a0;
+    --border: #2a3942;
+  }
+  
+  .summary-box {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  }
+  
+  .expense-icon {
+    background: linear-gradient(135deg, #2a3942 0%, #1f2c34 100%);
+  }
+}
+
 /* Hidden */
 .hidden { display: none !important; }
