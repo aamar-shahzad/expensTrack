@@ -150,7 +150,9 @@ const UI = {
     const currency = Settings.getCurrency();
     
     main.innerHTML = `
-      <h1>Add Expense</h1>
+      <div class="page-header">
+        <h1>Add Expense</h1>
+      </div>
       
       <form id="expense-form" class="add-form">
         <div class="form-card">
@@ -282,7 +284,9 @@ const UI = {
   renderPeople() {
     const main = document.getElementById('main-content');
     main.innerHTML = `
-      <h1>People</h1>
+      <div class="page-header">
+        <h1>People</h1>
+      </div>
       <div id="people-list"></div>
       <button class="fab" id="add-person-btn">+</button>
     `;
@@ -297,11 +301,9 @@ const UI = {
     const isShared = Accounts.isSharedMode();
     
     main.innerHTML = `
-      <h1>Settlement</h1>
-      
-      <div class="account-indicator">
-        <span>${isShared ? '👥' : '👤'} ${currentAccount?.name || 'Account'}</span>
-        <span class="account-type-badge">${isShared ? 'Shared' : 'Private'}</span>
+      <div class="page-header">
+        <h1>Settlement</h1>
+        <div class="page-account-badge">${isShared ? '👥' : '👤'} ${currentAccount?.name || 'Account'}</div>
       </div>
       
       <div id="settlement-results"></div>
@@ -365,11 +367,9 @@ const UI = {
     }
     
     main.innerHTML = `
-      <h1>Statistics</h1>
-      
-      <div class="account-indicator">
-        <span>${isShared ? '👥' : '👤'} ${currentAccount?.name || 'Account'}</span>
-        <span class="account-type-badge">${isShared ? 'Shared' : 'Private'}</span>
+      <div class="page-header">
+        <h1>Statistics</h1>
+        <div class="page-account-badge">${isShared ? '👥' : '👤'} ${currentAccount?.name || 'Account'}</div>
       </div>
       
       <div class="stats-grid">
@@ -583,11 +583,9 @@ const UI = {
     }
     
     main.innerHTML = `
-      <h1>Sync</h1>
-      
-      <div class="account-sync-info">
-        <span class="sync-account-badge">${currentAccount?.mode === 'single' ? '👤' : '👥'} ${currentAccount?.name || 'Account'}</span>
-        <span class="sync-account-hint">Only syncs data for this account</span>
+      <div class="page-header">
+        <h1>Sync</h1>
+        <div class="page-account-badge">${currentAccount?.mode === 'single' ? '👤' : '👥'} ${currentAccount?.name || 'Account'}</div>
       </div>
       
       <div class="status-box ${isReady ? 'online' : 'offline'}">
@@ -834,7 +832,9 @@ const UI = {
     const currencyName = Settings.currencies.find(c => c.symbol === currentCurrency)?.name || 'Dollar';
     
     main.innerHTML = `
-      <h1>Settings</h1>
+      <div class="page-header">
+        <h1>Settings</h1>
+      </div>
       
       <div class="settings-section">
         <div class="settings-section-title">Account</div>
