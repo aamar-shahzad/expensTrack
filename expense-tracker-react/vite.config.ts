@@ -9,7 +9,6 @@ export default defineConfig(({ mode }) => {
   // Third param '' loads all vars, not just VITE_ prefixed
   const env = loadEnv(mode, process.cwd(), '')
   const base = env.VITE_BASE || '/'
-  console.log(`[vite.config] mode=${mode}, VITE_BASE=${env.VITE_BASE}, base=${base}`)
 
   return {
     base,
