@@ -45,14 +45,43 @@ const Expenses = {
   },
 
   async loadCurrentMonth() {
+    // Show skeleton while loading
+    this.showSkeleton();
+    
     try {
       const expenses = await DB.getExpenses(this.currentMonth, this.currentYear);
-      this.renderExpenses(expenses);
+      
+      // Apply category filter if active
+      let filtered = expenses;
+      if (this.currentCategoryFilter && this.currentCategoryFilter !== 'all') {
+        filtered = expenses.filter(exp => {
+          const icon = this.getCategoryIcon(exp.description);
+          return icon === this.currentCategoryFilter;
+        });
+      }
+      
+      this.renderExpenses(filtered);
       this.updateMonthDisplay();
-      this.updateSummary(expenses);
+      this.updateSummary(filtered);
     } catch (e) {
       console.error('Failed to load expenses:', e);
     }
+  },
+
+  showSkeleton() {
+    const list = document.getElementById('expenses-list');
+    if (!list) return;
+    
+    list.innerHTML = Array(5).fill(0).map(() => `
+      <div class="expense-item skeleton">
+        <div class="skeleton-icon"></div>
+        <div class="expense-main">
+          <div class="skeleton-text skeleton-title"></div>
+          <div class="skeleton-text skeleton-meta"></div>
+        </div>
+        <div class="skeleton-text skeleton-amount"></div>
+      </div>
+    `).join('');
   },
 
   async renderExpenses(expenses) {
@@ -83,26 +112,95 @@ const Expenses = {
       const categoryIcon = this.getCategoryIcon(exp.description);
       const isSelected = this.selectedIds.has(exp.id);
       return `
-        <div class="expense-item ${isSelected ? 'selected' : ''}" 
-             onclick="Expenses.handleItemClick('${exp.id}')" 
-             oncontextmenu="Expenses.toggleSelectionMode(event, '${exp.id}')"
-             data-id="${exp.id}">
-          ${this.selectionMode ? `
-            <div class="expense-checkbox ${isSelected ? 'checked' : ''}">
-              ${isSelected ? '✓' : ''}
+        <div class="expense-item-wrapper" data-id="${exp.id}">
+          <div class="expense-item ${isSelected ? 'selected' : ''}" 
+               onclick="Expenses.handleItemClick('${exp.id}')" 
+               oncontextmenu="Expenses.toggleSelectionMode(event, '${exp.id}')">
+            ${this.selectionMode ? `
+              <div class="expense-checkbox ${isSelected ? 'checked' : ''}">
+                ${isSelected ? '✓' : ''}
+              </div>
+            ` : (exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : `<div class="expense-icon">${categoryIcon}</div>`)}
+            <div class="expense-main">
+              <div class="expense-desc">${exp.description}</div>
+              <div class="expense-meta">${payerName}${this.formatDate(exp.date)}${exp.tags ? ` • ${exp.tags}` : ''}</div>
             </div>
-          ` : (exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : `<div class="expense-icon">${categoryIcon}</div>`)}
-          <div class="expense-main">
-            <div class="expense-desc">${exp.description}</div>
-            <div class="expense-meta">${payerName}${this.formatDate(exp.date)}${exp.tags ? ` • ${exp.tags}` : ''}</div>
+            <div class="expense-amount">${Settings.formatAmount(exp.amount)}</div>
           </div>
-          <div class="expense-amount">${Settings.formatAmount(exp.amount)}</div>
+          <div class="swipe-actions">
+            <button class="swipe-action swipe-duplicate" onclick="Expenses.duplicateExpense('${exp.id}')">
+              <span>📋</span>
+              <span>Copy</span>
+            </button>
+            <button class="swipe-action swipe-delete" onclick="Expenses.deleteExpense('${exp.id}')">
+              <span>🗑️</span>
+              <span>Delete</span>
+            </button>
+          </div>
         </div>
       `;
     }).join('');
 
-    // Load thumbnails
+    // Load thumbnails and setup swipe
     this.loadThumbnails();
+    this.setupSwipeHandlers();
+  },
+
+  setupSwipeHandlers() {
+    if (this.selectionMode) return;
+    
+    const wrappers = document.querySelectorAll('.expense-item-wrapper');
+    wrappers.forEach(wrapper => {
+      const item = wrapper.querySelector('.expense-item');
+      let startX = 0;
+      let currentX = 0;
+      let isDragging = false;
+
+      item.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        isDragging = true;
+        item.style.transition = 'none';
+      }, { passive: true });
+
+      item.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        currentX = e.touches[0].clientX;
+        const diff = currentX - startX;
+        
+        // Only allow left swipe (negative diff)
+        if (diff < 0) {
+          const translateX = Math.max(diff, -150);
+          item.style.transform = `translateX(${translateX}px)`;
+        }
+      }, { passive: true });
+
+      item.addEventListener('touchend', () => {
+        isDragging = false;
+        item.style.transition = 'transform 0.3s ease';
+        
+        const diff = currentX - startX;
+        if (diff < -80) {
+          // Show actions with haptic
+          item.style.transform = 'translateX(-120px)';
+          wrapper.classList.add('swiped');
+          Expenses.hapticFeedback('light');
+        } else {
+          // Reset
+          item.style.transform = 'translateX(0)';
+          wrapper.classList.remove('swiped');
+        }
+        currentX = 0;
+      });
+
+      // Close on tap elsewhere
+      item.addEventListener('click', (e) => {
+        if (wrapper.classList.contains('swiped')) {
+          e.stopPropagation();
+          item.style.transform = 'translateX(0)';
+          wrapper.classList.remove('swiped');
+        }
+      });
+    });
   },
 
   async loadThumbnails() {
@@ -221,6 +319,38 @@ const Expenses = {
       console.error('Failed to delete:', e);
       App.showError('Failed to delete some expenses');
     }
+  },
+
+  async duplicateExpense(id) {
+    try {
+      const exp = await DB.getExpenseById(id);
+      if (!exp) return;
+      
+      // Create new expense with today's date
+      const newExpense = {
+        description: exp.description,
+        amount: exp.amount,
+        date: new Date().toISOString().split('T')[0],
+        payerId: exp.payerId,
+        splitType: exp.splitType || 'equal',
+        splitDetails: exp.splitDetails,
+        tags: exp.tags || '',
+        notes: exp.notes || ''
+        // Don't copy imageId, recurring, or syncId
+      };
+      
+      await DB.addExpense(newExpense);
+      this.hapticFeedback();
+      App.showSuccess('Expense copied!');
+      this.loadCurrentMonth();
+    } catch (e) {
+      console.error('Failed to duplicate:', e);
+      App.showError('Failed to copy expense');
+    }
+  },
+
+  hapticFeedback(type = 'light') {
+    App.haptic(type);
   },
 
   async showDetail(id) {
@@ -740,6 +870,9 @@ const Expenses = {
       // Delete from DB
       await DB.deleteExpense(id);
       
+      // Haptic feedback
+      this.hapticFeedback('light');
+      
       // Show undo toast
       this.showUndoToast();
       
@@ -888,6 +1021,35 @@ const Expenses = {
       if (countEl) countEl.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`;
     } catch (e) {
       console.error('Search failed:', e);
+    }
+  },
+
+  currentCategoryFilter: 'all',
+
+  async filterByCategory(category) {
+    this.currentCategoryFilter = category;
+    
+    try {
+      const expenses = await DB.getExpenses(this.currentMonth, this.currentYear);
+      
+      let filtered = expenses;
+      if (category !== 'all') {
+        filtered = expenses.filter(exp => {
+          const icon = this.getCategoryIcon(exp.description);
+          return icon === category;
+        });
+      }
+      
+      this.renderExpenses(filtered);
+      
+      // Update summary
+      const total = filtered.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+      const totalEl = document.getElementById('total-amount');
+      const countEl = document.getElementById('expense-count');
+      if (totalEl) totalEl.textContent = Settings.formatAmount(total);
+      if (countEl) countEl.textContent = `${filtered.length} expense${filtered.length !== 1 ? 's' : ''}`;
+    } catch (e) {
+      console.error('Filter failed:', e);
     }
   }
 };

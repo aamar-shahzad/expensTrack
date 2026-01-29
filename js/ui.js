@@ -99,6 +99,17 @@ const UI = {
           <input type="date" id="filter-to">
           <button class="btn-small btn-primary" id="apply-filter">Apply</button>
         </div>
+        
+        <div id="category-filter" class="category-filter">
+          <button class="category-chip active" data-category="all">All</button>
+          <button class="category-chip" data-category="🍔">🍔</button>
+          <button class="category-chip" data-category="☕">☕</button>
+          <button class="category-chip" data-category="🛒">🛒</button>
+          <button class="category-chip" data-category="🚗">🚗</button>
+          <button class="category-chip" data-category="🏠">🏠</button>
+          <button class="category-chip" data-category="🎬">🎬</button>
+          <button class="category-chip" data-category="💵">💵</button>
+        </div>
       </div>
       
       <div id="pull-indicator" class="pull-indicator hidden">
@@ -163,6 +174,15 @@ const UI = {
         Expenses.searchExpenses(e.target.value.trim());
       }, 300);
     };
+    
+    // Category filter
+    document.querySelectorAll('.category-chip').forEach(chip => {
+      chip.onclick = () => {
+        document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        Expenses.filterByCategory(chip.dataset.category);
+      };
+    });
     
     Expenses.loadCurrentMonth();
   },
@@ -733,7 +753,7 @@ const UI = {
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
       
-      const allExpenses = await DB.getExpenses();
+      const allExpenses = await DB.getAllExpenses();
       const monthExpenses = allExpenses.filter(e => {
         const [year, month] = e.date.split('-').map(Number);
         return month - 1 === currentMonth && year === currentYear;
@@ -747,6 +767,18 @@ const UI = {
       // Calculate days with expenses this month
       const daysWithExpenses = new Set(monthExpenses.map(e => e.date)).size;
       const dailyAvg = daysWithExpenses > 0 ? totalThisMonth / daysWithExpenses : 0;
+      
+      // Category breakdown for this month
+      const categoryTotals = {};
+      monthExpenses.forEach(e => {
+        const icon = Expenses.getCategoryIcon(e.description);
+        categoryTotals[icon] = (categoryTotals[icon] || 0) + parseFloat(e.amount);
+      });
+      
+      // Sort categories by total
+      const sortedCategories = Object.entries(categoryTotals)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8);
       
       // Monthly trend (last 6 months)
       const monthlyTotals = [];
@@ -764,6 +796,17 @@ const UI = {
         monthlyTotals.push({ month: monthName, total });
       }
       
+      // Previous month comparison
+      const prevMonthDate = new Date(currentYear, currentMonth - 1, 1);
+      const prevMonth = prevMonthDate.getMonth();
+      const prevYear = prevMonthDate.getFullYear();
+      const prevMonthExpenses = allExpenses.filter(e => {
+        const [year, month] = e.date.split('-').map(Number);
+        return month - 1 === prevMonth && year === prevYear;
+      });
+      const totalPrevMonth = prevMonthExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+      const monthChange = totalPrevMonth > 0 ? ((totalThisMonth - totalPrevMonth) / totalPrevMonth * 100) : 0;
+      
       // Get people for spending breakdown (shared mode only)
       let people = [];
       let personTotals = {};
@@ -778,31 +821,54 @@ const UI = {
       
       main.innerHTML = `
         <div class="page-header">
-          <h1>Statistics</h1>
+          <h1>Insights</h1>
           <div class="page-account-badge">${isShared ? '👥' : '👤'} ${accountName}</div>
         </div>
         
         <div class="stats-grid">
-          <div class="stat-card">
+          <div class="stat-card highlight">
             <div class="stat-value">${Settings.formatAmount(totalThisMonth)}</div>
+            <div class="stat-label">This Month</div>
+            ${totalPrevMonth > 0 ? `
+              <div class="stat-change ${monthChange >= 0 ? 'up' : 'down'}">
+                ${monthChange >= 0 ? '↑' : '↓'} ${Math.abs(monthChange).toFixed(0)}% vs last month
+              </div>
+            ` : ''}
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${Settings.formatAmount(dailyAvg)}</div>
+            <div class="stat-label">Daily Average</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${monthExpenses.length}</div>
             <div class="stat-label">This Month</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value">${Settings.formatAmount(totalAllTime)}</div>
-            <div class="stat-label">All Time</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value">${allExpenses.length}</div>
-            <div class="stat-label">Total Expenses</div>
-          </div>
-          <div class="stat-card">
             <div class="stat-value">${Settings.formatAmount(avgPerExpense)}</div>
-            <div class="stat-label">Avg per Expense</div>
+            <div class="stat-label">Avg Expense</div>
           </div>
         </div>
         
         <div class="chart-container">
-          <div class="chart-title">Monthly Spending Trend</div>
+          <div class="chart-title">Category Breakdown</div>
+          <div class="category-bars">
+            ${sortedCategories.length > 0 ? sortedCategories.map(([icon, total]) => {
+              const percent = totalThisMonth > 0 ? (total / totalThisMonth * 100) : 0;
+              return `
+                <div class="category-bar-row">
+                  <span class="category-icon">${icon}</span>
+                  <div class="category-bar-track">
+                    <div class="category-bar-fill" style="width: ${percent}%"></div>
+                  </div>
+                  <span class="category-amount">${Settings.formatAmount(total)}</span>
+                </div>
+              `;
+            }).join('') : '<div class="empty-msg">No expenses this month</div>'}
+          </div>
+        </div>
+        
+        <div class="chart-container">
+          <div class="chart-title">6-Month Trend</div>
           <canvas id="trend-chart" class="chart-canvas"></canvas>
         </div>
         
@@ -812,15 +878,29 @@ const UI = {
           <canvas id="person-chart" class="chart-canvas"></canvas>
           <div class="chart-legend" id="person-legend"></div>
         </div>
-        ` : `
+        ` : ''}
+        
         <div class="chart-container">
-          <div class="chart-title">Daily Average</div>
-          <div style="text-align:center;padding:20px">
-            <div class="stat-value" style="font-size:32px">${Settings.formatAmount(dailyAvg)}</div>
-            <div class="stat-label">per day (${daysWithExpenses} days with expenses)</div>
+          <div class="chart-title">Quick Stats</div>
+          <div class="quick-stats">
+            <div class="quick-stat">
+              <span class="quick-stat-label">Total Expenses</span>
+              <span class="quick-stat-value">${allExpenses.length}</span>
+            </div>
+            <div class="quick-stat">
+              <span class="quick-stat-label">All-Time Total</span>
+              <span class="quick-stat-value">${Settings.formatAmount(totalAllTime)}</span>
+            </div>
+            <div class="quick-stat">
+              <span class="quick-stat-label">Days with Expenses</span>
+              <span class="quick-stat-value">${daysWithExpenses}</span>
+            </div>
+            <div class="quick-stat">
+              <span class="quick-stat-label">Biggest Expense</span>
+              <span class="quick-stat-value">${monthExpenses.length > 0 ? Settings.formatAmount(Math.max(...monthExpenses.map(e => e.amount))) : '-'}</span>
+            </div>
           </div>
         </div>
-        `}
       `;
       
       // Draw charts
@@ -832,7 +912,7 @@ const UI = {
       console.error('Failed to load stats:', err);
       main.innerHTML = `
         <div class="page-header">
-          <h1>Statistics</h1>
+          <h1>Insights</h1>
           <div class="page-account-badge">${isShared ? '👥' : '👤'} ${accountName}</div>
         </div>
         <div class="empty-msg">Could not load statistics</div>
