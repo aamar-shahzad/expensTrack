@@ -4,11 +4,12 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
-// GitHub Pages: set VITE_BASE_PATH=/repoName/ in CI; local dev uses /
-const base = process.env.VITE_BASE_PATH ?? '/'
+export default defineConfig(() => {
+  // GitHub Pages: CI sets VITE_BASE_PATH=/repoName/; local dev uses /
+  const base = process.env.VITE_BASE_PATH || '/'
 
-export default defineConfig({
-  base,
+  return {
+    base,
   plugins: [
     react(),
     tailwindcss(),
@@ -63,5 +64,6 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true
+  }
   }
 })
