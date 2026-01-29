@@ -201,17 +201,35 @@ const App = {
   },
 
   navigateTo(view) {
+    // Skip if same view
+    if (this.currentView === view && view !== 'home') return;
+    
+    const previousView = this.currentView;
     this.currentView = view;
 
-    // Update nav buttons
+    // Update nav buttons with haptic
     document.querySelectorAll('.nav-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.view === view);
+      const wasActive = btn.classList.contains('active');
+      const isActive = btn.dataset.view === view;
+      btn.classList.toggle('active', isActive);
+      
+      // Haptic on tab change
+      if (isActive && !wasActive) {
+        this.haptic('light');
+      }
     });
 
     // Show/hide FAB (only on home view)
     const fab = document.getElementById('fab-add');
     if (fab) {
       fab.classList.toggle('hidden', view !== 'home');
+    }
+
+    // Page transition animation
+    const main = document.getElementById('main-content');
+    if (main && previousView !== view) {
+      main.classList.add('page-transition');
+      setTimeout(() => main.classList.remove('page-transition'), 200);
     }
 
     // Load view

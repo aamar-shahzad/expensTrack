@@ -1,78 +1,98 @@
-/* ExpenseTracker - Clean Modern Design */
+/* ExpenseTracker - Native WhatsApp-like Design */
 
 :root {
+  /* WhatsApp Colors */
   --primary: #075e54;
   --primary-dark: #054d44;
   --primary-light: #128c7e;
   --accent: #25d366;
-  --bg: #f5f6f8;
+  --teal-green: #00a884;
+  --bg: #f0f2f5;
   --white: #ffffff;
-  --text: #1a1a2e;
-  --text-secondary: #6b7280;
-  --border: #e5e7eb;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
-  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+  --text: #111b21;
+  --text-secondary: #667781;
+  --border: #e9edef;
+  --shadow-sm: 0 1px 0.5px rgba(11,20,26,0.13);
+  --shadow-md: 0 2px 5px rgba(11,20,26,0.1);
+  --shadow-lg: 0 2px 10px rgba(11,20,26,0.15);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+  
+  /* Animation timings - Native feel */
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Dark Mode */
+/* Dark Mode - WhatsApp Dark */
 [data-theme="dark"] {
-  --primary: #25d366;
-  --primary-dark: #1da851;
-  --primary-light: #34e879;
-  --accent: #25d366;
-  --bg: #121212;
-  --white: #1e1e1e;
-  --text: #e4e4e4;
-  --text-secondary: #9ca3af;
-  --border: #333333;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
-  --shadow-lg: 0 10px 15px rgba(0,0,0,0.5);
+  --primary: #00a884;
+  --primary-dark: #008f72;
+  --primary-light: #00d9a5;
+  --accent: #00a884;
+  --teal-green: #00a884;
+  --bg: #0b141a;
+  --white: #111b21;
+  --text: #e9edef;
+  --text-secondary: #8696a0;
+  --border: #222d34;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: 0 2px 10px rgba(0,0,0,0.3);
 }
 
 [data-theme="dark"] .loading-screen {
-  background: #1e1e1e;
+  background: #111b21;
 }
 
 [data-theme="dark"] .bottom-nav {
-  background: #1e1e1e;
-  border-top-color: #333;
+  background: #111b21;
+  border-top-color: #222d34;
 }
 
 [data-theme="dark"] .modal-overlay {
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.85);
 }
 
 [data-theme="dark"] .undo-toast {
-  background: #2a2a2a;
+  background: #1f2c34;
 }
 
+/* Reset with native feel */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 
-button, input, select {
+/* Prevent rubber-banding on iOS */
+html {
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+button, input, select, textarea {
   touch-action: manipulation;
+  font-family: inherit;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   overscroll-behavior: none;
   position: fixed;
   inset: 0;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow: hidden;
 }
 
 /* Loading */
@@ -131,6 +151,25 @@ html, body {
   padding-top: calc(16px + env(safe-area-inset-top, 0px));
   padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   -webkit-overflow-scrolling: touch;
+  /* Smooth native scrolling */
+  scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
+}
+
+/* Page transition animation */
+.main-content.page-transition {
+  animation: pageFade 0.2s var(--ease-out);
+}
+
+@keyframes pageFade {
+  from {
+    opacity: 0.6;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Expenses Header - no sticky to prevent overlap on iOS */
@@ -156,20 +195,26 @@ html, body {
   padding-bottom: 100px; /* Space for bottom nav */
 }
 
-/* Bottom Navigation */
+/* Bottom Navigation - Native Tab Bar */
 .bottom-nav {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   background: var(--white);
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
   display: flex;
-  /* More padding for comfortable touch */
-  padding: 8px 0 10px 0;
-  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 0 8px 0;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   z-index: 100;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+  /* iOS-style blur background */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(255,255,255,0.85);
+}
+
+[data-theme="dark"] .bottom-nav {
+  background: rgba(17,27,33,0.9);
 }
 
 .nav-btn {
@@ -177,34 +222,38 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  /* Larger touch target */
-  padding: 8px 4px;
-  min-height: 52px;
+  gap: 2px;
+  padding: 6px 4px;
+  min-height: 50px;
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
+  letter-spacing: 0.02em;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   cursor: pointer;
   position: relative;
-  transition: color 0.2s ease;
+  transition: color 0.15s var(--ease-out), transform 0.15s var(--ease-out);
+}
+
+.nav-btn:active {
+  transform: scale(0.92);
 }
 
 .nav-btn svg {
-  width: 22px;
-  height: 22px;
-  transition: transform 0.2s ease;
+  width: 24px;
+  height: 24px;
+  transition: transform 0.2s var(--spring);
 }
 
 .nav-btn.active {
-  color: var(--primary);
+  color: var(--teal-green);
 }
 
 .nav-btn.active svg {
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 
 .nav-btn .badge {
@@ -219,16 +268,14 @@ html, body {
   border-radius: 10px;
 }
 
-/* Floating Action Button */
+/* Floating Action Button - WhatsApp Style */
 .fab-main {
   position: fixed;
-  /* Position above nav with comfortable spacing */
-  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  right: 20px;
-  /* Larger touch target - 56px is Material Design standard */
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  right: 16px;
   width: 56px;
   height: 56px;
-  background: linear-gradient(135deg, var(--accent) 0%, #1fb855 100%);
+  background: var(--teal-green);
   border: none;
   border-radius: 16px;
   color: white;
@@ -237,15 +284,31 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 168, 132, 0.4);
+  transition: transform 0.15s var(--spring), box-shadow 0.15s var(--ease-out);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
 
 .fab-main:active {
-  transform: scale(0.9);
-  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);
+  transform: scale(0.88);
+  box-shadow: 0 1px 4px rgba(0, 168, 132, 0.3);
+}
+
+/* FAB entrance animation */
+.fab-main:not(.hidden) {
+  animation: fabPop 0.3s var(--spring);
+}
+
+@keyframes fabPop {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .fab-main svg {
@@ -412,30 +475,54 @@ h1 {
   color: #51cf66;
 }
 
-/* Expense Items - Mobile First */
+/* Expense Items - WhatsApp Chat Style */
 .expense-item {
   background: var(--white);
-  padding: 16px;
-  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  border-radius: 0;
   margin-bottom: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease;
+  /* Native-feel transitions */
+  transition: background 0.1s var(--ease-out);
   /* Apple HIG: minimum 44pt touch target */
   min-height: 72px;
   box-shadow: none;
   /* Prevent text selection on long press */
   -webkit-user-select: none;
   user-select: none;
-  /* Smooth touch feedback */
   -webkit-tap-highlight-color: transparent;
+  /* WhatsApp-style divider */
+  border-bottom: 0.5px solid var(--border);
+  position: relative;
 }
 
+.expense-item:last-child {
+  border-bottom: none;
+}
+
+/* Native press state */
 .expense-item:active {
-  transform: scale(0.98);
   background: var(--bg);
+  transition: none;
+}
+
+/* Ripple effect container */
+.expense-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--text);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.expense-item:active::after {
+  opacity: 0.05;
+  transition: none;
 }
 
 /* Remove hover effects on touch devices */
@@ -581,43 +668,43 @@ h1 {
 
 /* Swipe Actions */
 /* Date Separators - Mobile First */
+/* Date Separators - WhatsApp Style */
 .date-separator {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  padding: 14px 4px 10px;
-  margin-top: 12px;
-  /* Larger touch area for potential future interactions */
-  min-height: 44px;
+  padding: 16px 0 12px;
+  margin-top: 0;
 }
 
 .date-separator:first-child {
-  margin-top: 0;
+  padding-top: 8px;
 }
 
 .date-separator-text {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
+  background: var(--bg);
+  padding: 6px 14px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
 
 .date-separator-total {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--primary);
-  /* Pill style for better visibility */
-  background: rgba(7, 94, 84, 0.08);
-  padding: 4px 10px;
-  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal-green);
+  margin-left: 8px;
 }
 
+/* Expense list container - WhatsApp chat style */
 .expense-item-wrapper {
   position: relative;
   overflow: hidden;
-  border-radius: 16px;
-  margin-bottom: 10px;
+  border-radius: 0;
+  margin-bottom: 0;
+  background: var(--white);
 }
 
 /* New expense entry animation */
@@ -845,41 +932,45 @@ h1 {
   color: #666;
 }
 
-/* Forms */
+/* Forms - Native iOS Style */
 .form-group {
   margin-bottom: 16px;
 }
 
 .form-group label {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .form-group input,
 .form-group select {
   width: 100%;
-  /* Comfortable touch target */
-  padding: 14px 16px;
-  min-height: 50px;
-  border: 1.5px solid #e5e5e5;
-  border-radius: 12px;
+  padding: 12px 16px;
+  min-height: 48px;
+  border: none;
+  border-radius: 10px;
   /* 16px prevents iOS zoom on focus */
-  font-size: 16px;
+  font-size: 17px;
   background: var(--white);
+  color: var(--text);
   -webkit-appearance: none;
   appearance: none;
-  /* Smooth transitions */
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: background 0.15s;
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(7, 94, 84, 0.1);
+  background: var(--bg);
+}
+
+.form-group input::placeholder {
+  color: var(--text-secondary);
 }
 
 .form-group input::placeholder {
@@ -1262,50 +1353,54 @@ h1 {
   margin-top: 8px;
 }
 
-/* Buttons */
+/* Buttons - Native iOS/WhatsApp Style */
 .btn-primary {
   width: 100%;
-  /* Apple HIG: 44pt minimum, we use 50px for comfort */
-  padding: 16px;
+  padding: 14px 20px;
   min-height: 50px;
-  background: var(--accent);
+  background: var(--teal-green);
   color: white;
   border: none;
-  border-radius: 12px;
-  font-size: 17px;
+  border-radius: 24px;
+  font-size: 16px;
   font-weight: 600;
+  letter-spacing: -0.2px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  /* Prevent double-tap zoom */
   touch-action: manipulation;
+  transition: transform 0.1s var(--ease-out), opacity 0.1s;
+  position: relative;
+  overflow: hidden;
 }
 
 .btn-primary:active {
-  background: #20bd5a;
-  transform: scale(0.98);
+  transform: scale(0.97);
+  opacity: 0.9;
 }
 
 .btn-primary:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   pointer-events: none;
 }
 
 .btn-secondary {
-  padding: 16px;
+  padding: 14px 20px;
   min-height: 50px;
-  background: var(--bg);
-  color: var(--text);
-  border: none;
-  border-radius: 12px;
-  font-size: 17px;
+  background: transparent;
+  color: var(--teal-green);
+  border: 1.5px solid var(--teal-green);
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  transition: transform 0.1s var(--ease-out), background 0.1s;
 }
 
 .btn-secondary:active {
-  background: var(--border);
-  transform: scale(0.98);
+  background: rgba(0, 168, 132, 0.1);
+  transform: scale(0.97);
 }
 
 .btn-danger {
@@ -1475,7 +1570,7 @@ h1 {
   color: #888;
 }
 
-/* Modal */
+/* Modal - Native iOS Sheet Style */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1484,12 +1579,12 @@ h1 {
   align-items: flex-end;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.2s ease;
-  -webkit-backdrop-filter: blur(0);
-  backdrop-filter: blur(0);
+  animation: modalFadeIn 0.25s var(--ease-out);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
-@keyframes fadeIn {
+@keyframes modalFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
@@ -1498,62 +1593,97 @@ h1 {
   background: var(--white);
   width: 100%;
   max-height: 90vh;
-  border-radius: 14px 14px 0 0;
+  border-radius: 12px 12px 0 0;
   overflow: hidden;
-  animation: slideUp 0.3s ease;
+  animation: sheetSlideUp 0.35s var(--ease-out);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
 }
 
-/* Mobile Sheet Modal */
+/* Mobile Sheet Modal - iOS Style */
 .modal-sheet {
-  background: var(--bg);
+  background: var(--white);
   width: 100%;
-  border-radius: 14px 14px 0 0;
-  animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  max-height: 92vh;
+  border-radius: 12px 12px 0 0;
+  animation: sheetSlideUp 0.35s var(--ease-out);
   padding-bottom: env(safe-area-inset-bottom, 20px);
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+@keyframes sheetSlideUp {
+  from { 
+    transform: translateY(100%);
+    opacity: 0.5;
+  }
+  to { 
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .sheet-handle {
   width: 36px;
-  height: 5px;
-  background: #d1d1d6;
-  border-radius: 3px;
-  margin: 8px auto;
+  height: 4px;
+  background: rgba(0,0,0,0.15);
+  border-radius: 2px;
+  margin: 8px auto 4px;
+}
+
+[data-theme="dark"] .sheet-handle {
+  background: rgba(255,255,255,0.2);
 }
 
 .sheet-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 16px 14px;
+  border-bottom: 0.5px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--white);
+  z-index: 10;
 }
 
 .sheet-title {
   font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.3px;
 }
 
 .sheet-cancel {
   background: none;
   border: none;
-  color: var(--primary);
+  color: var(--teal-green);
   font-size: 17px;
   cursor: pointer;
-  padding: 4px;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.sheet-cancel:active {
+  background: rgba(0, 168, 132, 0.1);
 }
 
 .sheet-save {
   background: none;
   border: none;
-  color: var(--primary);
+  color: var(--teal-green);
   font-size: 17px;
   font-weight: 600;
   cursor: pointer;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.sheet-save:active {
+  background: rgba(0, 168, 132, 0.1);
   padding: 4px;
 }
 
@@ -1687,25 +1817,69 @@ h1 {
 }
 
 /* Toast */
+/* Toast - Native Snackbar Style */
 .toast {
   position: fixed;
   bottom: calc(100px + env(safe-area-inset-bottom));
-  left: 16px;
-  right: 16px;
-  padding: 14px 20px;
-  border-radius: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 24px;
   color: white;
   text-align: center;
+  font-size: 14px;
   font-weight: 500;
   z-index: 9999;
-  animation: toastIn 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  animation: toastPop 0.3s var(--spring);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  max-width: calc(100% - 32px);
+  white-space: nowrap;
 }
 
-@keyframes toastIn {
+@keyframes toastPop {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateX(-50%) translateY(20px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.toast.success { 
+  background: var(--teal-green);
+}
+
+.toast.error { 
+  background: #ff3b30;
+}
+
+.toast.info {
+  background: #3478f6;
+}
+
+/* Undo Toast - WhatsApp Style */
+.undo-toast {
+  position: fixed;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  left: 16px;
+  right: 16px;
+  padding: 12px 16px;
+  background: #1f2c34;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 9999;
+  animation: toastSlide 0.25s var(--ease-out);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+@keyframes toastSlide {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
   }
   to {
     opacity: 1;
@@ -1713,29 +1887,9 @@ h1 {
   }
 }
 
-.toast.success { background: var(--accent); }
-.toast.error { background: #ff3b30; }
-
-/* Undo Toast */
-.undo-toast {
-  position: fixed;
-  bottom: calc(80px + env(safe-area-inset-bottom));
-  left: 16px;
-  right: 16px;
-  padding: 14px 16px;
-  background: #333;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  z-index: 9999;
-  animation: toastIn 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
 .undo-toast span {
-  color: white;
-  font-weight: 500;
+  color: #e9edef;
+  font-size: 14px;
 }
 
 .undo-toast .undo-btn {
