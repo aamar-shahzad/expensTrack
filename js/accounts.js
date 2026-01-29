@@ -13,7 +13,12 @@ const Accounts = {
   init() {
     // Load accounts from localStorage
     const saved = localStorage.getItem('et_accounts');
-    this.accounts = saved ? JSON.parse(saved) : [];
+    try {
+      this.accounts = saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error('Failed to parse accounts, resetting:', e);
+      this.accounts = [];
+    }
     
     // Get current account
     this.currentAccountId = localStorage.getItem('et_current_account');
