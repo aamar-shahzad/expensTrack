@@ -32,10 +32,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Loading */
@@ -92,7 +90,7 @@ html, body {
   overflow-x: hidden;
   padding: 16px;
   padding-top: calc(16px + env(safe-area-inset-top, 0px));
-  padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   -webkit-overflow-scrolling: touch;
 }
 
@@ -114,7 +112,7 @@ html, body {
 
 .expenses-list {
   padding-top: 16px;
-  margin-top: 8px;
+  display: block;
 }
 
 /* Bottom Navigation */
@@ -123,23 +121,12 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--white);
+  background: var(--bg);
   border-top: 1px solid var(--border);
   display: flex;
-  padding: 8px 0;
+  padding: 8px 0 12px 0;
   padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   z-index: 100;
-}
-
-/* Cover iOS home indicator area */
-.bottom-nav::after {
-  content: '';
-  position: absolute;
-  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
-  left: 0;
-  right: 0;
-  height: env(safe-area-inset-bottom, 0px);
-  background: var(--white);
 }
 
 .nav-btn {
@@ -329,15 +316,12 @@ h1 {
   gap: 14px;
   cursor: pointer;
   transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
-  animation: slideIn 0.3s ease backwards;
+  min-height: 70px;
+  opacity: 1;
+  visibility: visible;
 }
 
-.expense-item:nth-child(1) { animation-delay: 0s; }
-.expense-item:nth-child(2) { animation-delay: 0.03s; }
-.expense-item:nth-child(3) { animation-delay: 0.06s; }
-.expense-item:nth-child(4) { animation-delay: 0.09s; }
-.expense-item:nth-child(5) { animation-delay: 0.12s; }
-.expense-item:nth-child(n+6) { animation-delay: 0.15s; }
+/* Expense item animations removed for iOS compatibility */
 
 .expense-item:active {
   background: var(--bg);
@@ -2450,7 +2434,7 @@ textarea {
   .main-content {
     padding: 12px;
     padding-top: calc(12px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   }
   
   .sticky-header {
@@ -2505,7 +2489,7 @@ textarea {
   .main-content {
     padding: 16px;
     padding-top: calc(16px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -2516,7 +2500,7 @@ textarea {
     margin: 0 auto;
     padding: 16px;
     padding-top: calc(16px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   }
   
   .bottom-nav {
@@ -2548,7 +2532,7 @@ textarea {
   }
   
   .main-content {
-    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   }
 }
 

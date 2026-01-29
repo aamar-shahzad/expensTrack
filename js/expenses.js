@@ -56,6 +56,8 @@ const Expenses = {
     const list = document.getElementById('expenses-list');
     if (!list) return;
 
+    console.log('Rendering expenses:', expenses.length, expenses);
+
     if (expenses.length === 0) {
       list.innerHTML = `
         <div class="empty-state">
@@ -71,6 +73,9 @@ const Expenses = {
     const people = await DB.getPeople();
     const names = {};
     people.forEach(p => names[p.id] = p.name);
+
+    // Sort by date descending (newest first)
+    expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     list.innerHTML = expenses.map(exp => {
       const payerName = Accounts.isSharedMode() ? `${names[exp.payerId] || 'Unknown'} • ` : '';
