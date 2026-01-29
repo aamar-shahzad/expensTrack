@@ -64,7 +64,7 @@ const App = {
       Accounts.init();
       
       // Check if new user (no accounts) - show onboarding
-      if (Accounts.isNewUser()) {
+      if (Accounts.accounts.length === 0) {
         document.getElementById('loading').classList.add('hidden');
         this.showOnboarding();
         console.log('New user - showing onboarding');
