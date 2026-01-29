@@ -81,13 +81,18 @@ body {
   top: 0;
   background: var(--bg);
   margin: -16px -16px 0 -16px;
-  padding: 16px;
-  padding-top: calc(16px + env(safe-area-inset-top));
+  padding: 12px;
+  padding-top: calc(8px + env(safe-area-inset-top));
   z-index: 10;
 }
 
+.sticky-header h1 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
 .expenses-list {
-  padding-top: 8px;
+  padding-top: 4px;
 }
 
 /* Bottom Navigation */
@@ -200,18 +205,18 @@ h1 {
   align-items: center;
   justify-content: space-between;
   background: var(--white);
-  padding: 12px 16px;
-  border-radius: 12px;
-  margin-bottom: 16px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  margin-bottom: 8px;
 }
 
 .month-nav button {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: var(--bg);
   border-radius: 50%;
-  font-size: 20px;
+  font-size: 16px;
   cursor: pointer;
   color: var(--primary);
   display: flex;
@@ -225,6 +230,7 @@ h1 {
 
 .month-nav span {
   font-weight: 600;
+  font-size: 13px;
   color: var(--text);
 }
 
@@ -232,27 +238,27 @@ h1 {
 .summary-box {
   background: var(--primary);
   color: white;
-  padding: 24px 20px;
-  border-radius: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
   text-align: center;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .summary-label {
-  font-size: 13px;
+  font-size: 11px;
   opacity: 0.9;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .summary-amount {
-  font-size: 36px;
+  font-size: 24px;
   font-weight: 700;
 }
 
 .summary-count {
-  font-size: 13px;
+  font-size: 11px;
   opacity: 0.8;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* Expense Items */
@@ -1519,20 +1525,21 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 14px;
+  padding: 6px 10px;
   background: rgba(7, 94, 84, 0.08);
-  border-radius: 10px;
-  margin-bottom: 16px;
+  border-radius: 8px;
+  margin-bottom: 8px;
   cursor: pointer;
 }
 
 .account-badge {
   font-weight: 600;
+  font-size: 13px;
   color: var(--primary);
 }
 
 .account-switch {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--primary);
 }
 
@@ -1586,17 +1593,17 @@ h1 {
 /* Filter Row */
 .filter-row {
   display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .filter-btn {
   flex: 1;
-  padding: 10px 8px;
+  padding: 6px 6px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--white);
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text);
   cursor: pointer;
   transition: all 0.2s;
@@ -1612,11 +1619,11 @@ h1 {
 .custom-range {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 12px;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 8px;
   background: var(--white);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .custom-range input {
@@ -1797,22 +1804,22 @@ html {
 .search-box {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: var(--white);
-  padding: 10px 14px;
-  border-radius: 10px;
-  margin-bottom: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 6px;
 }
 
 .search-icon {
-  font-size: 16px;
+  font-size: 14px;
   opacity: 0.5;
 }
 
 .search-box input {
   flex: 1;
   border: none;
-  font-size: 16px;
+  font-size: 14px;
   background: transparent;
   color: var(--text);
 }
@@ -1843,8 +1850,8 @@ html {
 
 /* Budget Progress */
 .budget-progress {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px solid rgba(255,255,255,0.2);
 }
 
