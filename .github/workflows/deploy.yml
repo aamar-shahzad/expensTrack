@@ -39,7 +39,8 @@ jobs:
 
       - name: Build
         run: |
-          npm run build -- --base=/${{ github.event.repository.name }}/
+          echo "VITE_BASE=/${{ github.event.repository.name }}/" > .env.production
+          npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
