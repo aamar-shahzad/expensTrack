@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Expense } from '@/types';
 import { getToday } from '@/types';
@@ -7,6 +7,7 @@ import { useExpenseStore } from '@/stores/expenseStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useCamera } from '@/hooks/useCamera';
 import { haptic, cn } from '@/lib/utils';
 
 interface ExpenseFormProps {
@@ -35,6 +36,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const setLastPayer = usePeopleStore(s => s.setLastPayer);
   const isSharedMode = useAccountStore(s => s.isSharedMode());
   const currency = useSettingsStore(s => s.currency);
+  const { processOCR, saveImage, isProcessing, ocrProgress } = useCamera();
 
   const [description, setDescription] = useState(expense?.description || '');
   const [amount, setAmount] = useState(expense?.amount?.toString() || '');
@@ -45,8 +47,27 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const [tags, setTags] = useState(expense?.tags || '');
   const [loading, setLoading] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const [attachedImage, setAttachedImage] = useState<Blob | null>(null);
   
   const amountInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Create stable object URL for preview
+  const imagePreviewUrl = useMemo(() => {
+    if (attachedImage) {
+      return URL.createObjectURL(attachedImage);
+    }
+    return null;
+  }, [attachedImage]);
+
+  // Cleanup object URL on unmount or when image changes
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
 
   // Set default payer
   useEffect(() => {
@@ -66,6 +87,37 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     if (!description) {
       setDescription(name);
     }
+  };
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    haptic('light');
+    setAttachedImage(file);
+    
+    // Process OCR to extract data
+    const result = await processOCR(file);
+    
+    if (result.amount && !amount) {
+      setAmount(result.amount.toString());
+    }
+    if (result.description && !description) {
+      setDescription(result.description);
+    }
+    if (result.date) {
+      setDate(result.date);
+    }
+    
+    if (result.amount) {
+      haptic('success');
+      showSuccess('Receipt scanned!');
+    }
+  };
+
+  const handleRemoveImage = () => {
+    haptic('light');
+    setAttachedImage(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,6 +146,12 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     haptic('light');
 
     try {
+      // Save image if attached
+      let imageId: string | undefined;
+      if (attachedImage) {
+        imageId = await saveImage(attachedImage);
+      }
+
       if (expense) {
         await updateExpense(expense.id, {
           description: description.trim(),
@@ -101,7 +159,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           date,
           payerId: isSharedMode ? payerId : undefined,
           notes: notes.trim() || undefined,
-          tags: tags.trim() || undefined
+          tags: tags.trim() || undefined,
+          imageId: imageId || expense.imageId
         });
         showSuccess('Updated!');
       } else {
@@ -112,7 +171,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           payerId: isSharedMode ? payerId : undefined,
           splitType: 'equal',
           notes: notes.trim() || undefined,
-          tags: tags.trim() || undefined
+          tags: tags.trim() || undefined,
+          imageId
         });
         
         if (payerId) {
@@ -171,6 +231,32 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           </div>
         )}
       </div>
+
+      {/* Image Preview */}
+      {attachedImage && imagePreviewUrl && (
+        <div className="relative mx-4 mt-4">
+          <div className="relative rounded-xl overflow-hidden bg-[var(--bg)]">
+            <img
+              src={imagePreviewUrl}
+              alt="Receipt"
+              className="w-full h-40 object-cover"
+            />
+            {isProcessing && (
+              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
+                <div className="w-12 h-12 border-3 border-white border-t-transparent rounded-full animate-spin mb-2" />
+                <span className="text-white text-sm">Scanning... {ocrProgress}%</span>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-95"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Quick Categories */}
       <div className="px-4 py-4 bg-[var(--white)] border-b border-[var(--border)]">
@@ -279,15 +365,32 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         </div>
       )}
 
-      {/* Camera Option */}
-      <div className="px-4 py-4">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleImageSelect}
+        className="hidden"
+      />
+
+      {/* Image/Camera Options */}
+      <div className="px-4 py-4 flex gap-3">
         <button
           type="button"
           onClick={() => navigate('/camera')}
-          className="w-full flex items-center justify-center gap-2 py-3 bg-[var(--white)] rounded-xl text-[var(--text-secondary)] active:bg-[var(--bg)] transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--white)] rounded-xl text-[var(--text-secondary)] active:bg-[var(--bg)] transition-colors"
         >
           <span className="text-xl">📷</span>
-          <span className="text-[15px]">Scan receipt instead</span>
+          <span className="text-[14px]">Scan receipt</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex-1 flex items-center justify-center gap-2 py-3 bg-[var(--white)] rounded-xl text-[var(--text-secondary)] active:bg-[var(--bg)] transition-colors"
+        >
+          <span className="text-xl">🖼️</span>
+          <span className="text-[14px]">Add photo</span>
         </button>
       </div>
 
@@ -295,7 +398,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       <div className="px-4 pt-2 pb-safe">
         <Button
           type="submit"
-          loading={loading}
+          loading={loading || isProcessing}
           className="w-full h-14 text-lg font-semibold rounded-2xl shadow-lg shadow-[var(--teal-green)]/30"
         >
           {expense ? 'Update Expense' : 'Save Expense'}
