@@ -1,0 +1,156 @@
+@import "tailwindcss";
+
+/* CSS Variables - WhatsApp Theme */
+:root {
+  --primary: #075e54;
+  --primary-dark: #054d44;
+  --primary-light: #128c7e;
+  --teal-green: #00a884;
+  --accent: #25d366;
+  --bg: #f0f2f5;
+  --white: #ffffff;
+  --text: #111b21;
+  --text-secondary: #667781;
+  --border: #e9edef;
+  --danger: #ff3b30;
+  
+  /* Animation timings */
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Dark Mode */
+.dark {
+  --primary: #00a884;
+  --primary-dark: #008f72;
+  --primary-light: #00d9a5;
+  --teal-green: #00a884;
+  --accent: #00a884;
+  --bg: #0b141a;
+  --white: #111b21;
+  --text: #e9edef;
+  --text-secondary: #8696a0;
+  --border: #222d34;
+}
+
+/* Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+html {
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* Safe Areas */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    transform: translateY(100%);
+    opacity: 0.5;
+  }
+  to { 
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from { 
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to { 
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.animate-fadeIn { animation: fadeIn 0.2s var(--ease-out); }
+.animate-slideUp { animation: slideUp 0.35s var(--ease-out); }
+.animate-slideDown { animation: slideDown 0.25s var(--ease-out); }
+.animate-pop { animation: pop 0.2s var(--spring); }
+.animate-spin { animation: spin 0.8s linear infinite; }
+
+/* Skeleton Loading */
+.skeleton {
+  background: linear-gradient(90deg, var(--border) 25%, var(--bg) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

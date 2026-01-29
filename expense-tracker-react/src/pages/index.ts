@@ -1,0 +1,8 @@
+export { HomePage } from './HomePage';
+export { AddExpensePage } from './AddExpensePage';
+export { PeoplePage } from './PeoplePage';
+export { StatsPage } from './StatsPage';
+export { SettlePage } from './SettlePage';
+export { SyncPage } from './SyncPage';
+export { SettingsPage } from './SettingsPage';
+export { OnboardingPage } from './OnboardingPage';
