@@ -112,7 +112,7 @@ const Expenses = {
           </div>
           <div class="detail-row">
             <span class="detail-label">Date</span>
-            <span class="detail-value">${this.formatDateFull(exp.date)}</span>
+            <span class="detail-value">${new Date(exp.date).toLocaleDateString()}</span>
           </div>
           ${isShared ? `
           <div class="detail-row">
@@ -151,28 +151,6 @@ const Expenses = {
       `<option value="${p.id}" ${p.id === exp.payerId ? 'selected' : ''}>${p.name}</option>`
     ).join('');
 
-    // Track image state for editing
-    let currentImageId = exp.imageId;
-    let newImageId = null;
-
-    // Get existing image preview if any
-    let imagePreviewHtml = '';
-    if (exp.imageId) {
-      try {
-        const img = await DB.getImage(exp.imageId);
-        if (img && img.thumbnail) {
-          const url = URL.createObjectURL(img.thumbnail);
-          imagePreviewHtml = `
-            <div id="edit-image-preview" style="display:flex;align-items:center;gap:12px;padding:12px;background:#f0f2f5;border-radius:10px;margin-bottom:12px">
-              <img src="${url}" style="width:56px;height:56px;object-fit:cover;border-radius:8px" alt="Receipt">
-              <span style="flex:1;font-size:14px;color:#667781">📎 Receipt attached</span>
-              <button type="button" id="edit-remove-image" style="padding:8px 14px;font-size:13px;background:#fff;border:1px solid #e9edef;border-radius:8px;color:#ff3b30;cursor:pointer">Remove</button>
-            </div>
-          `;
-        }
-      } catch (e) {}
-    }
-
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -202,108 +180,11 @@ const Expenses = {
             <select id="edit-payer">${peopleOptions}</select>
           </div>
           ` : ''}
-          <div class="input-group" style="background:transparent;padding:0">
-            <label style="padding:12px 0 8px">Receipt Photo</label>
-            <div id="edit-image-container">
-              ${imagePreviewHtml}
-            </div>
-            <div id="edit-photo-buttons" style="display:flex;gap:12px;${exp.imageId ? 'display:none' : ''}">
-              <button type="button" id="edit-capture-photo" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 12px;background:#f0f2f5;border:none;border-radius:12px;font-size:14px;cursor:pointer">
-                <span style="font-size:24px">📷</span>
-                <span>Take Photo</span>
-              </button>
-              <button type="button" id="edit-choose-photo" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 12px;background:#f0f2f5;border:none;border-radius:12px;font-size:14px;cursor:pointer">
-                <span style="font-size:24px">🖼️</span>
-                <span>Gallery</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     `;
 
     document.body.appendChild(modal);
-
-    // Handle remove image
-    const removeBtn = modal.querySelector('#edit-remove-image');
-    if (removeBtn) {
-      removeBtn.onclick = () => {
-        currentImageId = null;
-        modal.querySelector('#edit-image-container').innerHTML = '';
-        modal.querySelector('#edit-photo-buttons').style.display = 'flex';
-      };
-    }
-
-    // Handle photo capture/selection for edit
-    const setupPhotoHandler = (imageData) => {
-      newImageId = imageData.id;
-      currentImageId = imageData.id;
-      DB.getImage(imageData.id).then(img => {
-        if (img && img.thumbnail) {
-          const url = URL.createObjectURL(img.thumbnail);
-          modal.querySelector('#edit-image-container').innerHTML = `
-            <div id="edit-image-preview" style="display:flex;align-items:center;gap:12px;padding:12px;background:#f0f2f5;border-radius:10px;margin-bottom:12px">
-              <img src="${url}" style="width:56px;height:56px;object-fit:cover;border-radius:8px" alt="Receipt">
-              <span style="flex:1;font-size:14px;color:#667781">📎 Receipt attached</span>
-              <button type="button" id="edit-remove-new-image" style="padding:8px 14px;font-size:13px;background:#fff;border:1px solid #e9edef;border-radius:8px;color:#ff3b30;cursor:pointer">Remove</button>
-            </div>
-          `;
-          modal.querySelector('#edit-photo-buttons').style.display = 'none';
-          
-          // Setup remove handler for new image
-          modal.querySelector('#edit-remove-new-image').onclick = () => {
-            DB.deleteImage(newImageId);
-            newImageId = null;
-            currentImageId = null;
-            modal.querySelector('#edit-image-container').innerHTML = '';
-            modal.querySelector('#edit-photo-buttons').style.display = 'flex';
-          };
-        }
-      });
-    };
-
-    modal.querySelector('#edit-capture-photo').onclick = async () => {
-      // Store original handler
-      const origCapturedImage = Camera.capturedImage;
-      Camera.capturedImage = null;
-      
-      await Camera.capturePhoto();
-      
-      // Wait for photo capture and check
-      const checkCapture = setInterval(() => {
-        if (Camera.capturedImage) {
-          clearInterval(checkCapture);
-          setupPhotoHandler(Camera.capturedImage);
-          Camera.capturedImage = origCapturedImage;
-        }
-      }, 200);
-      
-      // Stop checking after 30 seconds
-      setTimeout(() => clearInterval(checkCapture), 30000);
-    };
-
-    modal.querySelector('#edit-choose-photo').onclick = () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/jpeg,image/png,image/gif,image/webp';
-      
-      input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        try {
-          const compressed = await Camera.compressImage(file);
-          const thumbnail = await Camera.createThumbnail(compressed);
-          const imageData = await DB.saveImage(compressed, thumbnail);
-          setupPhotoHandler(imageData);
-          App.showSuccess('Photo added');
-        } catch (error) {
-          App.showError('Failed to add photo');
-        }
-      };
-      
-      input.click();
-    };
 
     document.getElementById('update-expense-btn').onclick = async () => {
       const desc = document.getElementById('edit-description').value.trim();
@@ -317,18 +198,7 @@ const Expenses = {
       }
 
       try {
-        // Delete old image if it was removed or replaced
-        if (exp.imageId && exp.imageId !== currentImageId) {
-          await DB.deleteImage(exp.imageId);
-        }
-        
-        await DB.updateExpense(id, { 
-          description: desc, 
-          amount, 
-          date, 
-          payerId,
-          imageId: currentImageId 
-        });
+        await DB.updateExpense(id, { description: desc, amount, date, payerId });
         App.showSuccess('Updated!');
         modal.remove();
         this.loadCurrentMonth();
@@ -370,17 +240,8 @@ const Expenses = {
   },
 
   formatDate(dateStr) {
-    // Parse YYYY-MM-DD without timezone issues
-    const [year, month, day] = dateStr.split('-').map(Number);
-    const d = new Date(year, month - 1, day);
+    const d = new Date(dateStr);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  },
-
-  formatDateFull(dateStr) {
-    // Parse YYYY-MM-DD without timezone issues
-    const [year, month, day] = dateStr.split('-').map(Number);
-    const d = new Date(year, month - 1, day);
-    return d.toLocaleDateString();
   },
 
   updateMonthDisplay() {
@@ -401,28 +262,6 @@ const Expenses = {
     
     const countEl = document.getElementById('expense-count');
     if (countEl) countEl.textContent = `${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`;
-    
-    // Update budget progress
-    const budgetEl = document.getElementById('budget-progress');
-    if (budgetEl) {
-      const budgetStatus = Settings.getBudgetStatus(total);
-      if (budgetStatus) {
-        budgetEl.classList.remove('hidden');
-        const fill = budgetEl.querySelector('.budget-fill');
-        const text = budgetEl.querySelector('.budget-text');
-        
-        fill.style.width = `${budgetStatus.percent}%`;
-        fill.className = 'budget-fill ' + budgetStatus.status;
-        
-        if (budgetStatus.status === 'over') {
-          text.textContent = `Over budget by ${Settings.formatAmount(-budgetStatus.remaining)}`;
-        } else {
-          text.textContent = `${Settings.formatAmount(budgetStatus.remaining)} left of ${Settings.formatAmount(budgetStatus.budget)}`;
-        }
-      } else {
-        budgetEl.classList.add('hidden');
-      }
-    }
   },
 
   navigateMonth(dir) {
@@ -484,8 +323,6 @@ const Expenses = {
     const date = document.getElementById('expense-date').value;
     const payerId = document.getElementById('expense-payer').value;
     const imageId = Camera.capturedImage?.id || null;
-    const splitType = document.getElementById('expense-split')?.value || 'equal';
-    const recurring = document.getElementById('expense-recurring')?.value || '';
 
     if (!amount || amount <= 0) {
       App.showError('Enter amount');
@@ -500,31 +337,13 @@ const Expenses = {
       return;
     }
 
-    // Get custom split percentages if applicable
-    let splitDetails = null;
-    if (splitType === 'custom') {
-      const inputs = document.querySelectorAll('.split-percent');
-      const total = Array.from(inputs).reduce((sum, inp) => sum + (parseInt(inp.value) || 0), 0);
-      if (total !== 100) {
-        App.showError('Split must total 100%');
-        return;
-      }
-      splitDetails = {};
-      inputs.forEach(inp => {
-        splitDetails[inp.dataset.id] = parseInt(inp.value) || 0;
-      });
-    }
-
     try {
       await DB.addExpense({
         description: desc,
         amount: amount,
         date: date,
         payerId: payerId,
-        imageId: imageId,
-        splitType: splitType,
-        splitDetails: splitDetails,
-        recurring: recurring
+        imageId: imageId
       });
 
       // Remember last payer

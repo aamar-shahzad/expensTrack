@@ -2,18 +2,21 @@
  * Settings Module
  * - Currency selection
  * - Single/Shared mode
+ * - Budget limits
  */
 
 const Settings = {
   // Default settings
   defaults: {
     currency: '$',
-    mode: 'shared' // 'single' or 'shared'
+    mode: 'shared', // 'single' or 'shared'
+    monthlyBudget: 0 // 0 means no budget set
   },
 
   // Initialize with defaults (will be overwritten by init())
   currency: '$',
   mode: 'shared',
+  monthlyBudget: 0,
 
   currencies: [
     { symbol: '$', name: 'USD - Dollar' },
@@ -32,6 +35,7 @@ const Settings = {
     // Load settings from localStorage
     this.currency = localStorage.getItem('et_currency') || this.defaults.currency;
     this.mode = localStorage.getItem('et_mode') || this.defaults.mode;
+    this.monthlyBudget = parseFloat(localStorage.getItem('et_budget')) || this.defaults.monthlyBudget;
     console.log('Settings initialized:', this.currency, this.mode);
   },
 
@@ -83,5 +87,39 @@ const Settings = {
   formatAmount(amount) {
     const num = parseFloat(amount) || 0;
     return `${this.currency}${num.toFixed(2)}`;
+  },
+
+  // Budget methods
+  getBudget() {
+    return this.monthlyBudget;
+  },
+
+  setBudget(amount) {
+    this.monthlyBudget = parseFloat(amount) || 0;
+    localStorage.setItem('et_budget', this.monthlyBudget.toString());
+  },
+
+  hasBudget() {
+    return this.monthlyBudget > 0;
+  },
+
+  // Calculate budget status
+  getBudgetStatus(spent) {
+    if (!this.hasBudget()) return null;
+    
+    const percent = (spent / this.monthlyBudget) * 100;
+    const remaining = this.monthlyBudget - spent;
+    
+    let status = 'ok';
+    if (percent >= 100) status = 'over';
+    else if (percent >= 80) status = 'warning';
+    
+    return {
+      budget: this.monthlyBudget,
+      spent: spent,
+      remaining: remaining,
+      percent: Math.min(percent, 100),
+      status: status
+    };
   }
 };

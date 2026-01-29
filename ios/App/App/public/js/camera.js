@@ -95,9 +95,6 @@ const Camera = {
 
         this.showImagePreview(imageData.id);
         App.showSuccess('Photo captured');
-        
-        // Run OCR to extract amount
-        this.runOCR(compressed);
 
       } catch (error) {
         console.error('Failed to save photo:', error);
@@ -126,9 +123,6 @@ const Camera = {
 
         this.showImagePreview(imageData.id);
         App.showSuccess('Photo added');
-        
-        // Run OCR to extract amount
-        this.runOCR(compressed);
 
       } catch (error) {
         console.error('Failed to save photo:', error);
@@ -245,104 +239,5 @@ const Camera = {
       preview.innerHTML = '';
       preview.classList.add('hidden');
     }
-    
-    // Hide OCR status
-    const ocrStatus = document.getElementById('ocr-status');
-    if (ocrStatus) {
-      ocrStatus.classList.add('hidden');
-    }
-  },
-
-  // Run OCR to extract amount from receipt
-  async runOCR(blob) {
-    // Check if Tesseract is available
-    if (typeof Tesseract === 'undefined') {
-      console.log('Tesseract not loaded');
-      return;
-    }
-    
-    const ocrStatus = document.getElementById('ocr-status');
-    const amountInput = document.getElementById('expense-amount');
-    
-    if (!ocrStatus || !amountInput) return;
-    
-    try {
-      ocrStatus.textContent = '🔍 Scanning receipt...';
-      ocrStatus.classList.remove('hidden');
-      
-      // Create URL for the blob
-      const imageUrl = URL.createObjectURL(blob);
-      
-      // Run OCR
-      const result = await Tesseract.recognize(imageUrl, 'eng', {
-        logger: m => {
-          if (m.status === 'recognizing text') {
-            const progress = Math.round(m.progress * 100);
-            ocrStatus.textContent = `🔍 Scanning... ${progress}%`;
-          }
-        }
-      });
-      
-      URL.revokeObjectURL(imageUrl);
-      
-      // Extract amounts from text (look for currency patterns)
-      const text = result.data.text;
-      const amounts = this.extractAmounts(text);
-      
-      if (amounts.length > 0) {
-        // Use the largest amount (usually the total)
-        const bestAmount = Math.max(...amounts);
-        
-        // Only auto-fill if amount field is empty
-        if (!amountInput.value) {
-          amountInput.value = bestAmount.toFixed(2);
-          ocrStatus.textContent = `✓ Found: ${Settings.getCurrency()}${bestAmount.toFixed(2)}`;
-          ocrStatus.style.color = '#25d366';
-        } else {
-          ocrStatus.textContent = `Found ${Settings.getCurrency()}${bestAmount.toFixed(2)} (field not empty)`;
-          ocrStatus.style.color = '#667781';
-        }
-      } else {
-        ocrStatus.textContent = 'No amount found in receipt';
-        ocrStatus.style.color = '#667781';
-      }
-      
-      // Hide after 5 seconds
-      setTimeout(() => {
-        ocrStatus.classList.add('hidden');
-      }, 5000);
-      
-    } catch (error) {
-      console.error('OCR failed:', error);
-      ocrStatus.textContent = 'Could not scan receipt';
-      ocrStatus.style.color = '#ff3b30';
-      setTimeout(() => ocrStatus.classList.add('hidden'), 3000);
-    }
-  },
-
-  // Extract monetary amounts from text
-  extractAmounts(text) {
-    const amounts = [];
-    
-    // Patterns for common currency formats
-    const patterns = [
-      /\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/g,  // $123.45 or $1,234.56
-      /(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:USD|EUR|GBP)/gi,  // 123.45 USD
-      /(?:total|amount|sum|due|balance)[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,  // Total: 123.45
-      /(\d+\.\d{2})/g,  // Any decimal number like 123.45
-    ];
-    
-    for (const pattern of patterns) {
-      let match;
-      while ((match = pattern.exec(text)) !== null) {
-        const numStr = match[1].replace(/,/g, '');
-        const num = parseFloat(numStr);
-        if (num > 0 && num < 100000) {  // Reasonable range for expenses
-          amounts.push(num);
-        }
-      }
-    }
-    
-    return [...new Set(amounts)];  // Remove duplicates
   }
 };

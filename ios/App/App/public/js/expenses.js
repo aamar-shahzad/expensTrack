@@ -401,28 +401,6 @@ const Expenses = {
     
     const countEl = document.getElementById('expense-count');
     if (countEl) countEl.textContent = `${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`;
-    
-    // Update budget progress
-    const budgetEl = document.getElementById('budget-progress');
-    if (budgetEl) {
-      const budgetStatus = Settings.getBudgetStatus(total);
-      if (budgetStatus) {
-        budgetEl.classList.remove('hidden');
-        const fill = budgetEl.querySelector('.budget-fill');
-        const text = budgetEl.querySelector('.budget-text');
-        
-        fill.style.width = `${budgetStatus.percent}%`;
-        fill.className = 'budget-fill ' + budgetStatus.status;
-        
-        if (budgetStatus.status === 'over') {
-          text.textContent = `Over budget by ${Settings.formatAmount(-budgetStatus.remaining)}`;
-        } else {
-          text.textContent = `${Settings.formatAmount(budgetStatus.remaining)} left of ${Settings.formatAmount(budgetStatus.budget)}`;
-        }
-      } else {
-        budgetEl.classList.add('hidden');
-      }
-    }
   },
 
   navigateMonth(dir) {
@@ -484,8 +462,6 @@ const Expenses = {
     const date = document.getElementById('expense-date').value;
     const payerId = document.getElementById('expense-payer').value;
     const imageId = Camera.capturedImage?.id || null;
-    const splitType = document.getElementById('expense-split')?.value || 'equal';
-    const recurring = document.getElementById('expense-recurring')?.value || '';
 
     if (!amount || amount <= 0) {
       App.showError('Enter amount');
@@ -500,31 +476,13 @@ const Expenses = {
       return;
     }
 
-    // Get custom split percentages if applicable
-    let splitDetails = null;
-    if (splitType === 'custom') {
-      const inputs = document.querySelectorAll('.split-percent');
-      const total = Array.from(inputs).reduce((sum, inp) => sum + (parseInt(inp.value) || 0), 0);
-      if (total !== 100) {
-        App.showError('Split must total 100%');
-        return;
-      }
-      splitDetails = {};
-      inputs.forEach(inp => {
-        splitDetails[inp.dataset.id] = parseInt(inp.value) || 0;
-      });
-    }
-
     try {
       await DB.addExpense({
         description: desc,
         amount: amount,
         date: date,
         payerId: payerId,
-        imageId: imageId,
-        splitType: splitType,
-        splitDetails: splitDetails,
-        recurring: recurring
+        imageId: imageId
       });
 
       // Remember last payer

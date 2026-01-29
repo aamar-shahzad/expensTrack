@@ -28,6 +28,7 @@ const UI = {
       case 'home': this.renderHome(); break;
       case 'add': this.renderAdd(); break;
       case 'people': this.renderPeople(); break;
+      case 'stats': this.renderStats(); break;
       case 'settle': this.renderSettle(); break;
       case 'sync': 
         Sync.refresh();
@@ -67,6 +68,10 @@ const UI = {
           <div class="summary-label">Total This Month</div>
           <div class="summary-amount" id="total-amount">${Settings.getCurrency()}0.00</div>
           <div class="summary-count" id="expense-count">0 expenses</div>
+          <div id="budget-progress" class="budget-progress hidden">
+            <div class="budget-bar"><div class="budget-fill"></div></div>
+            <div class="budget-text"></div>
+          </div>
         </div>
         
         <div class="filter-row">
@@ -175,7 +180,31 @@ const UI = {
               </select>
             </div>
           </div>
-          ` : '<input type="hidden" id="expense-payer" value="self">'}
+          <div class="form-field-row">
+            <div class="form-field-icon">⚖️</div>
+            <div class="form-field-content">
+              <label>Split</label>
+              <select id="expense-split">
+                <option value="equal">Split equally</option>
+                <option value="full">Paid for someone else (100%)</option>
+                <option value="custom">Custom split...</option>
+              </select>
+            </div>
+          </div>
+          <div id="custom-split-container" class="hidden" style="padding:12px 0">
+            <div id="split-inputs"></div>
+          </div>
+          ` : '<input type="hidden" id="expense-payer" value="self"><input type="hidden" id="expense-split" value="equal">'}
+          <div class="form-field-row">
+            <div class="form-field-icon">🔄</div>
+            <div class="form-field-content">
+              <label>Recurring</label>
+              <select id="expense-recurring">
+                <option value="">One-time expense</option>
+                <option value="monthly">Monthly (repeats each month)</option>
+              </select>
+            </div>
+          </div>
         </div>
         
         <div class="form-card">
@@ -190,6 +219,7 @@ const UI = {
               <span>Gallery</span>
             </button>
           </div>
+          <div id="ocr-status" class="hidden" style="text-align:center;padding:8px;color:#667781;font-size:13px"></div>
         </div>
         
         <button type="submit" class="btn-primary btn-save">Save Expense</button>
@@ -204,9 +234,49 @@ const UI = {
     document.getElementById('capture-photo').onclick = () => Camera.capturePhoto();
     document.getElementById('choose-photo').onclick = () => Camera.chooseFromGallery();
     
+    // Handle split type change
     if (isShared) {
       People.loadForDropdown();
+      document.getElementById('expense-split').onchange = (e) => {
+        const container = document.getElementById('custom-split-container');
+        if (e.target.value === 'custom') {
+          container.classList.remove('hidden');
+          this.renderCustomSplitInputs();
+        } else {
+          container.classList.add('hidden');
+        }
+      };
     }
+  },
+
+  async renderCustomSplitInputs() {
+    const people = await DB.getPeople();
+    const container = document.getElementById('split-inputs');
+    if (!container || people.length === 0) return;
+    
+    const equalShare = Math.round(100 / people.length);
+    container.innerHTML = `
+      <div style="font-size:13px;color:#667781;margin-bottom:8px">Enter percentage for each person (must total 100%)</div>
+      ${people.map((p, i) => `
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="flex:1">${p.name}</span>
+          <input type="number" class="split-percent" data-id="${p.id}" value="${i === 0 ? 100 - (equalShare * (people.length - 1)) : equalShare}" min="0" max="100" style="width:60px;padding:8px;border:1px solid #e9edef;border-radius:8px;text-align:center">
+          <span>%</span>
+        </div>
+      `).join('')}
+      <div id="split-total" style="text-align:right;font-size:13px;color:#667781">Total: 100%</div>
+    `;
+    
+    // Update total on change
+    container.querySelectorAll('.split-percent').forEach(input => {
+      input.oninput = () => {
+        const total = Array.from(container.querySelectorAll('.split-percent'))
+          .reduce((sum, inp) => sum + (parseInt(inp.value) || 0), 0);
+        const totalEl = document.getElementById('split-total');
+        totalEl.textContent = `Total: ${total}%`;
+        totalEl.style.color = total === 100 ? '#25d366' : '#ff3b30';
+      };
+    });
   },
 
   renderPeople() {
@@ -229,6 +299,199 @@ const UI = {
     `;
     
     Settlement.calculate();
+  },
+
+  async renderStats() {
+    const main = document.getElementById('main-content');
+    const currency = Settings.getCurrency();
+    
+    // Get current month expenses
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const allExpenses = await DB.getExpenses();
+    const monthExpenses = allExpenses.filter(e => {
+      const [year, month] = e.date.split('-').map(Number);
+      return month - 1 === currentMonth && year === currentYear;
+    });
+    
+    // Calculate stats
+    const totalThisMonth = monthExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    const totalAllTime = allExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    const avgPerExpense = allExpenses.length > 0 ? totalAllTime / allExpenses.length : 0;
+    
+    // Monthly trend (last 6 months)
+    const monthlyTotals = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(currentYear, currentMonth - i, 1);
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      const monthName = d.toLocaleDateString('en-US', { month: 'short' });
+      
+      const total = allExpenses.filter(e => {
+        const [ey, em] = e.date.split('-').map(Number);
+        return em - 1 === m && ey === y;
+      }).reduce((sum, e) => sum + parseFloat(e.amount), 0);
+      
+      monthlyTotals.push({ month: monthName, total });
+    }
+    
+    // Get people for spending breakdown (shared mode)
+    const people = await DB.getPeople();
+    const personTotals = {};
+    allExpenses.forEach(e => {
+      personTotals[e.payerId] = (personTotals[e.payerId] || 0) + parseFloat(e.amount);
+    });
+    
+    main.innerHTML = `
+      <h1>Statistics</h1>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">${Settings.formatAmount(totalThisMonth)}</div>
+          <div class="stat-label">This Month</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${Settings.formatAmount(totalAllTime)}</div>
+          <div class="stat-label">All Time</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${allExpenses.length}</div>
+          <div class="stat-label">Total Expenses</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${Settings.formatAmount(avgPerExpense)}</div>
+          <div class="stat-label">Avg per Expense</div>
+        </div>
+      </div>
+      
+      <div class="chart-container">
+        <div class="chart-title">Monthly Spending Trend</div>
+        <canvas id="trend-chart" class="chart-canvas"></canvas>
+      </div>
+      
+      ${people.length > 0 ? `
+      <div class="chart-container">
+        <div class="chart-title">Spending by Person</div>
+        <canvas id="person-chart" class="chart-canvas"></canvas>
+        <div class="chart-legend" id="person-legend"></div>
+      </div>
+      ` : ''}
+    `;
+    
+    // Draw charts
+    this.drawTrendChart(monthlyTotals);
+    if (people.length > 0) {
+      this.drawPersonChart(people, personTotals);
+    }
+  },
+
+  drawTrendChart(data) {
+    const canvas = document.getElementById('trend-chart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * 2;
+    canvas.height = rect.height * 2;
+    ctx.scale(2, 2);
+    
+    const width = rect.width;
+    const height = rect.height;
+    const padding = { top: 20, right: 20, bottom: 30, left: 50 };
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
+    
+    const maxValue = Math.max(...data.map(d => d.total), 1);
+    const barWidth = chartWidth / data.length - 10;
+    
+    // Draw bars
+    data.forEach((d, i) => {
+      const barHeight = (d.total / maxValue) * chartHeight;
+      const x = padding.left + i * (chartWidth / data.length) + 5;
+      const y = padding.top + chartHeight - barHeight;
+      
+      // Bar
+      ctx.fillStyle = '#075e54';
+      ctx.beginPath();
+      ctx.roundRect(x, y, barWidth, barHeight, 4);
+      ctx.fill();
+      
+      // Month label
+      ctx.fillStyle = '#667781';
+      ctx.font = '11px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(d.month, x + barWidth / 2, height - 10);
+      
+      // Value label
+      if (d.total > 0) {
+        ctx.fillStyle = '#111b21';
+        ctx.font = '10px -apple-system, sans-serif';
+        ctx.fillText(Settings.formatAmount(d.total), x + barWidth / 2, y - 5);
+      }
+    });
+  },
+
+  drawPersonChart(people, totals) {
+    const canvas = document.getElementById('person-chart');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * 2;
+    canvas.height = rect.height * 2;
+    ctx.scale(2, 2);
+    
+    const colors = ['#075e54', '#25d366', '#128c7e', '#054d44', '#0a8d6e', '#06453d'];
+    const total = Object.values(totals).reduce((sum, v) => sum + v, 0) || 1;
+    
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const radius = Math.min(centerX, centerY) - 20;
+    
+    let startAngle = -Math.PI / 2;
+    const legendItems = [];
+    
+    people.forEach((p, i) => {
+      const value = totals[p.id] || 0;
+      const percent = value / total;
+      const endAngle = startAngle + percent * Math.PI * 2;
+      
+      // Draw slice
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fill();
+      
+      legendItems.push({
+        name: p.name,
+        color: colors[i % colors.length],
+        value: value,
+        percent: Math.round(percent * 100)
+      });
+      
+      startAngle = endAngle;
+    });
+    
+    // Draw center circle (donut)
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Legend
+    const legendEl = document.getElementById('person-legend');
+    if (legendEl) {
+      legendEl.innerHTML = legendItems.map(item => `
+        <div class="legend-item">
+          <div class="legend-dot" style="background:${item.color}"></div>
+          <span>${item.name}: ${Settings.formatAmount(item.value)} (${item.percent}%)</span>
+        </div>
+      `).join('');
+    }
   },
 
   renderSync() {
@@ -369,6 +632,14 @@ const UI = {
             </div>
             <span class="settings-item-arrow">›</span>
           </div>
+          <div class="settings-item" id="budget-item">
+            <div class="settings-item-icon">📊</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Monthly Budget</div>
+              <div class="settings-item-subtitle">${Settings.hasBudget() ? Settings.formatAmount(Settings.getBudget()) : 'Not set'}</div>
+            </div>
+            <span class="settings-item-arrow">›</span>
+          </div>
         </div>
       </div>
       
@@ -428,6 +699,9 @@ const UI = {
     // Currency
     document.getElementById('currency-item').onclick = () => this.showCurrencyModal();
     
+    // Budget
+    document.getElementById('budget-item').onclick = () => this.showBudgetModal();
+    
     // Export
     document.getElementById('export-btn').onclick = () => this.exportData();
     
@@ -483,6 +757,49 @@ const UI = {
         App.showSuccess('Currency updated');
       };
     });
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+  },
+
+  showBudgetModal() {
+    const currentBudget = Settings.getBudget();
+    const currency = Settings.getCurrency();
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">Monthly Budget</span>
+          <button class="sheet-save" id="save-budget-btn">Save</button>
+        </div>
+        <div class="sheet-body">
+          <div class="input-group">
+            <label>Budget Amount</label>
+            <div style="display:flex;align-items:center;gap:8px;padding:8px 16px 14px">
+              <span style="font-size:20px;color:#075e54">${currency}</span>
+              <input type="number" id="budget-amount" value="${currentBudget || ''}" placeholder="0.00" step="0.01" inputmode="decimal" style="flex:1;padding:0;border:none;font-size:24px;font-weight:600">
+            </div>
+          </div>
+          <p style="font-size:13px;color:#667781;padding:0 16px">Set a monthly spending limit. You'll see a progress bar on the home screen when a budget is set. Set to 0 or leave empty to disable.</p>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    setTimeout(() => document.getElementById('budget-amount').focus(), 100);
+    
+    document.getElementById('save-budget-btn').onclick = () => {
+      const amount = parseFloat(document.getElementById('budget-amount').value) || 0;
+      Settings.setBudget(amount);
+      modal.remove();
+      this.renderSettings();
+      App.showSuccess(amount > 0 ? 'Budget set!' : 'Budget disabled');
+    };
     
     modal.onclick = (e) => {
       if (e.target === modal) modal.remove();

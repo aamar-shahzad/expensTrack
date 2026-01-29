@@ -82,6 +82,9 @@ const App = {
       await Settlement.init();
       await Sync.init();
 
+      // Process recurring expenses
+      await this.processRecurringExpenses();
+
       // Apply mode settings to navigation
       Settings.updateNavigation();
 
@@ -236,6 +239,63 @@ const App = {
       }
     } else {
       indicator?.remove();
+    }
+  },
+
+  // Process recurring expenses - auto-add for current month if not exists
+  async processRecurringExpenses() {
+    try {
+      const expenses = await DB.getExpenses();
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      const currentMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+      
+      // Find recurring expenses (look at all months to find recurring ones)
+      const recurringExpenses = expenses.filter(e => e.recurring === 'monthly');
+      
+      // Group by description + payerId to find unique recurring expenses
+      const recurringMap = new Map();
+      recurringExpenses.forEach(e => {
+        const key = `${e.description}|${e.payerId}|${e.amount}`;
+        if (!recurringMap.has(key)) {
+          recurringMap.set(key, e);
+        }
+      });
+      
+      // Check each recurring expense to see if it exists for current month
+      let addedCount = 0;
+      for (const [key, template] of recurringMap) {
+        const existsThisMonth = expenses.some(e => 
+          e.description === template.description &&
+          e.payerId === template.payerId &&
+          e.amount === template.amount &&
+          e.date.startsWith(currentMonthStr)
+        );
+        
+        if (!existsThisMonth) {
+          // Add this recurring expense for current month
+          const day = template.date.split('-')[2] || '01';
+          const newDate = `${currentMonthStr}-${day}`;
+          
+          await DB.addExpense({
+            description: template.description,
+            amount: template.amount,
+            date: newDate,
+            payerId: template.payerId,
+            splitType: template.splitType || 'equal',
+            splitDetails: template.splitDetails,
+            recurring: 'monthly'
+          });
+          addedCount++;
+        }
+      }
+      
+      if (addedCount > 0) {
+        console.log(`Added ${addedCount} recurring expense(s) for this month`);
+      }
+    } catch (e) {
+      console.error('Failed to process recurring expenses:', e);
     }
   }
 };

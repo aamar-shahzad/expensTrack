@@ -22,29 +22,69 @@ const Settlement = {
         return;
       }
 
-      // Calculate total expenses and per-person spending
-      const personTotals = {};
+      // Calculate what each person paid and what they owe
+      const personPaid = {};  // What each person actually paid
+      const personOwes = {};  // What each person should have paid (their share)
       let totalExpenses = 0;
+      const personCount = people.length;
 
       expenses.forEach(expense => {
-        totalExpenses += parseFloat(expense.amount);
-        personTotals[expense.payerId] = (personTotals[expense.payerId] || 0) + parseFloat(expense.amount);
+        const amount = parseFloat(expense.amount);
+        totalExpenses += amount;
+        
+        // Track what the payer paid
+        personPaid[expense.payerId] = (personPaid[expense.payerId] || 0) + amount;
+        
+        // Calculate what each person owes based on split type
+        const splitType = expense.splitType || 'equal';
+        
+        if (splitType === 'equal') {
+          // Split equally among all people
+          const share = amount / personCount;
+          people.forEach(p => {
+            personOwes[p.id] = (personOwes[p.id] || 0) + share;
+          });
+        } else if (splitType === 'full') {
+          // Payer paid for someone else - they owe nothing, others split it
+          const othersCount = personCount - 1;
+          if (othersCount > 0) {
+            const share = amount / othersCount;
+            people.forEach(p => {
+              if (p.id !== expense.payerId) {
+                personOwes[p.id] = (personOwes[p.id] || 0) + share;
+              }
+            });
+          }
+        } else if (splitType === 'custom' && expense.splitDetails) {
+          // Custom percentage split
+          people.forEach(p => {
+            const percent = expense.splitDetails[p.id] || 0;
+            personOwes[p.id] = (personOwes[p.id] || 0) + (amount * percent / 100);
+          });
+        } else {
+          // Fallback to equal split
+          const share = amount / personCount;
+          people.forEach(p => {
+            personOwes[p.id] = (personOwes[p.id] || 0) + share;
+          });
+        }
       });
 
-      const personCount = people.length;
-      const sharePerPerson = totalExpenses / personCount;
-
-      // Calculate balances (positive = owed money, negative = owes money)
+      // Calculate balances (positive = owed money back, negative = owes money)
       const balances = {};
       for (const person of people) {
-        const spent = personTotals[person.id] || 0;
-        balances[person.id] = spent - sharePerPerson;
+        const paid = personPaid[person.id] || 0;
+        const owes = personOwes[person.id] || 0;
+        balances[person.id] = paid - owes;
       }
 
       // Calculate settlement transactions
       const settlements = this.calculateSettlements(balances, people);
+      
+      // Calculate average share for display
+      const sharePerPerson = totalExpenses / personCount;
 
-      this.renderSettlement(totalExpenses, personTotals, sharePerPerson, settlements, people, balances);
+      this.renderSettlement(totalExpenses, personPaid, sharePerPerson, settlements, people, balances);
 
     } catch (error) {
       console.error('Failed to calculate settlement:', error);
