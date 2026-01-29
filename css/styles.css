@@ -1,15 +1,21 @@
-/* ExpenseTracker - WhatsApp Inspired Design */
+/* ExpenseTracker - Clean Modern Design */
 
 :root {
   --primary: #075e54;
   --primary-dark: #054d44;
   --primary-light: #128c7e;
   --accent: #25d366;
-  --bg: #f0f2f5;
+  --bg: #f5f6f8;
   --white: #ffffff;
-  --text: #111b21;
-  --text-secondary: #667781;
-  --border: #e9edef;
+  --text: #1a1a2e;
+  --text-secondary: #6b7280;
+  --border: #e5e7eb;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
 }
 
 * {
@@ -121,12 +127,13 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  background: var(--bg);
+  background: var(--white);
   border-top: 1px solid var(--border);
   display: flex;
-  padding: 8px 0 12px 0;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  padding: 6px 0 8px 0;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   z-index: 100;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
 }
 
 .nav-btn {
@@ -134,23 +141,30 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 8px 4px;
+  gap: 2px;
+  padding: 6px 4px;
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 500;
   cursor: pointer;
   position: relative;
+  transition: color 0.2s ease;
 }
 
 .nav-btn svg {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
+  transition: transform 0.2s ease;
 }
 
 .nav-btn.active {
   color: var(--primary);
+}
+
+.nav-btn.active svg {
+  transform: scale(1.1);
 }
 
 .nav-btn .badge {
@@ -168,21 +182,21 @@ html, body {
 /* Floating Action Button */
 .fab-main {
   position: fixed;
-  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-  right: 16px;
-  width: 56px;
-  height: 56px;
-  background: var(--accent);
+  bottom: calc(75px + env(safe-area-inset-bottom, 0px));
+  right: 20px;
+  width: 54px;
+  height: 54px;
+  background: linear-gradient(135deg, var(--accent) 0%, #1fb855 100%);
   border: none;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   color: white;
   cursor: pointer;
   z-index: 99;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .fab-main:active {
@@ -248,23 +262,25 @@ h1 {
   align-items: center;
   justify-content: space-between;
   background: var(--white);
-  padding: 6px 12px;
-  border-radius: 10px;
-  margin-bottom: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
 }
 
 .month-nav button {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border: none;
   background: var(--bg);
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   font-size: 16px;
   cursor: pointer;
   color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.2s ease;
 }
 
 .month-nav button:active {
@@ -273,30 +289,33 @@ h1 {
 
 .month-nav span {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text);
 }
 
 /* Summary Box */
 .summary-box {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
   color: white;
-  padding: 12px 14px;
-  border-radius: 12px;
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
   text-align: center;
-  margin-bottom: 8px;
-  box-shadow: 0 2px 8px rgba(7, 94, 84, 0.2);
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(7, 94, 84, 0.25);
 }
 
 .summary-label {
-  font-size: 11px;
-  opacity: 0.9;
-  margin-bottom: 2px;
+  font-size: 12px;
+  opacity: 0.85;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .summary-amount {
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 .summary-count {
@@ -309,38 +328,35 @@ h1 {
 .expense-item {
   background: var(--white);
   padding: 14px 16px;
-  border-radius: 12px;
-  margin-bottom: 8px;
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   gap: 14px;
   cursor: pointer;
-  transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
-  min-height: 70px;
-  opacity: 1;
-  visibility: visible;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-height: 72px;
+  box-shadow: var(--shadow-sm);
 }
 
-/* Expense item animations removed for iOS compatibility */
-
 .expense-item:active {
-  background: var(--bg);
   transform: scale(0.98);
+  box-shadow: none;
 }
 
 .expense-item:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: var(--shadow-md);
 }
 
 .expense-icon {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, var(--bg) 0%, #e8f5e9 100%);
-  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 20px;
   flex-shrink: 0;
 }
 
@@ -1679,20 +1695,22 @@ h1 {
 
 .filter-btn {
   flex: 1;
-  padding: 6px 6px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
   background: var(--white);
-  font-size: 12px;
-  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .filter-btn.active {
   background: var(--primary);
   color: white;
-  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(7, 94, 84, 0.3);
 }
 
 /* Custom Date Range */
@@ -1885,16 +1903,17 @@ html {
 .search-box {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: var(--white);
-  padding: 8px 12px;
-  border-radius: 8px;
-  margin-bottom: 6px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
 }
 
 .search-icon {
-  font-size: 14px;
-  opacity: 0.5;
+  font-size: 15px;
+  opacity: 0.4;
 }
 
 .search-box input {
