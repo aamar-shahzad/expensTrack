@@ -36,7 +36,26 @@ const Settings = {
     this.currency = localStorage.getItem('et_currency') || this.defaults.currency;
     this.mode = localStorage.getItem('et_mode') || this.defaults.mode;
     this.monthlyBudget = parseFloat(localStorage.getItem('et_budget')) || this.defaults.monthlyBudget;
+    
+    // Apply dark mode if saved
+    if (this.isDarkMode()) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+    
     console.log('Settings initialized:', this.currency, this.mode);
+  },
+
+  isDarkMode() {
+    return localStorage.getItem('et_darkMode') === 'true';
+  },
+
+  setDarkMode(enabled) {
+    localStorage.setItem('et_darkMode', enabled.toString());
+    if (enabled) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
   },
 
   getCurrency() {
@@ -121,5 +140,76 @@ const Settings = {
       percent: Math.min(percent, 100),
       status: status
     };
+  },
+
+  // Export data as CSV
+  async exportCSV() {
+    try {
+      const expenses = await DB.getAllExpenses();
+      const people = await DB.getPeople();
+      const peopleMap = {};
+      people.forEach(p => peopleMap[p.id] = p.name);
+
+      // CSV header
+      let csv = 'Date,Description,Amount,Paid By,Split Type,Category\n';
+      
+      // Add rows
+      for (const exp of expenses) {
+        const date = exp.date;
+        const desc = `"${(exp.description || '').replace(/"/g, '""')}"`;
+        const amount = parseFloat(exp.amount).toFixed(2);
+        const payer = peopleMap[exp.payerId] || 'Self';
+        const split = exp.splitType || 'equal';
+        const category = Expenses.getCategoryIcon(exp.description);
+        
+        csv += `${date},${desc},${amount},${payer},${split},${category}\n`;
+      }
+
+      this.downloadFile(csv, `expenses_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
+      App.showSuccess('Exported to CSV');
+    } catch (e) {
+      console.error('Export failed:', e);
+      App.showError('Export failed');
+    }
+  },
+
+  // Export data as JSON
+  async exportJSON() {
+    try {
+      const data = await DB.getAllData();
+      // Remove blobs from images for JSON export
+      const cleanImages = (data.images || []).map(img => ({
+        id: img.id,
+        syncId: img.syncId,
+        createdAt: img.createdAt
+      }));
+
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        account: Accounts.getCurrentAccount()?.name || 'Default',
+        expenses: data.expenses || [],
+        people: data.people || [],
+        imageCount: cleanImages.length
+      };
+
+      const json = JSON.stringify(exportData, null, 2);
+      this.downloadFile(json, `expenses_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+      App.showSuccess('Exported to JSON');
+    } catch (e) {
+      console.error('Export failed:', e);
+      App.showError('Export failed');
+    }
+  },
+
+  downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 };

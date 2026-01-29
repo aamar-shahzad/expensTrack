@@ -101,11 +101,18 @@ const UI = {
         </div>
       </div>
       
+      <div id="pull-indicator" class="pull-indicator hidden">
+        <span class="pull-spinner"></span>
+        <span>Release to refresh</span>
+      </div>
       <div id="expenses-list" class="expenses-list"></div>
     `;
     
     document.getElementById('prev-month').onclick = () => Expenses.navigateMonth(-1);
     document.getElementById('next-month').onclick = () => Expenses.navigateMonth(1);
+    
+    // Setup pull-to-refresh
+    this.setupPullToRefresh();
     
     // Filter buttons
     document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -158,6 +165,68 @@ const UI = {
     };
     
     Expenses.loadCurrentMonth();
+  },
+
+  setupPullToRefresh() {
+    const list = document.getElementById('expenses-list');
+    const indicator = document.getElementById('pull-indicator');
+    if (!list || !indicator) return;
+
+    let startY = 0;
+    let pulling = false;
+    const threshold = 80;
+
+    list.addEventListener('touchstart', (e) => {
+      if (list.scrollTop === 0) {
+        startY = e.touches[0].clientY;
+        pulling = true;
+      }
+    }, { passive: true });
+
+    list.addEventListener('touchmove', (e) => {
+      if (!pulling) return;
+      
+      const currentY = e.touches[0].clientY;
+      const diff = currentY - startY;
+      
+      if (diff > 0 && list.scrollTop === 0) {
+        const pullDistance = Math.min(diff, threshold * 1.5);
+        indicator.classList.remove('hidden');
+        indicator.style.height = `${pullDistance}px`;
+        indicator.style.opacity = Math.min(diff / threshold, 1);
+        
+        if (diff > threshold) {
+          indicator.querySelector('span:last-child').textContent = 'Release to refresh';
+        } else {
+          indicator.querySelector('span:last-child').textContent = 'Pull to refresh';
+        }
+      }
+    }, { passive: true });
+
+    list.addEventListener('touchend', async () => {
+      if (!pulling) return;
+      pulling = false;
+      
+      const height = parseInt(indicator.style.height) || 0;
+      
+      if (height > threshold) {
+        indicator.querySelector('span:last-child').textContent = 'Refreshing...';
+        indicator.classList.add('refreshing');
+        
+        await Expenses.loadCurrentMonth();
+        
+        setTimeout(() => {
+          indicator.classList.remove('refreshing');
+          indicator.classList.add('hidden');
+          indicator.style.height = '0';
+          indicator.style.opacity = '0';
+        }, 500);
+      } else {
+        indicator.classList.add('hidden');
+        indicator.style.height = '0';
+        indicator.style.opacity = '0';
+      }
+    });
   },
 
   renderAdd() {
@@ -912,6 +981,17 @@ const UI = {
             </div>
             <span class="settings-item-arrow">›</span>
           </div>
+          <div class="settings-item" id="dark-mode-item">
+            <div class="settings-item-icon">🌙</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Dark Mode</div>
+              <div class="settings-item-subtitle">${Settings.isDarkMode() ? 'On' : 'Off'}</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="dark-mode-toggle" ${Settings.isDarkMode() ? 'checked' : ''}>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
       </div>
       
@@ -973,6 +1053,13 @@ const UI = {
     
     // Budget
     document.getElementById('budget-item').onclick = () => this.showBudgetModal();
+    
+    // Dark mode toggle
+    document.getElementById('dark-mode-toggle').onchange = (e) => {
+      Settings.setDarkMode(e.target.checked);
+      document.querySelector('#dark-mode-item .settings-item-subtitle').textContent = 
+        e.target.checked ? 'On' : 'Off';
+    };
     
     // Export
     document.getElementById('export-btn').onclick = () => this.exportData();
@@ -1166,7 +1253,92 @@ const UI = {
     }
   },
 
-  async exportData() {
+  exportData() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">Export Data</span>
+          <span></span>
+        </div>
+        <div class="sheet-body" style="padding:0">
+          <div class="settings-list">
+            <div class="settings-item" id="export-csv">
+              <div class="settings-item-icon">📊</div>
+              <div class="settings-item-content">
+                <div class="settings-item-title">Export as CSV</div>
+                <div class="settings-item-subtitle">Spreadsheet format (Excel, Google Sheets)</div>
+              </div>
+            </div>
+            <div class="settings-item" id="export-json">
+              <div class="settings-item-icon">💾</div>
+              <div class="settings-item-content">
+                <div class="settings-item-title">Export as JSON</div>
+                <div class="settings-item-subtitle">Full backup for restore</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    modal.querySelector('#export-csv').onclick = async () => {
+      modal.remove();
+      await this.exportCSV();
+    };
+    
+    modal.querySelector('#export-json').onclick = async () => {
+      modal.remove();
+      await this.exportJSON();
+    };
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+  },
+
+  async exportCSV() {
+    try {
+      const expenses = await DB.getAllExpenses();
+      const people = await DB.getPeople();
+      const peopleMap = {};
+      people.forEach(p => peopleMap[p.id] = p.name);
+
+      // CSV header
+      let csv = 'Date,Description,Amount,Paid By,Split Type\n';
+      
+      // Add rows
+      for (const exp of expenses) {
+        const date = exp.date;
+        const desc = `"${(exp.description || '').replace(/"/g, '""')}"`;
+        const amount = parseFloat(exp.amount).toFixed(2);
+        const payer = peopleMap[exp.payerId] || 'Self';
+        const split = exp.splitType || 'equal';
+        
+        csv += `${date},${desc},${amount},${payer},${split}\n`;
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `expenses_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      App.showSuccess('Exported to CSV');
+    } catch (e) {
+      console.error('Export failed:', e);
+      App.showError('Export failed');
+    }
+  },
+
+  async exportJSON() {
     try {
       const data = await DB.getAllData();
       const account = Accounts.getCurrentAccount();
@@ -1191,7 +1363,7 @@ const UI = {
       a.click();
       URL.revokeObjectURL(url);
       
-      App.showSuccess('Data exported');
+      App.showSuccess('Exported to JSON');
     } catch (e) {
       App.showError('Export failed');
     }

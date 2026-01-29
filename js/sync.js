@@ -303,6 +303,7 @@ const Sync = {
 
     try {
       const localData = await DB.getAllData();
+      const tombstones = await DB.getTombstones();
       this.updateProgress(20, 'Processing images...');
       
       // Convert image blobs to base64 for transfer
@@ -316,7 +317,8 @@ const Sync = {
         data: {
           expenses: localData.expenses || [],
           people: localData.people || [],
-          images: imagesForSync
+          images: imagesForSync,
+          tombstones: tombstones || []
         },
         accountId: currentAccount?.id,
         accountName: currentAccount?.name,
@@ -450,11 +452,13 @@ const Sync = {
         const receivedExpenseIds = new Set((message.data.expenses || []).map(e => e.syncId).filter(Boolean));
         const receivedPeopleIds = new Set((message.data.people || []).map(p => p.syncId).filter(Boolean));
         const receivedImageIds = new Set((message.data.images || []).map(i => i.syncId || i.id).filter(Boolean));
+        const receivedTombstoneIds = new Set((message.data.tombstones || []).map(t => t.syncId).filter(Boolean));
         
         await this.mergeData(message.data);
         
         this.updateProgress(60, 'Preparing response...');
         const localData = await DB.getAllData();
+        const localTombstones = await DB.getTombstones();
         
         // Only send items they don't already have
         const newExpenses = (localData.expenses || []).filter(e => e.syncId && !receivedExpenseIds.has(e.syncId));
@@ -463,6 +467,7 @@ const Sync = {
           const imgSyncId = i.syncId || i.id;
           return imgSyncId && !receivedImageIds.has(imgSyncId);
         });
+        const newTombstones = (localTombstones || []).filter(t => !receivedTombstoneIds.has(t.syncId));
         
         const imagesForSync = await this.prepareImagesForSync(newImages);
         const conn = this.connections.get(fromPeer);
@@ -474,7 +479,8 @@ const Sync = {
             data: {
               expenses: newExpenses,
               people: newPeople,
-              images: imagesForSync
+              images: imagesForSync,
+              tombstones: newTombstones
             },
             accountId: currentAccount?.id,
             accountName: currentAccount?.name,
@@ -602,6 +608,38 @@ const Sync = {
             delete imageToSave.thumbnailBase64;
           }
           await DB.addImageRaw(imageToSave);
+        }
+      }
+
+      // Apply tombstones - delete items that were deleted on other device
+      for (const tombstone of (remoteData.tombstones || [])) {
+        if (!tombstone.syncId) continue;
+        
+        // Find and delete the item locally
+        if (tombstone.type === 'expense') {
+          const expense = localExpenseMap.get(tombstone.syncId);
+          if (expense) {
+            // Only delete if tombstone is newer than item
+            const itemTime = expense.updatedAt || expense.createdAt || 0;
+            if (tombstone.deletedAt > itemTime) {
+              await DB.deleteExpense(expense.id);
+            }
+          }
+        } else if (tombstone.type === 'person') {
+          const person = localPeopleMap.get(tombstone.syncId);
+          if (person) {
+            const itemTime = person.updatedAt || person.createdAt || 0;
+            if (tombstone.deletedAt > itemTime) {
+              await DB.deletePerson(person.id);
+            }
+          }
+        }
+        
+        // Store the tombstone locally so we propagate it to other devices
+        try {
+          await DB.addTombstone(tombstone.syncId, tombstone.type);
+        } catch (e) {
+          // Ignore if already exists
         }
       }
 

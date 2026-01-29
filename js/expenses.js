@@ -594,22 +594,77 @@ const Expenses = {
     }
   },
 
-  async deleteExpense(id) {
-    if (!confirm('Delete this expense?')) return;
+  lastDeletedExpense: null,
+  undoTimeout: null,
 
+  async deleteExpense(id) {
     try {
+      // Store expense for potential undo (before deletion)
       const exp = await DB.getExpenseById(id);
+      if (!exp) return;
+      
+      // Store for undo
+      this.lastDeletedExpense = { ...exp };
+      
+      // Clear any existing undo timeout
+      if (this.undoTimeout) {
+        clearTimeout(this.undoTimeout);
+      }
+      
+      // Delete from DB
       await DB.deleteExpense(id);
       
-      if (exp?.imageId) {
-        await DB.deleteImage(exp.imageId);
-      }
-
-      App.showSuccess('Deleted');
+      // Show undo toast
+      this.showUndoToast();
+      
       this.loadCurrentMonth();
     } catch (e) {
       console.error('Failed to delete:', e);
       App.showError('Failed to delete');
+    }
+  },
+
+  showUndoToast() {
+    // Remove existing undo toast if any
+    document.querySelector('.undo-toast')?.remove();
+    
+    const toast = document.createElement('div');
+    toast.className = 'undo-toast';
+    toast.innerHTML = `
+      <span>Expense deleted</span>
+      <button class="undo-btn" onclick="Expenses.undoDelete()">Undo</button>
+    `;
+    document.body.appendChild(toast);
+    
+    // Auto-remove after 5 seconds
+    this.undoTimeout = setTimeout(() => {
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 300);
+      this.lastDeletedExpense = null;
+    }, 5000);
+  },
+
+  async undoDelete() {
+    if (!this.lastDeletedExpense) return;
+    
+    try {
+      // Clear timeout
+      if (this.undoTimeout) {
+        clearTimeout(this.undoTimeout);
+      }
+      
+      // Restore the expense
+      await DB.addExpenseRaw(this.lastDeletedExpense);
+      
+      // Remove toast
+      document.querySelector('.undo-toast')?.remove();
+      
+      App.showSuccess('Restored');
+      this.lastDeletedExpense = null;
+      this.loadCurrentMonth();
+    } catch (e) {
+      console.error('Failed to undo:', e);
+      App.showError('Failed to restore');
     }
   },
 
@@ -651,7 +706,7 @@ const Expenses = {
     }
   },
 
-  // Search expenses
+  // Search expenses - searches description, amount, and person name
   async searchExpenses(query) {
     if (!query) {
       document.querySelector('.month-nav')?.classList.remove('hidden');
@@ -662,9 +717,34 @@ const Expenses = {
     
     try {
       const allExpenses = await DB.getAllExpenses();
-      const filtered = allExpenses.filter(exp => 
-        exp.description.toLowerCase().includes(query.toLowerCase())
-      );
+      const people = await DB.getPeople();
+      const peopleMap = {};
+      people.forEach(p => peopleMap[p.id] = p.name.toLowerCase());
+      
+      const q = query.toLowerCase();
+      
+      const filtered = allExpenses.filter(exp => {
+        // Search in description
+        if (exp.description.toLowerCase().includes(q)) return true;
+        
+        // Search in amount (e.g., "50" matches $50.00)
+        if (exp.amount.toString().includes(q)) return true;
+        
+        // Search in formatted amount (e.g., "$50" or "50.00")
+        if (Settings.formatAmount(exp.amount).toLowerCase().includes(q)) return true;
+        
+        // Search in payer name
+        const payerName = peopleMap[exp.payerId] || '';
+        if (payerName.includes(q)) return true;
+        
+        // Search in date (e.g., "jan" or "2024")
+        if (exp.date.includes(q)) return true;
+        const dateObj = new Date(exp.date);
+        const monthName = dateObj.toLocaleDateString('en-US', { month: 'long' }).toLowerCase();
+        if (monthName.includes(q)) return true;
+        
+        return false;
+      });
       
       // Hide month nav and filters during search
       const monthNav = document.querySelector('.month-nav');

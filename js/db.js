@@ -7,7 +7,7 @@ const DB = {
   db: null,
   dbName: 'ExpenseTracker',
   currentAccountId: null,
-  version: 1,
+  version: 2, // Bumped for tombstones store
 
   // Get database name for an account
   getDbName(accountId) {
@@ -48,6 +48,13 @@ const DB = {
         if (!db.objectStoreNames.contains('images')) {
           const imagesStore = db.createObjectStore('images', { keyPath: 'id' });
           imagesStore.createIndex('createdAt', 'createdAt');
+        }
+
+        // Tombstones store for tracking deletions (for sync)
+        if (!db.objectStoreNames.contains('tombstones')) {
+          const tombstoneStore = db.createObjectStore('tombstones', { keyPath: 'syncId' });
+          tombstoneStore.createIndex('type', 'type');
+          tombstoneStore.createIndex('deletedAt', 'deletedAt');
         }
       };
     });
@@ -118,7 +125,7 @@ const DB = {
   },
 
   async deleteExpense(id) {
-    // First get the expense to check for associated image
+    // First get the expense to check for associated image and syncId
     const expense = await this.getExpenseById(id);
     
     const store = await this.transaction('expenses', 'readwrite');
@@ -126,6 +133,14 @@ const DB = {
     return new Promise((resolve, reject) => {
       const request = store.delete(id);
       request.onsuccess = async () => {
+        // Record tombstone for sync
+        if (expense && expense.syncId) {
+          try {
+            await this.addTombstone(expense.syncId, 'expense');
+          } catch (e) {
+            console.warn('Failed to add tombstone:', e);
+          }
+        }
         // Delete associated image if exists
         if (expense && expense.imageId) {
           try {
@@ -200,11 +215,25 @@ const DB = {
   },
 
   async deletePerson(id) {
+    // Get person first to record tombstone
+    const people = await this.getPeople();
+    const person = people.find(p => p.id === id);
+    
     const store = await this.transaction('people', 'readwrite');
 
     return new Promise((resolve, reject) => {
       const request = store.delete(id);
-      request.onsuccess = () => resolve(true);
+      request.onsuccess = async () => {
+        // Record tombstone for sync
+        if (person && person.syncId) {
+          try {
+            await this.addTombstone(person.syncId, 'person');
+          } catch (e) {
+            console.warn('Failed to add tombstone:', e);
+          }
+        }
+        resolve(true);
+      };
       request.onerror = () => reject(request.error);
     });
   },
@@ -360,6 +389,53 @@ const DB = {
     return new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase(dbName);
       request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  // Tombstone operations for deletion sync
+  async addTombstone(syncId, type) {
+    const store = await this.transaction('tombstones', 'readwrite');
+    const tombstone = {
+      syncId,
+      type, // 'expense', 'person', or 'image'
+      deletedAt: Date.now()
+    };
+
+    return new Promise((resolve, reject) => {
+      const request = store.put(tombstone);
+      request.onsuccess = () => resolve(tombstone);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async getTombstones() {
+    const store = await this.transaction('tombstones');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async clearOldTombstones(maxAge = 30 * 24 * 60 * 60 * 1000) {
+    // Clear tombstones older than 30 days
+    const store = await this.transaction('tombstones', 'readwrite');
+    const cutoff = Date.now() - maxAge;
+    
+    return new Promise((resolve, reject) => {
+      const request = store.openCursor();
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          if (cursor.value.deletedAt < cutoff) {
+            cursor.delete();
+          }
+          cursor.continue();
+        } else {
+          resolve(true);
+        }
+      };
       request.onerror = () => reject(request.error);
     });
   }
