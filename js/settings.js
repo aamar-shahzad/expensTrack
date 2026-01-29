@@ -8,24 +8,24 @@
 const Settings = {
   // Default settings
   defaults: {
-    currency: '$',
+    currency: 'C$',
     mode: 'shared', // 'single' or 'shared'
     monthlyBudget: 0 // 0 means no budget set
   },
 
   // Initialize with defaults (will be overwritten by init())
-  currency: '$',
+  currency: 'C$',
   mode: 'shared',
   monthlyBudget: 0,
 
   currencies: [
+    { symbol: 'C$', name: 'CAD - Canadian Dollar' },
     { symbol: '$', name: 'USD - Dollar' },
     { symbol: '€', name: 'EUR - Euro' },
     { symbol: '£', name: 'GBP - Pound' },
     { symbol: '¥', name: 'JPY - Yen' },
     { symbol: '₹', name: 'INR - Rupee' },
     { symbol: 'A$', name: 'AUD - Australian Dollar' },
-    { symbol: 'C$', name: 'CAD - Canadian Dollar' },
     { symbol: 'Fr', name: 'CHF - Swiss Franc' },
     { symbol: 'R', name: 'ZAR - Rand' },
     { symbol: '₽', name: 'RUB - Ruble' }

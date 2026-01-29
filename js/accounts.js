@@ -43,7 +43,7 @@ const Accounts = {
     localStorage.setItem('et_accounts', JSON.stringify(this.accounts));
   },
 
-  createAccount(name, mode = 'shared', currency = '$') {
+  createAccount(name, mode = 'shared', currency = 'C$') {
     const id = 'acc_' + crypto.randomUUID().slice(0, 8);
     const account = {
       id,
@@ -153,6 +153,6 @@ const Accounts = {
   // Get current account currency
   getCurrency() {
     const account = this.getCurrentAccount();
-    return account?.currency || '$';
+    return account?.currency || 'C$';
   }
 };
