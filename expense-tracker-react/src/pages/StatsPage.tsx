@@ -68,7 +68,7 @@ export function StatsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-full bg-[var(--bg)] safe-top flex items-center justify-center">
+      <div className="h-full bg-[var(--bg)] safe-top flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[var(--teal-green)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -76,7 +76,7 @@ export function StatsPage() {
 
   if (!stats) {
     return (
-      <div className="min-h-full bg-[var(--bg)] safe-top">
+      <div className="h-full bg-[var(--bg)] safe-top">
         <div className="px-4 pt-4 pb-3">
           <h1 className="text-2xl font-bold mb-2">Statistics</h1>
         </div>
@@ -92,14 +92,17 @@ export function StatsPage() {
   }
 
   return (
-    <div className="min-h-full bg-[var(--bg)] safe-top pb-[calc(90px+env(safe-area-inset-bottom))]">
+    <div className="flex flex-col h-full bg-[var(--bg)]">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3">
+      <div className="flex-shrink-0 px-4 pt-4 pb-3 safe-top">
         <h1 className="text-2xl font-bold mb-2">Statistics</h1>
         <p className="text-[var(--text-secondary)] text-sm">
           Your spending insights
         </p>
       </div>
+      
+      {/* Scrollable Content */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(90px+env(safe-area-inset-bottom))]">
 
       {/* Overview Cards */}
       <div className="px-4 grid grid-cols-2 gap-3 mb-6">
@@ -172,6 +175,7 @@ export function StatsPage() {
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

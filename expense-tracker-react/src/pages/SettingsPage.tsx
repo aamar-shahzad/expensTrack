@@ -90,11 +90,14 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="min-h-full bg-[var(--bg)] safe-top pb-[calc(90px+env(safe-area-inset-bottom))]">
+    <div className="flex flex-col h-full bg-[var(--bg)]">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3">
+      <div className="flex-shrink-0 px-4 pt-4 pb-3 safe-top">
         <h1 className="text-2xl font-bold mb-2">Settings</h1>
       </div>
+      
+      {/* Scrollable Content */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(90px+env(safe-area-inset-bottom))]">
 
       {/* Account Section */}
       <div className="px-4 mb-6">
@@ -252,6 +255,8 @@ export function SettingsPage() {
           </p>
         </div>
       </Sheet>
+
+      </div>
 
       {/* Delete Confirmation */}
       <Sheet

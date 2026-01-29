@@ -76,9 +76,9 @@ export function PeoplePage() {
   };
 
   return (
-    <div className="min-h-full bg-[var(--bg)] safe-top">
+    <div className="flex flex-col h-full bg-[var(--bg)]">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3">
+      <div className="flex-shrink-0 px-4 pt-4 pb-3 safe-top">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">People</h1>
           <Button
@@ -94,7 +94,7 @@ export function PeoplePage() {
       </div>
 
       {/* People List */}
-      <div className="px-4 pb-[calc(90px+env(safe-area-inset-bottom))]">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-[calc(90px+env(safe-area-inset-bottom))]">
         <PeopleList
           people={people}
           onEdit={openEdit}

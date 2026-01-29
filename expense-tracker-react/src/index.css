@@ -36,10 +36,10 @@
   }
 
   html {
-    position: fixed;
     height: 100%;
     width: 100%;
     overflow: hidden;
+    overscroll-behavior: none;
   }
 
   body {
@@ -51,16 +51,21 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     overscroll-behavior: none;
-    position: fixed;
-    inset: 0;
+    height: 100%;
+    width: 100%;
     overflow: hidden;
     -webkit-tap-highlight-color: transparent;
+    /* Prevent iOS bounce */
+    position: fixed;
+    inset: 0;
   }
 
   #root {
     height: 100%;
+    width: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   /* Scrollbar */
@@ -106,6 +111,16 @@
   /* Touch utilities */
   .touch-pan-y {
     touch-action: pan-y;
+  }
+
+  /* iOS smooth scrolling */
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Overscroll behavior */
+  .overscroll-contain {
+    overscroll-behavior: contain;
   }
 }
 

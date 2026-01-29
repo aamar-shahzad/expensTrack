@@ -152,7 +152,7 @@ export function HomePage() {
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto overscroll-contain pb-[calc(70px+env(safe-area-inset-bottom))]">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(80px+env(safe-area-inset-bottom))]">
         <ExpenseList 
           expenses={expenses} 
           loading={loading}
