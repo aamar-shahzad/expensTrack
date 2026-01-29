@@ -2023,5 +2023,28 @@ html {
   margin-top: 4px;
 }
 
+/* Account Indicator (for Stats, etc.) */
+.account-indicator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(7, 94, 84, 0.08);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+}
+
+.account-type-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--primary);
+  color: white;
+}
+
 /* Hidden */
 .hidden { display: none !important; }

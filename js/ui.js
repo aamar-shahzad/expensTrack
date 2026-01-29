@@ -293,8 +293,17 @@ const UI = {
 
   renderSettle() {
     const main = document.getElementById('main-content');
+    const currentAccount = Accounts.getCurrentAccount();
+    const isShared = Accounts.isSharedMode();
+    
     main.innerHTML = `
       <h1>Settlement</h1>
+      
+      <div class="account-indicator">
+        <span>${isShared ? '👥' : '👤'} ${currentAccount?.name || 'Account'}</span>
+        <span class="account-type-badge">${isShared ? 'Shared' : 'Private'}</span>
+      </div>
+      
       <div id="settlement-results"></div>
     `;
     
@@ -305,6 +314,7 @@ const UI = {
     const main = document.getElementById('main-content');
     const currency = Settings.getCurrency();
     const isShared = Accounts.isSharedMode();
+    const currentAccount = Accounts.getCurrentAccount();
     
     // Get current month expenses
     const now = new Date();
@@ -356,6 +366,11 @@ const UI = {
     
     main.innerHTML = `
       <h1>Statistics</h1>
+      
+      <div class="account-indicator">
+        <span>${isShared ? '👥' : '👤'} ${currentAccount?.name || 'Account'}</span>
+        <span class="account-type-badge">${isShared ? 'Shared' : 'Private'}</span>
+      </div>
       
       <div class="stats-grid">
         <div class="stat-card">
