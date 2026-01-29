@@ -122,6 +122,11 @@ const App = {
 
       // Load initial view
       this.navigateTo('home');
+      
+      // Show onboarding for first-time users
+      if (!localStorage.getItem('et_onboarded')) {
+        setTimeout(() => this.showOnboarding(), 500);
+      }
 
       console.log('App ready');
 
@@ -340,13 +345,105 @@ const App = {
       // Create the account
       const account = Accounts.createAccount(name, mode, currency);
       Accounts.setCurrentAccount(account.id);
+      localStorage.setItem('et_onboarded', 'true');
       
       modal.remove();
       
-      // Reload the app to initialize everything
+      // Show feature tour before reload
+      this.showFeatureTour(mode);
+    };
+  },
+
+  showFeatureTour(mode) {
+    const isShared = mode === 'shared';
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="tour-modal">
+        <div class="tour-slides">
+          <div class="tour-slide active" data-slide="0">
+            <div class="tour-icon">📝</div>
+            <h3>Track Expenses</h3>
+            <p>Add expenses quickly with the + button. Snap receipts to auto-fill amounts!</p>
+          </div>
+          <div class="tour-slide" data-slide="1">
+            <div class="tour-icon">📊</div>
+            <h3>See Insights</h3>
+            <p>View spending trends, category breakdowns, and monthly comparisons.</p>
+          </div>
+          ${isShared ? `
+          <div class="tour-slide" data-slide="2">
+            <div class="tour-icon">👥</div>
+            <h3>Split & Settle</h3>
+            <p>Add people, split expenses, and see who owes what. Mark payments as settled!</p>
+          </div>
+          <div class="tour-slide" data-slide="3">
+            <div class="tour-icon">🔄</div>
+            <h3>Sync Devices</h3>
+            <p>Connect with others using QR codes. All expenses sync automatically!</p>
+          </div>
+          ` : `
+          <div class="tour-slide" data-slide="2">
+            <div class="tour-icon">💾</div>
+            <h3>Backup Data</h3>
+            <p>Export your data anytime from Settings. Never lose your expense history!</p>
+          </div>
+          `}
+        </div>
+        <div class="tour-dots">
+          <span class="tour-dot active" data-dot="0"></span>
+          <span class="tour-dot" data-dot="1"></span>
+          <span class="tour-dot" data-dot="2"></span>
+          ${isShared ? '<span class="tour-dot" data-dot="3"></span>' : ''}
+        </div>
+        <div class="tour-buttons">
+          <button class="tour-skip" id="tour-skip">Skip</button>
+          <button class="tour-next btn-primary" id="tour-next">Next</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    let currentSlide = 0;
+    const totalSlides = isShared ? 4 : 3;
+    
+    const updateSlide = () => {
+      modal.querySelectorAll('.tour-slide').forEach((s, i) => {
+        s.classList.toggle('active', i === currentSlide);
+      });
+      modal.querySelectorAll('.tour-dot').forEach((d, i) => {
+        d.classList.toggle('active', i === currentSlide);
+      });
+      
+      const nextBtn = modal.querySelector('#tour-next');
+      nextBtn.textContent = currentSlide === totalSlides - 1 ? 'Get Started' : 'Next';
+    };
+    
+    modal.querySelector('#tour-next').onclick = () => {
+      if (currentSlide < totalSlides - 1) {
+        currentSlide++;
+        updateSlide();
+      } else {
+        modal.remove();
+        this.showSuccess('Account created!');
+        setTimeout(() => location.reload(), 500);
+      }
+    };
+    
+    modal.querySelector('#tour-skip').onclick = () => {
+      modal.remove();
       this.showSuccess('Account created!');
       setTimeout(() => location.reload(), 500);
     };
+    
+    modal.querySelectorAll('.tour-dot').forEach(dot => {
+      dot.onclick = () => {
+        currentSlide = parseInt(dot.dataset.dot);
+        updateSlide();
+      };
+    });
 
     modal.onclick = (e) => {
       if (e.target === modal) modal.remove();

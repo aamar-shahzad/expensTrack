@@ -253,7 +253,7 @@ const Camera = {
     }
   },
 
-  // Run OCR to extract amount from receipt
+  // Run OCR to extract amount, store name, and date from receipt
   async runOCR(blob) {
     // Check if Tesseract is available
     if (typeof Tesseract === 'undefined') {
@@ -263,6 +263,8 @@ const Camera = {
     
     const ocrStatus = document.getElementById('ocr-status');
     const amountInput = document.getElementById('expense-amount');
+    const descInput = document.getElementById('expense-description');
+    const dateInput = document.getElementById('expense-date');
     
     if (!ocrStatus || !amountInput) {
       console.log('OCR: Missing elements');
@@ -271,7 +273,7 @@ const Camera = {
     
     try {
       console.log('OCR: Starting scan...');
-      ocrStatus.textContent = '🔍 Scanning receipt...';
+      ocrStatus.innerHTML = '🔍 Scanning receipt...';
       ocrStatus.style.color = '#667781';
       ocrStatus.classList.remove('hidden');
       
@@ -284,50 +286,228 @@ const Camera = {
           console.log('OCR progress:', m.status, m.progress);
           if (m.status === 'recognizing text' && m.progress) {
             const progress = Math.round(m.progress * 100);
-            ocrStatus.textContent = `🔍 Scanning... ${progress}%`;
+            ocrStatus.innerHTML = `🔍 Scanning... ${progress}%`;
           }
         }
       });
       
       URL.revokeObjectURL(imageUrl);
       
-      console.log('OCR: Raw text:', result.data.text);
-      
-      // Extract amounts from text (look for currency patterns)
       const text = result.data.text;
-      const amounts = this.extractAmounts(text);
+      console.log('OCR: Raw text:', text);
       
-      console.log('OCR: Found amounts:', amounts);
+      // Extract all data from receipt
+      const ocrData = this.parseReceipt(text);
+      console.log('OCR: Parsed data:', ocrData);
       
-      if (amounts.length > 0) {
-        // Use the largest amount (usually the total)
-        const bestAmount = Math.max(...amounts);
-        
-        // Only auto-fill if amount field is empty
-        if (!amountInput.value) {
-          amountInput.value = bestAmount.toFixed(2);
-          ocrStatus.textContent = `✓ Found: ${Settings.getCurrency()}${bestAmount.toFixed(2)}`;
-          ocrStatus.style.color = '#25d366';
-        } else {
-          ocrStatus.textContent = `Found ${Settings.getCurrency()}${bestAmount.toFixed(2)} (field has value)`;
-          ocrStatus.style.color = '#667781';
+      // Build result display
+      let resultHtml = '';
+      let foundSomething = false;
+      
+      // Auto-fill amount
+      if (ocrData.amount && !amountInput.value) {
+        amountInput.value = ocrData.amount.toFixed(2);
+        resultHtml += `<div>✓ Amount: ${Settings.getCurrency()}${ocrData.amount.toFixed(2)}</div>`;
+        foundSomething = true;
+      }
+      
+      // Auto-fill store name as description
+      if (ocrData.storeName && descInput && !descInput.value) {
+        descInput.value = ocrData.storeName;
+        resultHtml += `<div>✓ Store: ${ocrData.storeName}</div>`;
+        foundSomething = true;
+      }
+      
+      // Auto-fill date if found and different from today
+      if (ocrData.date && dateInput) {
+        const today = new Date().toISOString().split('T')[0];
+        if (dateInput.value === today) {
+          dateInput.value = ocrData.date;
+          resultHtml += `<div>✓ Date: ${ocrData.date}</div>`;
+          foundSomething = true;
         }
+      }
+      
+      // Show items found (for reference)
+      if (ocrData.items && ocrData.items.length > 0) {
+        resultHtml += `<div style="margin-top:4px;font-size:11px;color:#667781">${ocrData.items.length} item(s) detected</div>`;
+      }
+      
+      if (foundSomething) {
+        ocrStatus.innerHTML = resultHtml;
+        ocrStatus.style.color = '#25d366';
       } else {
-        ocrStatus.textContent = 'No amount found in receipt';
+        ocrStatus.innerHTML = 'No data found in receipt';
         ocrStatus.style.color = '#667781';
       }
       
-      // Hide after 8 seconds (longer to see result)
+      // Hide after 10 seconds
       setTimeout(() => {
         ocrStatus.classList.add('hidden');
-      }, 8000);
+      }, 10000);
       
     } catch (error) {
       console.error('OCR failed:', error);
-      ocrStatus.textContent = 'Scan failed - try again';
+      ocrStatus.innerHTML = 'Scan failed - try again';
       ocrStatus.style.color = '#ff3b30';
       setTimeout(() => ocrStatus.classList.add('hidden'), 5000);
     }
+  },
+
+  // Parse receipt text to extract structured data
+  parseReceipt(text) {
+    const result = {
+      amount: null,
+      storeName: null,
+      date: null,
+      items: []
+    };
+    
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    // Extract store name (usually first few lines, all caps or prominent)
+    result.storeName = this.extractStoreName(lines);
+    
+    // Extract date
+    result.date = this.extractDate(text);
+    
+    // Extract amounts
+    const amounts = this.extractAmounts(text);
+    if (amounts.length > 0) {
+      result.amount = Math.max(...amounts);
+    }
+    
+    // Extract line items (item + price pairs)
+    result.items = this.extractItems(lines);
+    
+    return result;
+  },
+
+  // Extract store name from receipt
+  extractStoreName(lines) {
+    // Common store name patterns
+    const knownStores = [
+      'walmart', 'target', 'costco', 'safeway', 'kroger', 'whole foods',
+      'trader joe', 'aldi', 'publix', 'wegmans', 'cvs', 'walgreens',
+      'starbucks', 'mcdonald', 'subway', 'chipotle', 'panera',
+      'amazon', 'best buy', 'home depot', 'lowes', 'ikea',
+      'tim hortons', 'dunkin', 'wendys', 'burger king', 'taco bell'
+    ];
+    
+    // Check first 5 lines for store name
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      const line = lines[i].toLowerCase();
+      
+      // Check against known stores
+      for (const store of knownStores) {
+        if (line.includes(store)) {
+          // Return properly capitalized version
+          return lines[i].replace(/[^a-zA-Z0-9\s&'-]/g, '').trim();
+        }
+      }
+      
+      // Look for lines that are mostly uppercase (store names often are)
+      const upperCount = (lines[i].match(/[A-Z]/g) || []).length;
+      const letterCount = (lines[i].match(/[a-zA-Z]/g) || []).length;
+      
+      if (letterCount > 3 && upperCount / letterCount > 0.7) {
+        // Clean up the store name
+        const cleaned = lines[i]
+          .replace(/[^a-zA-Z0-9\s&'-]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        if (cleaned.length >= 3 && cleaned.length <= 30) {
+          return cleaned;
+        }
+      }
+    }
+    
+    return null;
+  },
+
+  // Extract date from receipt text
+  extractDate(text) {
+    // Common date patterns
+    const patterns = [
+      // MM/DD/YYYY or MM-DD-YYYY
+      /(\d{1,2})[\/\-](\d{1,2})[\/\-](20\d{2})/,
+      // YYYY/MM/DD or YYYY-MM-DD
+      /(20\d{2})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
+      // Month DD, YYYY
+      /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s*(20\d{2})/i,
+      // DD Month YYYY
+      /(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s*(20\d{2})/i
+    ];
+    
+    const monthMap = {
+      'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+      'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+      'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+    };
+    
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        try {
+          let year, month, day;
+          
+          if (match[1].length === 4) {
+            // YYYY-MM-DD format
+            year = match[1];
+            month = match[2].padStart(2, '0');
+            day = match[3].padStart(2, '0');
+          } else if (isNaN(match[1])) {
+            // Month name format (Month DD, YYYY)
+            month = monthMap[match[1].toLowerCase().substring(0, 3)];
+            day = match[2].padStart(2, '0');
+            year = match[3];
+          } else if (isNaN(match[2])) {
+            // DD Month YYYY format
+            day = match[1].padStart(2, '0');
+            month = monthMap[match[2].toLowerCase().substring(0, 3)];
+            year = match[3];
+          } else {
+            // MM/DD/YYYY format
+            month = match[1].padStart(2, '0');
+            day = match[2].padStart(2, '0');
+            year = match[3];
+          }
+          
+          // Validate date
+          const dateStr = `${year}-${month}-${day}`;
+          const date = new Date(dateStr);
+          if (!isNaN(date.getTime()) && date <= new Date()) {
+            return dateStr;
+          }
+        } catch (e) {
+          console.log('Date parse error:', e);
+        }
+      }
+    }
+    
+    return null;
+  },
+
+  // Extract line items from receipt
+  extractItems(lines) {
+    const items = [];
+    
+    for (const line of lines) {
+      // Look for lines with item name and price
+      // Pattern: text followed by price at end
+      const match = line.match(/^(.+?)\s+(\d+\.\d{2})\s*$/);
+      if (match) {
+        const name = match[1].replace(/[^a-zA-Z0-9\s]/g, '').trim();
+        const price = parseFloat(match[2]);
+        
+        if (name.length >= 2 && price > 0 && price < 1000) {
+          items.push({ name, price });
+        }
+      }
+    }
+    
+    return items;
   },
 
   // Extract monetary amounts from text

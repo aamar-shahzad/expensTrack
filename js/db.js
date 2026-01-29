@@ -7,7 +7,7 @@ const DB = {
   db: null,
   dbName: 'ExpenseTracker',
   currentAccountId: null,
-  version: 5, // Bumped for splitPresets store
+  version: 6, // Bumped for payments store
 
   // Get database name for an account
   getDbName(accountId) {
@@ -75,6 +75,13 @@ const DB = {
         // Split presets store
         if (!db.objectStoreNames.contains('splitPresets')) {
           db.createObjectStore('splitPresets', { keyPath: 'id' });
+        }
+
+        // Payments store for tracking settlements
+        if (!db.objectStoreNames.contains('payments')) {
+          const paymentsStore = db.createObjectStore('payments', { keyPath: 'id' });
+          paymentsStore.createIndex('date', 'date');
+          paymentsStore.createIndex('syncId', 'syncId');
         }
       };
     });
@@ -574,6 +581,46 @@ const DB = {
 
   async deleteSplitPreset(id) {
     const store = await this.transaction('splitPresets', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  // Payment operations for settlement tracking
+  async addPayment(payment) {
+    const store = await this.transaction('payments', 'readwrite');
+    const id = crypto.randomUUID();
+    const paymentData = {
+      ...payment,
+      id,
+      createdAt: Date.now(),
+      syncId: crypto.randomUUID()
+    };
+
+    return new Promise((resolve, reject) => {
+      const request = store.add(paymentData);
+      request.onsuccess = () => resolve(paymentData);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async getPayments() {
+    const store = await this.transaction('payments');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const payments = request.result;
+        payments.sort((a, b) => new Date(b.date) - new Date(a.date));
+        resolve(payments);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async deletePayment(id) {
+    const store = await this.transaction('payments', 'readwrite');
     return new Promise((resolve, reject) => {
       const request = store.delete(id);
       request.onsuccess = () => resolve(true);

@@ -538,13 +538,16 @@ const Sync = {
     }
   },
 
+  conflicts: [],
+  
   async mergeData(remoteData) {
     if (!remoteData) return;
 
     try {
       const localData = await DB.getAllData();
+      this.conflicts = [];
 
-      // Merge expenses with timestamp-based conflict resolution
+      // Merge expenses with conflict detection
       const localExpenseMap = new Map(
         (localData.expenses || []).filter(e => e.syncId).map(e => [e.syncId, e])
       );
@@ -557,16 +560,30 @@ const Sync = {
           // New expense - add it
           await DB.addExpenseRaw(expense);
         } else {
-          // Existing expense - keep the newer version
+          // Check for conflict (both modified since last sync)
           const remoteTime = expense.updatedAt || expense.createdAt || 0;
           const localTime = localExpense.updatedAt || localExpense.createdAt || 0;
-          if (remoteTime > localTime) {
+          
+          // If times are within 5 seconds and data differs, it's a conflict
+          const timeDiff = Math.abs(remoteTime - localTime);
+          const dataChanged = expense.amount !== localExpense.amount || 
+                              expense.description !== localExpense.description;
+          
+          if (timeDiff < 5000 && dataChanged) {
+            // Record conflict for user resolution
+            this.conflicts.push({
+              type: 'expense',
+              syncId: expense.syncId,
+              local: localExpense,
+              remote: expense
+            });
+          } else if (remoteTime > localTime) {
             await DB.addExpenseRaw(expense);
           }
         }
       }
 
-      // Merge people with timestamp-based conflict resolution
+      // Merge people with conflict detection
       const localPeopleMap = new Map(
         (localData.people || []).filter(p => p.syncId).map(p => [p.syncId, p])
       );
@@ -579,13 +596,18 @@ const Sync = {
           // New person - add it
           await DB.addPersonRaw(person);
         } else {
-          // Existing person - keep the newer version
           const remoteTime = person.updatedAt || person.createdAt || 0;
           const localTime = localPerson.updatedAt || localPerson.createdAt || 0;
+          
           if (remoteTime > localTime) {
             await DB.addPersonRaw(person);
           }
         }
+      }
+      
+      // Show conflicts if any
+      if (this.conflicts.length > 0) {
+        this.showConflictResolutionUI();
       }
 
       // Merge images (convert base64 back to blobs)
@@ -663,6 +685,117 @@ const Sync = {
         UI.renderSync();
         break;
     }
+  },
+
+  showConflictResolutionUI() {
+    if (this.conflicts.length === 0) return;
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'conflict-modal';
+    
+    modal.innerHTML = `
+      <div class="modal-box conflict-modal">
+        <div class="modal-header">
+          <span>Sync Conflicts</span>
+          <button class="modal-close" onclick="Sync.dismissConflicts()">×</button>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom:16px;color:var(--text-secondary)">
+            ${this.conflicts.length} item(s) were modified on both devices. Choose which version to keep:
+          </p>
+          <div id="conflict-list"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="Sync.keepAllLocal()">Keep All Local</button>
+          <button class="btn-primary" onclick="Sync.keepAllRemote()">Keep All Remote</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    this.renderConflictList();
+  },
+
+  renderConflictList() {
+    const container = document.getElementById('conflict-list');
+    if (!container) return;
+    
+    container.innerHTML = this.conflicts.map((c, i) => {
+      if (c.type === 'expense') {
+        return `
+          <div class="conflict-item" data-index="${i}">
+            <div class="conflict-header">Expense: ${c.local.description}</div>
+            <div class="conflict-options">
+              <div class="conflict-option" onclick="Sync.resolveConflict(${i}, 'local')">
+                <div class="conflict-option-label">Local (This Device)</div>
+                <div class="conflict-option-detail">${Settings.formatAmount(c.local.amount)} - ${c.local.date}</div>
+              </div>
+              <div class="conflict-option" onclick="Sync.resolveConflict(${i}, 'remote')">
+                <div class="conflict-option-label">Remote (Other Device)</div>
+                <div class="conflict-option-detail">${Settings.formatAmount(c.remote.amount)} - ${c.remote.date}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      return '';
+    }).join('');
+  },
+
+  async resolveConflict(index, choice) {
+    const conflict = this.conflicts[index];
+    if (!conflict) return;
+    
+    try {
+      if (choice === 'remote') {
+        await DB.addExpenseRaw(conflict.remote);
+      }
+      // If 'local', we keep the existing local version (do nothing)
+      
+      // Remove from conflicts array
+      this.conflicts.splice(index, 1);
+      
+      if (this.conflicts.length === 0) {
+        this.dismissConflicts();
+        App.showSuccess('Conflicts resolved');
+        this.refreshView();
+      } else {
+        this.renderConflictList();
+      }
+    } catch (e) {
+      console.error('Failed to resolve conflict:', e);
+      App.showError('Failed to resolve conflict');
+    }
+  },
+
+  async keepAllLocal() {
+    // Just dismiss - local versions are already in DB
+    this.conflicts = [];
+    this.dismissConflicts();
+    App.showSuccess('Kept local versions');
+  },
+
+  async keepAllRemote() {
+    try {
+      for (const conflict of this.conflicts) {
+        if (conflict.type === 'expense') {
+          await DB.addExpenseRaw(conflict.remote);
+        }
+      }
+      this.conflicts = [];
+      this.dismissConflicts();
+      App.showSuccess('Kept remote versions');
+      this.refreshView();
+    } catch (e) {
+      console.error('Failed to apply remote versions:', e);
+      App.showError('Failed to apply changes');
+    }
+  },
+
+  dismissConflicts() {
+    document.getElementById('conflict-modal')?.remove();
+    this.conflicts = [];
   },
 
   startIdleTimer() {

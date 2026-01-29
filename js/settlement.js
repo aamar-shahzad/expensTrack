@@ -189,20 +189,104 @@ const Settlement = {
         <div class="settle-section-title">Settlement Plan</div>
         ${settlements.length === 0 ? 
           '<div class="settle-done">Everyone is settled up!</div>' :
-          settlements.map(s => `
-            <div class="settle-payment">
-              <div class="settle-payment-from">${s.from}</div>
-              <div class="settle-payment-arrow">→</div>
-              <div class="settle-payment-to">${s.to}</div>
-              <div class="settle-payment-amount">${Settings.formatAmount(s.amount)}</div>
+          settlements.map((s, i) => `
+            <div class="settle-payment" data-index="${i}">
+              <div class="settle-payment-info">
+                <div class="settle-payment-from">${s.from}</div>
+                <div class="settle-payment-arrow">→</div>
+                <div class="settle-payment-to">${s.to}</div>
+              </div>
+              <div class="settle-payment-right">
+                <div class="settle-payment-amount">${Settings.formatAmount(s.amount)}</div>
+                <button class="settle-mark-paid" onclick="Settlement.markAsPaid('${s.from}', '${s.to}', ${s.amount})">
+                  Mark Paid
+                </button>
+              </div>
             </div>
           `).join('')
         }
+      </div>
+
+      <div class="settle-section">
+        <div class="settle-section-title">Payment History</div>
+        <div id="payment-history">Loading...</div>
       </div>
 
       <button class="btn-secondary" style="width:100%;margin-top:16px" onclick="Expenses.exportToCSV()">
         Export All Expenses (CSV)
       </button>
     `;
+    
+    // Load payment history
+    this.loadPaymentHistory();
+  },
+
+  async markAsPaid(from, to, amount) {
+    try {
+      await DB.addPayment({
+        from,
+        to,
+        amount,
+        date: new Date().toISOString().split('T')[0]
+      });
+      
+      App.showSuccess(`Payment recorded: ${from} → ${to}`);
+      this.loadPaymentHistory();
+    } catch (e) {
+      console.error('Failed to record payment:', e);
+      App.showError('Failed to record payment');
+    }
+  },
+
+  async loadPaymentHistory() {
+    const container = document.getElementById('payment-history');
+    if (!container) return;
+    
+    try {
+      const payments = await DB.getPayments();
+      
+      if (payments.length === 0) {
+        container.innerHTML = '<div class="settle-done">No payments recorded yet</div>';
+        return;
+      }
+      
+      container.innerHTML = payments.slice(0, 10).map(p => `
+        <div class="payment-history-item">
+          <div class="payment-history-info">
+            <div class="payment-history-names">${p.from} → ${p.to}</div>
+            <div class="payment-history-date">${this.formatDate(p.date)}</div>
+          </div>
+          <div class="payment-history-right">
+            <div class="payment-history-amount">${Settings.formatAmount(p.amount)}</div>
+            <button class="payment-delete-btn" onclick="Settlement.deletePayment('${p.id}')">✕</button>
+          </div>
+        </div>
+      `).join('');
+      
+      if (payments.length > 10) {
+        container.innerHTML += `<div style="text-align:center;padding:8px;color:var(--text-secondary);font-size:13px">
+          + ${payments.length - 10} more payments
+        </div>`;
+      }
+    } catch (e) {
+      container.innerHTML = '<div style="color:#ff3b30">Failed to load history</div>';
+    }
+  },
+
+  async deletePayment(id) {
+    if (!confirm('Delete this payment record?')) return;
+    
+    try {
+      await DB.deletePayment(id);
+      this.loadPaymentHistory();
+      App.showSuccess('Payment deleted');
+    } catch (e) {
+      App.showError('Failed to delete');
+    }
+  },
+
+  formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 };

@@ -89,11 +89,22 @@ const Expenses = {
     if (!list) return;
 
     if (expenses.length === 0) {
+      const isFiltered = this.currentCategoryFilter && this.currentCategoryFilter !== 'all';
       list.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">📝</div>
-          <div class="empty-title">No expenses yet</div>
-          <div class="empty-text">Tap the + button to add your first expense</div>
+          <div class="empty-illustration">
+            ${isFiltered ? '🔍' : '💰'}
+          </div>
+          <div class="empty-title">${isFiltered ? 'No matching expenses' : 'No expenses yet'}</div>
+          <div class="empty-text">${isFiltered ? 'Try a different category filter' : 'Track your spending by adding your first expense'}</div>
+          ${!isFiltered ? `
+          <div class="empty-tips">
+            <div class="empty-tip">📷 Snap a receipt to auto-fill</div>
+            <div class="empty-tip">🔄 Set up recurring expenses</div>
+            <div class="empty-tip">👥 Split costs with others</div>
+          </div>
+          <button class="btn-primary empty-cta" onclick="App.navigateTo('add')">Add First Expense</button>
+          ` : ''}
         </div>
       `;
       return;

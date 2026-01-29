@@ -211,5 +211,187 @@ const Settings = {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  },
+
+  // Auto-backup settings
+  isAutoBackupEnabled() {
+    return localStorage.getItem('et_autoBackup') === 'true';
+  },
+
+  setAutoBackup(enabled) {
+    localStorage.setItem('et_autoBackup', enabled.toString());
+    if (enabled) {
+      this.scheduleAutoBackup();
+    }
+  },
+
+  getLastBackupDate() {
+    return localStorage.getItem('et_lastBackup');
+  },
+
+  setLastBackupDate() {
+    localStorage.setItem('et_lastBackup', new Date().toISOString());
+  },
+
+  scheduleAutoBackup() {
+    // Check if backup is due (every 7 days)
+    const lastBackup = this.getLastBackupDate();
+    if (lastBackup) {
+      const daysSinceBackup = (Date.now() - new Date(lastBackup).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceBackup < 7) return;
+    }
+    
+    // Perform backup
+    this.createAutoBackup();
+  },
+
+  async createAutoBackup() {
+    try {
+      const data = await DB.getAllData();
+      const payments = await DB.getPayments();
+      const templates = await DB.getTemplates();
+      
+      const backupData = {
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        account: Accounts.getCurrentAccount(),
+        allAccounts: Accounts.getAll(),
+        expenses: data.expenses || [],
+        people: data.people || [],
+        payments: payments || [],
+        templates: templates || [],
+        settings: {
+          currency: this.currency,
+          mode: this.mode,
+          budget: this.monthlyBudget,
+          darkMode: this.isDarkMode()
+        }
+      };
+      
+      // Store backup in localStorage (limited but works offline)
+      const backupJson = JSON.stringify(backupData);
+      
+      // Check size (localStorage limit is ~5MB)
+      if (backupJson.length < 4 * 1024 * 1024) {
+        localStorage.setItem('et_backup', backupJson);
+        this.setLastBackupDate();
+        console.log('Auto-backup created:', new Date().toISOString());
+      }
+    } catch (e) {
+      console.error('Auto-backup failed:', e);
+    }
+  },
+
+  // Create downloadable full backup
+  async createFullBackup() {
+    try {
+      const data = await DB.getAllData();
+      const payments = await DB.getPayments();
+      const templates = await DB.getTemplates();
+      const tombstones = await DB.getTombstones();
+      
+      const backupData = {
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        deviceId: localStorage.getItem('et_deviceId'),
+        account: Accounts.getCurrentAccount(),
+        allAccounts: Accounts.getAll(),
+        expenses: data.expenses || [],
+        people: data.people || [],
+        images: (data.images || []).map(img => ({
+          id: img.id,
+          syncId: img.syncId,
+          createdAt: img.createdAt
+          // Note: actual image blobs not included due to size
+        })),
+        payments: payments || [],
+        templates: templates || [],
+        tombstones: tombstones || [],
+        settings: {
+          currency: this.currency,
+          mode: this.mode,
+          budget: this.monthlyBudget,
+          darkMode: this.isDarkMode()
+        }
+      };
+      
+      const json = JSON.stringify(backupData, null, 2);
+      const filename = `expense-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
+      this.downloadFile(json, filename, 'application/json');
+      
+      this.setLastBackupDate();
+      App.showSuccess('Full backup created');
+      
+      return true;
+    } catch (e) {
+      console.error('Backup failed:', e);
+      App.showError('Backup failed');
+      return false;
+    }
+  },
+
+  // Restore from backup file
+  async restoreFromBackup(file) {
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+      
+      if (!backup.version || !backup.expenses) {
+        App.showError('Invalid backup file');
+        return false;
+      }
+      
+      const count = {
+        expenses: backup.expenses?.length || 0,
+        people: backup.people?.length || 0,
+        payments: backup.payments?.length || 0
+      };
+      
+      if (!confirm(`Restore backup from ${backup.exportedAt}?\n\nThis will add:\n- ${count.expenses} expenses\n- ${count.people} people\n- ${count.payments} payments\n\nExisting data will be merged.`)) {
+        return false;
+      }
+      
+      // Restore expenses
+      for (const expense of (backup.expenses || [])) {
+        await DB.addExpenseRaw(expense);
+      }
+      
+      // Restore people
+      for (const person of (backup.people || [])) {
+        await DB.addPersonRaw(person);
+      }
+      
+      // Restore payments
+      if (backup.payments) {
+        for (const payment of backup.payments) {
+          try {
+            const store = await DB.transaction('payments', 'readwrite');
+            await new Promise((resolve, reject) => {
+              const request = store.put(payment);
+              request.onsuccess = () => resolve();
+              request.onerror = () => reject(request.error);
+            });
+          } catch (e) {
+            // Ignore duplicates
+          }
+        }
+      }
+      
+      // Restore settings
+      if (backup.settings) {
+        if (backup.settings.currency) this.setCurrency(backup.settings.currency);
+        if (backup.settings.budget) this.setBudget(backup.settings.budget);
+        if (backup.settings.darkMode !== undefined) this.setDarkMode(backup.settings.darkMode);
+      }
+      
+      App.showSuccess('Backup restored!');
+      App.navigateTo('home');
+      return true;
+      
+    } catch (e) {
+      console.error('Restore failed:', e);
+      App.showError('Failed to restore backup');
+      return false;
+    }
   }
 };

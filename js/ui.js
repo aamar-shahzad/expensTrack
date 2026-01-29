@@ -734,10 +734,126 @@ const UI = {
         <div class="page-account-badge">${isShared ? '👥' : '👤'} ${accountName}</div>
       </div>
       
+      <div class="settle-tabs">
+        <button class="settle-tab active" data-tab="current">Current</button>
+        <button class="settle-tab" data-tab="history">Balance History</button>
+      </div>
+      
       <div id="settlement-results"></div>
+      <div id="balance-history" class="hidden"></div>
     `;
     
+    // Tab switching
+    document.querySelectorAll('.settle-tab').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('.settle-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        if (tab.dataset.tab === 'current') {
+          document.getElementById('settlement-results').classList.remove('hidden');
+          document.getElementById('balance-history').classList.add('hidden');
+        } else {
+          document.getElementById('settlement-results').classList.add('hidden');
+          document.getElementById('balance-history').classList.remove('hidden');
+          this.loadBalanceHistory();
+        }
+      };
+    });
+    
     Settlement.calculate();
+  },
+
+  async loadBalanceHistory() {
+    const container = document.getElementById('balance-history');
+    if (!container) return;
+    
+    container.innerHTML = '<div style="padding:20px;text-align:center">Loading...</div>';
+    
+    try {
+      const expenses = await DB.getAllExpenses();
+      const people = await DB.getPeople();
+      const payments = await DB.getPayments();
+      
+      if (people.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">No people added</div></div>';
+        return;
+      }
+      
+      // Group expenses by month
+      const monthlyData = {};
+      
+      expenses.forEach(exp => {
+        const monthKey = exp.date.substring(0, 7); // "2024-01"
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { expenses: [], payments: [] };
+        }
+        monthlyData[monthKey].expenses.push(exp);
+      });
+      
+      payments.forEach(pay => {
+        const monthKey = pay.date.substring(0, 7);
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { expenses: [], payments: [] };
+        }
+        monthlyData[monthKey].payments.push(pay);
+      });
+      
+      // Sort months descending
+      const sortedMonths = Object.keys(monthlyData).sort().reverse().slice(0, 12);
+      
+      if (sortedMonths.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">No history yet</div></div>';
+        return;
+      }
+      
+      // Build history HTML
+      let html = '';
+      
+      for (const monthKey of sortedMonths) {
+        const data = monthlyData[monthKey];
+        const [year, month] = monthKey.split('-');
+        const monthName = new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        // Calculate balances for this month
+        const monthTotal = data.expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        const paymentTotal = data.payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+        
+        // Calculate per-person stats
+        const personPaid = {};
+        data.expenses.forEach(exp => {
+          personPaid[exp.payerId] = (personPaid[exp.payerId] || 0) + parseFloat(exp.amount);
+        });
+        
+        html += `
+          <div class="history-month">
+            <div class="history-month-header">
+              <span class="history-month-name">${monthName}</span>
+              <span class="history-month-total">${Settings.formatAmount(monthTotal)}</span>
+            </div>
+            <div class="history-month-details">
+              ${people.map(p => {
+                const paid = personPaid[p.id] || 0;
+                return `<div class="history-person-row">
+                  <span>${p.name}</span>
+                  <span>Paid ${Settings.formatAmount(paid)}</span>
+                </div>`;
+              }).join('')}
+              ${data.payments.length > 0 ? `
+                <div class="history-payments-note">
+                  ${data.payments.length} settlement${data.payments.length > 1 ? 's' : ''} (${Settings.formatAmount(paymentTotal)})
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }
+      
+      container.innerHTML = html;
+      
+    } catch (e) {
+      console.error('Failed to load balance history:', e);
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:#ff3b30">Failed to load history</div>';
+    }
   },
 
   async renderStats() {
@@ -1392,24 +1508,39 @@ const UI = {
       </div>
       
       <div class="settings-section">
-        <div class="settings-section-title">Data</div>
+        <div class="settings-section-title">Backup & Export</div>
         <div class="settings-list">
+          <div class="settings-item" id="full-backup-btn">
+            <div class="settings-item-icon">💾</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Create Full Backup</div>
+              <div class="settings-item-subtitle">${Settings.getLastBackupDate() ? 'Last: ' + new Date(Settings.getLastBackupDate()).toLocaleDateString() : 'Never backed up'}</div>
+            </div>
+          </div>
+          <div class="settings-item" id="restore-backup-btn">
+            <div class="settings-item-icon">📥</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Restore from Backup</div>
+              <div class="settings-item-subtitle">Import a backup file</div>
+            </div>
+          </div>
           <div class="settings-item" id="export-btn">
-            <div class="settings-item-icon">📤</div>
+            <div class="settings-item-icon">📊</div>
             <div class="settings-item-content">
               <div class="settings-item-title">Export Data</div>
-              <div class="settings-item-subtitle">Save backup as JSON file</div>
+              <div class="settings-item-subtitle">CSV or JSON for spreadsheets</div>
             </div>
           </div>
           <div class="settings-item" id="import-btn">
-            <div class="settings-item-icon">📥</div>
+            <div class="settings-item-icon">📤</div>
             <div class="settings-item-content">
-              <div class="settings-item-title">Import Data</div>
-              <div class="settings-item-subtitle">Restore from backup file</div>
+              <div class="settings-item-title">Import Expenses</div>
+              <div class="settings-item-subtitle">Add from JSON file</div>
             </div>
           </div>
         </div>
         <input type="file" id="import-file" accept=".json" style="display:none">
+        <input type="file" id="restore-file" accept=".json" style="display:none">
       </div>
       
       <div class="settings-section">
@@ -1455,6 +1586,21 @@ const UI = {
       Settings.setDarkMode(e.target.checked);
       document.querySelector('#dark-mode-item .settings-item-subtitle').textContent = 
         e.target.checked ? 'On' : 'Off';
+    };
+    
+    // Full backup
+    document.getElementById('full-backup-btn').onclick = () => Settings.createFullBackup();
+    
+    // Restore backup
+    document.getElementById('restore-backup-btn').onclick = () => {
+      document.getElementById('restore-file').click();
+    };
+    document.getElementById('restore-file').onchange = async (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        await Settings.restoreFromBackup(file);
+      }
+      e.target.value = '';
     };
     
     // Export
