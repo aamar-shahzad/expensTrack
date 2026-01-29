@@ -78,9 +78,18 @@ const UI = {
         </div>
         
         <div class="summary-box">
-          <div class="summary-label">Total This Month</div>
-          <div class="summary-amount" id="total-amount">${Settings.getCurrency()}0.00</div>
-          <div class="summary-count" id="expense-count">0 expenses</div>
+          <div class="summary-stats">
+            <div class="summary-main">
+              <div class="summary-label">This Month</div>
+              <div class="summary-amount" id="total-amount">${Settings.getCurrency()}0.00</div>
+              <div class="summary-count" id="expense-count">0 expenses</div>
+            </div>
+            <div class="summary-today" id="today-stats">
+              <div class="today-label">Today</div>
+              <div class="today-amount" id="today-amount">${Settings.getCurrency()}0.00</div>
+              <div class="today-trend" id="today-trend"></div>
+            </div>
+          </div>
           <div id="budget-progress" class="budget-progress hidden">
             <div class="budget-bar"><div class="budget-fill"></div></div>
             <div class="budget-text"></div>
@@ -277,6 +286,20 @@ const UI = {
           
           <input type="text" id="expense-description" class="desc-input" placeholder="What was it for?" required>
           <div id="suggestions-list" class="suggestions-list hidden"></div>
+          
+          <div class="category-picker">
+            <label>Category</label>
+            <div class="category-options">
+              <button type="button" class="category-btn" data-category="🍔" data-name="Food">🍔</button>
+              <button type="button" class="category-btn" data-category="☕" data-name="Coffee">☕</button>
+              <button type="button" class="category-btn" data-category="🛒" data-name="Shopping">🛒</button>
+              <button type="button" class="category-btn" data-category="🚗" data-name="Transport">🚗</button>
+              <button type="button" class="category-btn" data-category="🏠" data-name="Home">🏠</button>
+              <button type="button" class="category-btn" data-category="🎬" data-name="Entertainment">🎬</button>
+              <button type="button" class="category-btn" data-category="🏥" data-name="Health">🏥</button>
+              <button type="button" class="category-btn" data-category="💵" data-name="Other">💵</button>
+            </div>
+          </div>
         </div>
         
         <div class="form-card">
@@ -357,7 +380,7 @@ const UI = {
         </div>
         
         <div class="save-buttons">
-          <button type="submit" class="btn-primary btn-save">Save Expense</button>
+          <button type="submit" class="btn-primary btn-save" id="save-expense-btn">Save Expense</button>
           <button type="button" class="btn-secondary btn-template" id="save-as-template">Save as Template</button>
         </div>
       </form>
@@ -376,6 +399,21 @@ const UI = {
     
     // Setup description suggestions
     this.setupDescriptionSuggestions();
+    
+    // Category picker
+    document.querySelectorAll('.category-btn').forEach(btn => {
+      btn.onclick = () => {
+        // Toggle selection
+        document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        
+        // If description is empty, fill with category name
+        const descInput = document.getElementById('expense-description');
+        if (!descInput.value) {
+          descInput.value = btn.dataset.name;
+        }
+      };
+    });
     
     document.getElementById('capture-photo').onclick = () => Camera.capturePhoto();
     document.getElementById('choose-photo').onclick = () => Camera.chooseFromGallery();

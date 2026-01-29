@@ -240,6 +240,37 @@ const App = {
     setTimeout(() => toast.remove(), 3000);
   },
 
+  // Loading states
+  showLoading(text = 'Loading...') {
+    this.hideLoading();
+    const overlay = document.createElement('div');
+    overlay.className = 'loading-overlay';
+    overlay.id = 'app-loading';
+    overlay.innerHTML = `
+      <div style="text-align:center">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">${text}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  },
+
+  hideLoading() {
+    document.getElementById('app-loading')?.remove();
+  },
+
+  // Button loading state
+  setButtonLoading(btn, loading = true) {
+    if (!btn) return;
+    if (loading) {
+      btn.classList.add('btn-loading');
+      btn.disabled = true;
+    } else {
+      btn.classList.remove('btn-loading');
+      btn.disabled = false;
+    }
+  },
+
   // Haptic feedback
   haptic(type = 'light') {
     if ('vibrate' in navigator) {

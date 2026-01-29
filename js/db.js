@@ -107,7 +107,8 @@ const DB = {
       id,
       yearMonth,
       createdAt: Date.now(),
-      syncId: crypto.randomUUID()
+      syncId: crypto.randomUUID(),
+      syncStatus: 'pending' // pending, synced
     };
 
     return new Promise((resolve, reject) => {
@@ -115,6 +116,30 @@ const DB = {
       request.onsuccess = () => resolve(expenseData);
       request.onerror = () => reject(request.error);
     });
+  },
+
+  async markExpenseSynced(syncId) {
+    const store = await this.transaction('expenses', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const index = store.index('syncId');
+      const request = index.get(syncId);
+      request.onsuccess = () => {
+        const expense = request.result;
+        if (expense) {
+          expense.syncStatus = 'synced';
+          expense.lastSyncedAt = Date.now();
+          store.put(expense);
+        }
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async markAllSynced(syncIds) {
+    for (const syncId of syncIds) {
+      await this.markExpenseSynced(syncId);
+    }
   },
 
   async getExpenses(month = null, year = null) {

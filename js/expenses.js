@@ -139,6 +139,8 @@ const Expenses = {
         const categoryIcon = this.getCategoryIcon(exp.description);
         const isSelected = this.selectedIds.has(exp.id);
         const isNew = this.newExpenseId === exp.id;
+        const syncStatus = exp.syncStatus || 'pending';
+        const showSyncStatus = Accounts.isSharedMode();
         
         html += `
           <div class="expense-item-wrapper ${isNew ? 'new-entry' : ''}" data-id="${exp.id}">
@@ -151,7 +153,7 @@ const Expenses = {
                 </div>
               ` : (exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : `<div class="expense-icon">${categoryIcon}</div>`)}
               <div class="expense-main">
-                <div class="expense-desc">${exp.description}</div>
+                <div class="expense-desc">${exp.description}${showSyncStatus ? `<span class="sync-indicator ${syncStatus}" title="${syncStatus === 'synced' ? 'Synced' : 'Pending sync'}"></span>` : ''}</div>
                 <div class="expense-meta">${payerName}${this.formatDateShort(exp.date)}${exp.tags ? ` • ${exp.tags}` : ''}${exp.isRecurring ? ' • 🔄' : ''}${exp.imageId ? ' • 📎' : ''}</div>
               </div>
               <div class="expense-amount">${Settings.formatAmount(exp.amount)}</div>
@@ -382,12 +384,18 @@ const Expenses = {
     // Remove existing bar
     document.querySelector('.selection-bar')?.remove();
     
+    const isShared = Accounts.isSharedMode();
+    
     const bar = document.createElement('div');
     bar.className = 'selection-bar';
     bar.innerHTML = `
       <button class="selection-cancel" onclick="Expenses.exitSelectionMode()">Cancel</button>
       <span class="selection-count">${this.selectedIds.size} selected</span>
-      <button class="selection-delete" onclick="Expenses.deleteSelected()">Delete</button>
+      <div class="selection-actions">
+        ${isShared ? '<button class="selection-action" onclick="Expenses.bulkChangePayer()">👤</button>' : ''}
+        <button class="selection-action" onclick="Expenses.bulkChangeCategory()">🏷️</button>
+        <button class="selection-delete" onclick="Expenses.deleteSelected()">🗑️</button>
+      </div>
     `;
     document.body.appendChild(bar);
   },
@@ -412,16 +420,170 @@ const Expenses = {
     const count = this.selectedIds.size;
     if (!confirm(`Delete ${count} expense${count > 1 ? 's' : ''}?`)) return;
     
+    App.showLoading('Deleting...');
     try {
       for (const id of this.selectedIds) {
         await DB.deleteExpense(id);
       }
+      App.hideLoading();
       App.showSuccess(`Deleted ${count} expense${count > 1 ? 's' : ''}`);
       this.exitSelectionMode();
     } catch (e) {
+      App.hideLoading();
       console.error('Failed to delete:', e);
       App.showError('Failed to delete some expenses');
     }
+  },
+
+  // Bulk change payer for selected expenses
+  async bulkChangePayer() {
+    if (this.selectedIds.size === 0) return;
+    
+    const people = await DB.getPeople();
+    if (people.length === 0) {
+      App.showError('No people added');
+      return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">Change Payer</span>
+          <span></span>
+        </div>
+        <div class="sheet-body">
+          <p style="margin-bottom:16px;color:var(--text-secondary)">
+            Change payer for ${this.selectedIds.size} expense${this.selectedIds.size > 1 ? 's' : ''}:
+          </p>
+          <div class="payer-options">
+            ${people.map(p => `
+              <button class="payer-option" data-id="${p.id}">
+                <span class="payer-avatar">${p.name.charAt(0).toUpperCase()}</span>
+                <span class="payer-name">${p.name}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    modal.querySelectorAll('.payer-option').forEach(btn => {
+      btn.onclick = async () => {
+        const payerId = btn.dataset.id;
+        modal.remove();
+        
+        App.showLoading('Updating...');
+        try {
+          for (const id of this.selectedIds) {
+            await DB.updateExpense(id, { payerId });
+          }
+          App.hideLoading();
+          App.showSuccess('Payer updated');
+          this.exitSelectionMode();
+        } catch (e) {
+          App.hideLoading();
+          App.showError('Failed to update');
+        }
+      };
+    });
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+  },
+
+  // Bulk change category (via description prefix)
+  async bulkChangeCategory() {
+    if (this.selectedIds.size === 0) return;
+    
+    const categories = [
+      { icon: '🍔', name: 'Food' },
+      { icon: '☕', name: 'Coffee' },
+      { icon: '🛒', name: 'Shopping' },
+      { icon: '🚗', name: 'Transport' },
+      { icon: '🏠', name: 'Home' },
+      { icon: '🎬', name: 'Entertainment' },
+      { icon: '🏥', name: 'Health' },
+      { icon: '💵', name: 'Other' }
+    ];
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">Add Tag</span>
+          <span></span>
+        </div>
+        <div class="sheet-body">
+          <p style="margin-bottom:16px;color:var(--text-secondary)">
+            Add tag to ${this.selectedIds.size} expense${this.selectedIds.size > 1 ? 's' : ''}:
+          </p>
+          <div class="category-grid">
+            ${categories.map(c => `
+              <button class="category-option" data-tag="${c.name}">
+                <span class="category-emoji">${c.icon}</span>
+                <span class="category-name">${c.name}</span>
+              </button>
+            `).join('')}
+          </div>
+          <div class="form-group" style="margin-top:16px">
+            <label>Or enter custom tag:</label>
+            <input type="text" id="custom-tag" placeholder="e.g., vacation, work">
+          </div>
+          <button class="btn-primary" id="apply-custom-tag" style="margin-top:12px">Apply Custom Tag</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const applyTag = async (tag) => {
+      modal.remove();
+      
+      App.showLoading('Updating...');
+      try {
+        for (const id of this.selectedIds) {
+          const exp = await DB.getExpenseById(id);
+          if (exp) {
+            const currentTags = exp.tags || '';
+            const newTags = currentTags ? `${currentTags}, ${tag}` : tag;
+            await DB.updateExpense(id, { tags: newTags });
+          }
+        }
+        App.hideLoading();
+        App.showSuccess('Tags updated');
+        this.exitSelectionMode();
+      } catch (e) {
+        App.hideLoading();
+        App.showError('Failed to update');
+      }
+    };
+    
+    modal.querySelectorAll('.category-option').forEach(btn => {
+      btn.onclick = () => applyTag(btn.dataset.tag);
+    });
+    
+    modal.querySelector('#apply-custom-tag').onclick = () => {
+      const tag = modal.querySelector('#custom-tag').value.trim();
+      if (tag) {
+        applyTag(tag);
+      } else {
+        App.showError('Enter a tag');
+      }
+    };
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
   },
 
   async duplicateExpense(id) {
@@ -797,6 +959,9 @@ const Expenses = {
     const countEl = document.getElementById('expense-count');
     if (countEl) countEl.textContent = `${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`;
     
+    // Update today's spending
+    this.updateTodayStats(expenses);
+    
     // Update budget progress
     const budgetEl = document.getElementById('budget-progress');
     if (budgetEl) {
@@ -816,6 +981,45 @@ const Expenses = {
         }
       } else {
         budgetEl.classList.add('hidden');
+      }
+    }
+  },
+
+  updateTodayStats(expenses) {
+    const todayAmountEl = document.getElementById('today-amount');
+    const todayTrendEl = document.getElementById('today-trend');
+    if (!todayAmountEl) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    
+    // Calculate today's total
+    const todayExpenses = expenses.filter(e => e.date === today);
+    const todayTotal = todayExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    
+    // Calculate yesterday's total
+    const yesterdayExpenses = expenses.filter(e => e.date === yesterday);
+    const yesterdayTotal = yesterdayExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    
+    todayAmountEl.textContent = Settings.formatAmount(todayTotal);
+    
+    // Show trend
+    if (todayTrendEl) {
+      if (yesterdayTotal > 0 && todayTotal > 0) {
+        const diff = todayTotal - yesterdayTotal;
+        const percent = Math.round((diff / yesterdayTotal) * 100);
+        
+        if (diff > 0) {
+          todayTrendEl.innerHTML = `<span class="trend-up">↑ ${Math.abs(percent)}%</span> vs yesterday`;
+        } else if (diff < 0) {
+          todayTrendEl.innerHTML = `<span class="trend-down">↓ ${Math.abs(percent)}%</span> vs yesterday`;
+        } else {
+          todayTrendEl.textContent = 'Same as yesterday';
+        }
+      } else if (todayTotal > 0) {
+        todayTrendEl.textContent = `${todayExpenses.length} expense${todayExpenses.length !== 1 ? 's' : ''}`;
+      } else {
+        todayTrendEl.textContent = 'No spending yet';
       }
     }
   },
@@ -921,7 +1125,20 @@ const Expenses = {
       });
     }
 
+    // Show loading on save button
+    const saveBtn = document.getElementById('save-expense-btn');
+    App.setButtonLoading(saveBtn, true);
+
     try {
+      // Check for duplicate (same amount + similar description within 5 minutes)
+      const duplicate = await this.checkForDuplicate(desc, amount, date);
+      if (duplicate) {
+        App.setButtonLoading(saveBtn, false);
+        const confirmed = await this.showDuplicateWarning(duplicate);
+        if (!confirmed) return;
+        App.setButtonLoading(saveBtn, true);
+      }
+
       const savedExpense = await DB.addExpense({
         description: desc,
         amount: amount,
@@ -948,13 +1165,92 @@ const Expenses = {
       document.getElementById('expense-date').value = new Date().toISOString().split('T')[0];
       Camera.removeImage(false);  // Clear preview but keep image in database
 
+      App.setButtonLoading(saveBtn, false);
       App.showSuccess('Saved!');
       App.haptic('success');
       App.navigateTo('home');
     } catch (e) {
       console.error('Failed to save:', e);
+      App.setButtonLoading(saveBtn, false);
       App.showError('Failed to save');
     }
+  },
+
+  // Check for potential duplicate expense
+  async checkForDuplicate(description, amount, date) {
+    try {
+      const recentExpenses = await DB.getExpenses();
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000;
+      
+      // Find expenses with same amount on same date, created recently
+      const duplicate = recentExpenses.find(exp => {
+        const sameAmount = Math.abs(parseFloat(exp.amount) - amount) < 0.01;
+        const sameDate = exp.date === date;
+        const recentlyCreated = (now - exp.createdAt) < fiveMinutes;
+        const similarDesc = exp.description.toLowerCase().includes(description.toLowerCase().substring(0, 5)) ||
+                           description.toLowerCase().includes(exp.description.toLowerCase().substring(0, 5));
+        
+        return sameAmount && sameDate && (recentlyCreated || similarDesc);
+      });
+      
+      return duplicate || null;
+    } catch (e) {
+      return null;
+    }
+  },
+
+  // Show duplicate warning modal
+  showDuplicateWarning(duplicate) {
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-box duplicate-warning">
+          <div class="duplicate-icon">⚠️</div>
+          <h3>Possible Duplicate</h3>
+          <p>A similar expense was found:</p>
+          <div class="duplicate-details">
+            <div class="duplicate-row">
+              <span>Description</span>
+              <strong>${duplicate.description}</strong>
+            </div>
+            <div class="duplicate-row">
+              <span>Amount</span>
+              <strong>${Settings.formatAmount(duplicate.amount)}</strong>
+            </div>
+            <div class="duplicate-row">
+              <span>Date</span>
+              <strong>${this.formatDate(duplicate.date)}</strong>
+            </div>
+          </div>
+          <p class="duplicate-question">Add this expense anyway?</p>
+          <div class="duplicate-buttons">
+            <button class="btn-secondary" id="dup-cancel">Cancel</button>
+            <button class="btn-primary" id="dup-confirm">Add Anyway</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      modal.querySelector('#dup-cancel').onclick = () => {
+        modal.remove();
+        resolve(false);
+      };
+      
+      modal.querySelector('#dup-confirm').onclick = () => {
+        modal.remove();
+        resolve(true);
+      };
+      
+      modal.onclick = (e) => {
+        if (e.target === modal) {
+          modal.remove();
+          resolve(false);
+        }
+      };
+    });
   },
 
   lastDeletedExpense: null,

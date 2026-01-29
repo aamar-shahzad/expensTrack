@@ -506,6 +506,9 @@ const Sync = {
         this.updateProgress(85, 'Processing received data...');
         await this.mergeData(message.data);
         
+        // Mark local expenses as synced
+        await this.markLocalExpensesSynced();
+        
         this.updateProgress(100, 'Sync complete!');
         App.showSuccess('Sync complete!');
         
@@ -715,6 +718,22 @@ const Sync = {
     
     document.body.appendChild(modal);
     this.renderConflictList();
+  },
+
+  // Mark all local expenses as synced after successful sync
+  async markLocalExpensesSynced() {
+    try {
+      const expenses = await DB.getExpenses();
+      const pendingExpenses = expenses.filter(e => e.syncStatus === 'pending' || !e.syncStatus);
+      const syncIds = pendingExpenses.map(e => e.syncId).filter(Boolean);
+      
+      if (syncIds.length > 0) {
+        await DB.markAllSynced(syncIds);
+        console.log(`Marked ${syncIds.length} expenses as synced`);
+      }
+    } catch (e) {
+      console.error('Failed to mark expenses synced:', e);
+    }
   },
 
   renderConflictList() {
