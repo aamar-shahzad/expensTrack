@@ -57,7 +57,7 @@ const UI = {
     const monthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     
     main.innerHTML = `
-      <div class="expenses-header">
+      <div class="page-fixed-header">
         ${hasMultipleAccounts ? `
         <div class="account-header" onclick="App.navigateTo('settings')">
           <span class="account-badge">${account?.mode === 'single' ? '👤' : '👥'} ${accountName}</span>
@@ -107,11 +107,13 @@ const UI = {
         </div>
       </div>
       
-      <div id="pull-indicator" class="pull-indicator hidden">
-        <span class="pull-spinner"></span>
-        <span>Release to refresh</span>
+      <div class="page-scroll-content">
+        <div id="pull-indicator" class="pull-indicator hidden">
+          <span class="pull-spinner"></span>
+          <span>Release to refresh</span>
+        </div>
+        <div id="expenses-list" class="expenses-list"></div>
       </div>
-      <div id="expenses-list" class="expenses-list"></div>
     `;
     
     document.getElementById('prev-month').onclick = () => Expenses.navigateMonth(-1);
@@ -142,28 +144,29 @@ const UI = {
   },
 
   setupPullToRefresh() {
-    const list = document.getElementById('expenses-list');
+    // Use the scroll container instead of the list
+    const scrollContainer = document.querySelector('.page-scroll-content');
     const indicator = document.getElementById('pull-indicator');
-    if (!list || !indicator) return;
+    if (!scrollContainer || !indicator) return;
 
     let startY = 0;
     let pulling = false;
     const threshold = 80;
 
-    list.addEventListener('touchstart', (e) => {
-      if (list.scrollTop === 0) {
+    scrollContainer.addEventListener('touchstart', (e) => {
+      if (scrollContainer.scrollTop === 0) {
         startY = e.touches[0].clientY;
         pulling = true;
       }
     }, { passive: true });
 
-    list.addEventListener('touchmove', (e) => {
+    scrollContainer.addEventListener('touchmove', (e) => {
       if (!pulling) return;
       
       const currentY = e.touches[0].clientY;
       const diff = currentY - startY;
       
-      if (diff > 0 && list.scrollTop === 0) {
+      if (diff > 0 && scrollContainer.scrollTop === 0) {
         const pullDistance = Math.min(diff, threshold * 1.5);
         indicator.classList.remove('hidden');
         indicator.style.height = `${pullDistance}px`;
@@ -177,7 +180,7 @@ const UI = {
       }
     }, { passive: true });
 
-    list.addEventListener('touchend', async () => {
+    scrollContainer.addEventListener('touchend', async () => {
       if (!pulling) return;
       pulling = false;
       
