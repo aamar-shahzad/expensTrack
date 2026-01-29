@@ -3,6 +3,14 @@
  */
 
 const UI = {
+  // Escape HTML to prevent XSS
+  escapeHtml(str) {
+    if (str == null) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+  },
+
   init() {
     this.setupNavigation();
   },
@@ -42,12 +50,17 @@ const UI = {
     const main = document.getElementById('main-content');
     const account = Accounts.getCurrentAccount();
     const hasMultipleAccounts = Accounts.getAll().length > 1;
+    const accountName = this.escapeHtml(account?.name || 'Account');
+    
+    // Dynamic month label
+    const now = new Date();
+    const monthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     
     main.innerHTML = `
       <div class="expenses-header">
         ${hasMultipleAccounts ? `
         <div class="account-header" onclick="App.navigateTo('settings')">
-          <span class="account-badge">${account?.mode === 'single' ? '👤' : '👥'} ${account?.name || 'Account'}</span>
+          <span class="account-badge">${account?.mode === 'single' ? '👤' : '👥'} ${accountName}</span>
           <span class="account-switch">Switch ›</span>
         </div>
         ` : ''}
@@ -60,7 +73,7 @@ const UI = {
         
         <div class="month-nav">
           <button id="prev-month">‹</button>
-          <span id="current-month">January 2026</span>
+          <span id="current-month">${monthLabel}</span>
           <button id="next-month">›</button>
         </div>
         
@@ -124,11 +137,15 @@ const UI = {
     document.getElementById('apply-filter').onclick = () => {
       const from = document.getElementById('filter-from').value;
       const to = document.getElementById('filter-to').value;
-      if (from && to) {
-        Expenses.loadDateRange(from, to);
-      } else {
+      if (!from || !to) {
         App.showError('Select both dates');
+        return;
       }
+      if (from > to) {
+        App.showError('Start date must be before end date');
+        return;
+      }
+      Expenses.loadDateRange(from, to);
     };
     
     // Search
@@ -252,33 +269,38 @@ const UI = {
   },
 
   async renderCustomSplitInputs() {
-    const people = await DB.getPeople();
-    const container = document.getElementById('split-inputs');
-    if (!container || people.length === 0) return;
-    
-    const equalShare = Math.round(100 / people.length);
-    container.innerHTML = `
-      <div style="font-size:13px;color:#667781;margin-bottom:8px">Enter percentage for each person (must total 100%)</div>
-      ${people.map((p, i) => `
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <span style="flex:1">${p.name}</span>
-          <input type="number" class="split-percent" data-id="${p.id}" value="${i === 0 ? 100 - (equalShare * (people.length - 1)) : equalShare}" min="0" max="100" style="width:60px;padding:8px;border:1px solid #e9edef;border-radius:8px;text-align:center">
-          <span>%</span>
-        </div>
-      `).join('')}
-      <div id="split-total" style="text-align:right;font-size:13px;color:#667781">Total: 100%</div>
-    `;
-    
-    // Update total on change
-    container.querySelectorAll('.split-percent').forEach(input => {
-      input.oninput = () => {
-        const total = Array.from(container.querySelectorAll('.split-percent'))
-          .reduce((sum, inp) => sum + (parseInt(inp.value) || 0), 0);
-        const totalEl = document.getElementById('split-total');
-        totalEl.textContent = `Total: ${total}%`;
-        totalEl.style.color = total === 100 ? '#25d366' : '#ff3b30';
-      };
-    });
+    try {
+      const people = await DB.getPeople();
+      const container = document.getElementById('split-inputs');
+      if (!container || people.length === 0) return;
+      
+      const equalShare = Math.round(100 / people.length);
+      container.innerHTML = `
+        <div style="font-size:13px;color:#667781;margin-bottom:8px">Enter percentage for each person (must total 100%)</div>
+        ${people.map((p, i) => `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="flex:1">${this.escapeHtml(p.name)}</span>
+            <input type="number" class="split-percent" data-id="${this.escapeHtml(p.id)}" value="${i === 0 ? 100 - (equalShare * (people.length - 1)) : equalShare}" min="0" max="100" style="width:60px;padding:8px;border:1px solid #e9edef;border-radius:8px;text-align:center">
+            <span>%</span>
+          </div>
+        `).join('')}
+        <div id="split-total" style="text-align:right;font-size:13px;color:#667781">Total: 100%</div>
+      `;
+      
+      // Update total on change
+      container.querySelectorAll('.split-percent').forEach(input => {
+        input.oninput = () => {
+          const total = Array.from(container.querySelectorAll('.split-percent'))
+            .reduce((sum, inp) => sum + (parseInt(inp.value) || 0), 0);
+          const totalEl = document.getElementById('split-total');
+          totalEl.textContent = `Total: ${total}%`;
+          totalEl.style.color = total === 100 ? '#25d366' : '#ff3b30';
+        };
+      });
+    } catch (err) {
+      console.error('Failed to load split inputs:', err);
+      App.showError('Could not load people');
+    }
   },
 
   renderPeople() {
@@ -299,11 +321,12 @@ const UI = {
     const main = document.getElementById('main-content');
     const currentAccount = Accounts.getCurrentAccount();
     const isShared = Accounts.isSharedMode();
+    const accountName = this.escapeHtml(currentAccount?.name || 'Account');
     
     main.innerHTML = `
       <div class="page-header">
         <h1>Settlement</h1>
-        <div class="page-account-badge">${isShared ? '👥' : '👤'} ${currentAccount?.name || 'Account'}</div>
+        <div class="page-account-badge">${isShared ? '👥' : '👤'} ${accountName}</div>
       </div>
       
       <div id="settlement-results"></div>
@@ -317,106 +340,118 @@ const UI = {
     const currency = Settings.getCurrency();
     const isShared = Accounts.isSharedMode();
     const currentAccount = Accounts.getCurrentAccount();
+    const accountName = this.escapeHtml(currentAccount?.name || 'Account');
     
-    // Get current month expenses
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    
-    const allExpenses = await DB.getExpenses();
-    const monthExpenses = allExpenses.filter(e => {
-      const [year, month] = e.date.split('-').map(Number);
-      return month - 1 === currentMonth && year === currentYear;
-    });
-    
-    // Calculate stats
-    const totalThisMonth = monthExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-    const totalAllTime = allExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-    const avgPerExpense = allExpenses.length > 0 ? totalAllTime / allExpenses.length : 0;
-    
-    // Calculate days with expenses this month
-    const daysWithExpenses = new Set(monthExpenses.map(e => e.date)).size;
-    const dailyAvg = daysWithExpenses > 0 ? totalThisMonth / daysWithExpenses : 0;
-    
-    // Monthly trend (last 6 months)
-    const monthlyTotals = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(currentYear, currentMonth - i, 1);
-      const m = d.getMonth();
-      const y = d.getFullYear();
-      const monthName = d.toLocaleDateString('en-US', { month: 'short' });
+    try {
+      // Get current month expenses
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
       
-      const total = allExpenses.filter(e => {
-        const [ey, em] = e.date.split('-').map(Number);
-        return em - 1 === m && ey === y;
-      }).reduce((sum, e) => sum + parseFloat(e.amount), 0);
-      
-      monthlyTotals.push({ month: monthName, total });
-    }
-    
-    // Get people for spending breakdown (shared mode only)
-    let people = [];
-    let personTotals = {};
-    if (isShared) {
-      people = await DB.getPeople();
-      allExpenses.forEach(e => {
-        if (e.payerId && e.payerId !== 'self') {
-          personTotals[e.payerId] = (personTotals[e.payerId] || 0) + parseFloat(e.amount);
-        }
+      const allExpenses = await DB.getExpenses();
+      const monthExpenses = allExpenses.filter(e => {
+        const [year, month] = e.date.split('-').map(Number);
+        return month - 1 === currentMonth && year === currentYear;
       });
-    }
-    
-    main.innerHTML = `
-      <div class="page-header">
-        <h1>Statistics</h1>
-        <div class="page-account-badge">${isShared ? '👥' : '👤'} ${currentAccount?.name || 'Account'}</div>
-      </div>
       
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-value">${Settings.formatAmount(totalThisMonth)}</div>
-          <div class="stat-label">This Month</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${Settings.formatAmount(totalAllTime)}</div>
-          <div class="stat-label">All Time</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${allExpenses.length}</div>
-          <div class="stat-label">Total Expenses</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">${Settings.formatAmount(avgPerExpense)}</div>
-          <div class="stat-label">Avg per Expense</div>
-        </div>
-      </div>
+      // Calculate stats
+      const totalThisMonth = monthExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+      const totalAllTime = allExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+      const avgPerExpense = allExpenses.length > 0 ? totalAllTime / allExpenses.length : 0;
       
-      <div class="chart-container">
-        <div class="chart-title">Monthly Spending Trend</div>
-        <canvas id="trend-chart" class="chart-canvas"></canvas>
-      </div>
+      // Calculate days with expenses this month
+      const daysWithExpenses = new Set(monthExpenses.map(e => e.date)).size;
+      const dailyAvg = daysWithExpenses > 0 ? totalThisMonth / daysWithExpenses : 0;
       
-      ${isShared && people.length > 0 ? `
-      <div class="chart-container">
-        <div class="chart-title">Spending by Person</div>
-        <canvas id="person-chart" class="chart-canvas"></canvas>
-        <div class="chart-legend" id="person-legend"></div>
-      </div>
-      ` : `
-      <div class="chart-container">
-        <div class="chart-title">Daily Average</div>
-        <div style="text-align:center;padding:20px">
-          <div class="stat-value" style="font-size:32px">${Settings.formatAmount(dailyAvg)}</div>
-          <div class="stat-label">per day (${daysWithExpenses} days with expenses)</div>
+      // Monthly trend (last 6 months)
+      const monthlyTotals = [];
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(currentYear, currentMonth - i, 1);
+        const m = d.getMonth();
+        const y = d.getFullYear();
+        const monthName = d.toLocaleDateString('en-US', { month: 'short' });
+        
+        const total = allExpenses.filter(e => {
+          const [ey, em] = e.date.split('-').map(Number);
+          return em - 1 === m && ey === y;
+        }).reduce((sum, e) => sum + parseFloat(e.amount), 0);
+        
+        monthlyTotals.push({ month: monthName, total });
+      }
+      
+      // Get people for spending breakdown (shared mode only)
+      let people = [];
+      let personTotals = {};
+      if (isShared) {
+        people = await DB.getPeople();
+        allExpenses.forEach(e => {
+          if (e.payerId && e.payerId !== 'self') {
+            personTotals[e.payerId] = (personTotals[e.payerId] || 0) + parseFloat(e.amount);
+          }
+        });
+      }
+      
+      main.innerHTML = `
+        <div class="page-header">
+          <h1>Statistics</h1>
+          <div class="page-account-badge">${isShared ? '👥' : '👤'} ${accountName}</div>
         </div>
-      </div>
-      `}
-    `;
-    
-    // Draw charts
-    this.drawTrendChart(monthlyTotals);
-    if (isShared && people.length > 0) {
-      this.drawPersonChart(people, personTotals);
+        
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value">${Settings.formatAmount(totalThisMonth)}</div>
+            <div class="stat-label">This Month</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${Settings.formatAmount(totalAllTime)}</div>
+            <div class="stat-label">All Time</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${allExpenses.length}</div>
+            <div class="stat-label">Total Expenses</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value">${Settings.formatAmount(avgPerExpense)}</div>
+            <div class="stat-label">Avg per Expense</div>
+          </div>
+        </div>
+        
+        <div class="chart-container">
+          <div class="chart-title">Monthly Spending Trend</div>
+          <canvas id="trend-chart" class="chart-canvas"></canvas>
+        </div>
+        
+        ${isShared && people.length > 0 ? `
+        <div class="chart-container">
+          <div class="chart-title">Spending by Person</div>
+          <canvas id="person-chart" class="chart-canvas"></canvas>
+          <div class="chart-legend" id="person-legend"></div>
+        </div>
+        ` : `
+        <div class="chart-container">
+          <div class="chart-title">Daily Average</div>
+          <div style="text-align:center;padding:20px">
+            <div class="stat-value" style="font-size:32px">${Settings.formatAmount(dailyAvg)}</div>
+            <div class="stat-label">per day (${daysWithExpenses} days with expenses)</div>
+          </div>
+        </div>
+        `}
+      `;
+      
+      // Draw charts
+      this.drawTrendChart(monthlyTotals);
+      if (isShared && people.length > 0) {
+        this.drawPersonChart(people, personTotals);
+      }
+    } catch (err) {
+      console.error('Failed to load stats:', err);
+      main.innerHTML = `
+        <div class="page-header">
+          <h1>Statistics</h1>
+          <div class="page-account-badge">${isShared ? '👥' : '👤'} ${accountName}</div>
+        </div>
+        <div class="empty-msg">Could not load statistics</div>
+      `;
     }
   },
 

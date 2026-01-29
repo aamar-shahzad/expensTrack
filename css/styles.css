@@ -640,14 +640,6 @@ h1 {
 }
 
 .desc-input::placeholder {
-  color: #999;
-}
-
-.desc-input:focus {
-  outline: none;
-}
-
-.desc-input::placeholder {
   color: var(--text-secondary);
 }
 
@@ -1205,11 +1197,6 @@ h1 {
 .toast.success { background: var(--accent); }
 .toast.error { background: #ff3b30; }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 /* Install Banner */
 .install-banner {
   position: fixed;
@@ -1266,11 +1253,6 @@ h1 {
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideIn {
