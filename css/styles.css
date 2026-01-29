@@ -2046,5 +2046,94 @@ html {
   color: white;
 }
 
+/* Onboarding */
+.onboarding {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 40px 20px;
+}
+
+.onboarding-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.onboarding-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.onboarding-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.onboarding-header p {
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.onboarding-section {
+  flex: 1;
+}
+
+.onboarding-section h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.onboarding-hint {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.account-type-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.account-type-card {
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.account-type-card:hover {
+  border-color: var(--primary);
+  background: rgba(7, 94, 84, 0.02);
+}
+
+.account-type-card:active {
+  transform: scale(0.98);
+}
+
+.account-type-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.account-type-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.account-type-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 /* Hidden */
 .hidden { display: none !important; }

@@ -18,18 +18,25 @@ const Accounts = {
     // Get current account
     this.currentAccountId = localStorage.getItem('et_current_account');
     
-    // If no accounts, create default one
-    if (this.accounts.length === 0) {
-      this.createAccount('Personal', 'shared', '$');
-    }
-    
-    // If no current account selected, use first one
-    if (!this.currentAccountId || !this.getAccount(this.currentAccountId)) {
+    // If no accounts, don't create default - show onboarding instead
+    // If accounts exist but no current selected, use first one
+    if (this.accounts.length > 0 && (!this.currentAccountId || !this.getAccount(this.currentAccountId))) {
       this.currentAccountId = this.accounts[0].id;
       localStorage.setItem('et_current_account', this.currentAccountId);
     }
     
     console.log('Accounts initialized:', this.accounts.length, 'Current:', this.currentAccountId);
+  },
+
+  // Check if this is a new user (no accounts)
+  isNewUser() {
+    return this.accounts.length === 0;
+  },
+
+  // Set current account after creation
+  setCurrentAccount(id) {
+    this.currentAccountId = id;
+    localStorage.setItem('et_current_account', id);
   },
 
   save() {

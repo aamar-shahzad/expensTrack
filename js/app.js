@@ -63,6 +63,14 @@ const App = {
       // Initialize accounts first
       Accounts.init();
       
+      // Check if new user (no accounts) - show onboarding
+      if (Accounts.isNewUser()) {
+        document.getElementById('loading').classList.add('hidden');
+        this.showOnboarding();
+        console.log('New user - showing onboarding');
+        return;
+      }
+      
       // Initialize database for current account
       await DB.init(Accounts.currentAccountId);
 
@@ -240,6 +248,109 @@ const App = {
     } else {
       indicator?.remove();
     }
+  },
+
+  // Show onboarding for new users
+  showOnboarding() {
+    const main = document.getElementById('main-content');
+    main.innerHTML = `
+      <div class="onboarding">
+        <div class="onboarding-header">
+          <div class="onboarding-icon">💰</div>
+          <h1>Welcome to Expense Tracker</h1>
+          <p>Track expenses, split bills, and settle up with friends</p>
+        </div>
+        
+        <div class="onboarding-section">
+          <h2>Create Your First Account</h2>
+          <p class="onboarding-hint">Choose how you want to track expenses:</p>
+          
+          <div class="account-type-cards">
+            <div class="account-type-card" id="create-private">
+              <div class="account-type-icon">👤</div>
+              <div class="account-type-name">Private</div>
+              <div class="account-type-desc">Track your personal expenses. No sharing or sync.</div>
+            </div>
+            
+            <div class="account-type-card" id="create-shared">
+              <div class="account-type-icon">👥</div>
+              <div class="account-type-name">Shared</div>
+              <div class="account-type-desc">Split expenses with others. Sync between devices.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Handle private account creation
+    document.getElementById('create-private').onclick = () => {
+      this.showAccountNamePrompt('single');
+    };
+
+    // Handle shared account creation
+    document.getElementById('create-shared').onclick = () => {
+      this.showAccountNamePrompt('shared');
+    };
+  },
+
+  showAccountNamePrompt(mode) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">Name Your Account</span>
+          <button class="sheet-save" id="save-first-account">Create</button>
+        </div>
+        <div class="sheet-body">
+          <div class="input-group">
+            <label>Account Name</label>
+            <input type="text" id="first-account-name" placeholder="${mode === 'single' ? 'e.g., Personal, My Expenses' : 'e.g., Family, Roommates, Trip'}" autocomplete="off" autofocus>
+          </div>
+          <div class="input-group">
+            <label>Currency</label>
+            <select id="first-account-currency" class="form-select">
+              ${Settings.currencies.map(c => `<option value="${c.symbol}">${c.symbol} - ${c.name}</option>`).join('')}
+            </select>
+          </div>
+          <p style="font-size:13px;color:#667781;margin-top:12px">
+            ${mode === 'single' 
+              ? '👤 Private account - only you can see this data' 
+              : '👥 Shared account - you can add people and sync with other devices'}
+          </p>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    
+    setTimeout(() => document.getElementById('first-account-name').focus(), 100);
+
+    document.getElementById('save-first-account').onclick = async () => {
+      const name = document.getElementById('first-account-name').value.trim();
+      const currency = document.getElementById('first-account-currency').value;
+
+      if (!name) {
+        this.showError('Enter a name for your account');
+        return;
+      }
+
+      // Create the account
+      const account = Accounts.createAccount(name, mode, currency);
+      Accounts.setCurrentAccount(account.id);
+      
+      modal.remove();
+      
+      // Reload the app to initialize everything
+      this.showSuccess('Account created!');
+      setTimeout(() => location.reload(), 500);
+    };
+
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
   },
 
   // Process recurring expenses - auto-add for current month if not exists
