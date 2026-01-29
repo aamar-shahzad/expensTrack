@@ -81,54 +81,57 @@ export function SettlePage() {
   };
 
   return (
-    <div className="min-h-full bg-[var(--bg)] safe-top pb-[calc(90px+env(safe-area-inset-bottom))]">
+    <div className="flex flex-col h-full bg-[var(--bg)]">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3">
+      <div className="flex-shrink-0 px-4 pt-4 pb-3 safe-top">
         <h1 className="text-2xl font-bold mb-2">Settle Up</h1>
         <p className="text-[var(--text-secondary)] text-sm">
           See who owes who and record payments
         </p>
       </div>
 
-      {people.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-5xl mb-4">💰</div>
-          <h3 className="text-lg font-semibold mb-2">Add people first</h3>
-          <p className="text-[var(--text-secondary)]">
-            Go to People tab to add members
-          </p>
-        </div>
-      ) : (
-        <>
-          <SettlementView
-            balances={balances}
-            settlements={settlements}
-            formatAmount={formatAmount}
-            onRecordPayment={openPaymentModal}
-          />
+      {/* Scrollable Content */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(90px+env(safe-area-inset-bottom))]">
+        {people.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-5xl mb-4">💰</div>
+            <h3 className="text-lg font-semibold mb-2">Add people first</h3>
+            <p className="text-[var(--text-secondary)]">
+              Go to People tab to add members
+            </p>
+          </div>
+        ) : (
+          <>
+            <SettlementView
+              balances={balances}
+              settlements={settlements}
+              formatAmount={formatAmount}
+              onRecordPayment={openPaymentModal}
+            />
 
-          {/* Recent Payments */}
-          {payments.length > 0 && (
-            <div className="px-4">
-              <h2 className="text-lg font-semibold mb-3">Recent Payments</h2>
-              <div className="bg-[var(--white)] rounded-xl divide-y divide-[var(--border)]">
-                {payments.slice(0, 5).map(payment => (
-                  <div key={payment.id} className="flex items-center gap-3 p-4">
-                    <div className="text-xl">💸</div>
-                    <div className="flex-1">
-                      <div className="font-medium">
-                        {getPersonName(payment.fromId)} → {getPersonName(payment.toId)}
+            {/* Recent Payments */}
+            {payments.length > 0 && (
+              <div className="px-4 mt-6">
+                <h2 className="text-lg font-semibold mb-3">Recent Payments</h2>
+                <div className="bg-[var(--white)] rounded-xl divide-y divide-[var(--border)]">
+                  {payments.slice(0, 5).map(payment => (
+                    <div key={payment.id} className="flex items-center gap-3 p-4">
+                      <div className="text-xl">💸</div>
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {getPersonName(payment.fromId)} → {getPersonName(payment.toId)}
+                        </div>
+                        <div className="text-sm text-[var(--text-secondary)]">{payment.date}</div>
                       </div>
-                      <div className="text-sm text-[var(--text-secondary)]">{payment.date}</div>
+                      <span className="font-semibold">{formatAmount(payment.amount)}</span>
                     </div>
-                    <span className="font-semibold">{formatAmount(payment.amount)}</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </>
-      )}
+            )}
+          </>
+        )}
+      </div>
 
       {/* Payment Modal */}
       <Sheet

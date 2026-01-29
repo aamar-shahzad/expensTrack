@@ -73,61 +73,64 @@ export function SyncPage() {
   };
 
   return (
-    <div className="min-h-full bg-[var(--bg)] safe-top pb-[calc(90px+env(safe-area-inset-bottom))]">
+    <div className="flex flex-col h-full bg-[var(--bg)]">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3">
+      <div className="flex-shrink-0 px-4 pt-4 pb-3 safe-top">
         <h1 className="text-2xl font-bold mb-2">Sync</h1>
         <p className="text-[var(--text-secondary)] text-sm">
           Connect devices to sync expenses in real-time
         </p>
       </div>
 
-      {/* Status Card */}
-      <div className="px-4 mb-6">
-        <SyncStatus
-          isConnected={isConnected}
-          connectedCount={connectedPeers.length}
-          lastSync={lastSync}
-          onSyncNow={handleSync}
-        />
-      </div>
+      {/* Scrollable Content */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(90px+env(safe-area-inset-bottom))]">
+        {/* Status Card */}
+        <div className="px-4 mb-6">
+          <SyncStatus
+            isConnected={isConnected}
+            connectedCount={connectedPeers.length}
+            lastSync={lastSync}
+            onSyncNow={handleSync}
+          />
+        </div>
 
-      {/* Your Code */}
-      <div className="px-4 mb-6">
-        <h2 className="text-lg font-semibold mb-3">Your Code</h2>
-        <QRCode
-          deviceId={deviceId ?? ''}
-          syncUrl={syncUrl}
-          onCopyCode={handleCopyCode}
-        />
-      </div>
+        {/* Your Code */}
+        <div className="px-4 mb-6">
+          <h2 className="text-lg font-semibold mb-3">Your Code</h2>
+          <QRCode
+            deviceId={deviceId ?? ''}
+            syncUrl={syncUrl}
+            onCopyCode={handleCopyCode}
+          />
+        </div>
 
-      {/* Connect to Device */}
-      <div className="px-4 mb-6">
-        <h2 className="text-lg font-semibold mb-3">Connect to Device</h2>
-        <div className="bg-[var(--white)] rounded-xl p-4">
-          <div className="flex gap-2">
-            <Input
-              value={connectCode}
-              onChange={e => setConnectCode(e.target.value.toUpperCase())}
-              placeholder="Enter code"
-              className="flex-1 font-mono text-center text-lg tracking-widest"
-              maxLength={6}
-            />
-            <Button onClick={handleConnect} loading={isConnecting}>
-              Connect
-            </Button>
+        {/* Connect to Device */}
+        <div className="px-4 mb-6">
+          <h2 className="text-lg font-semibold mb-3">Connect to Device</h2>
+          <div className="bg-[var(--white)] rounded-xl p-4">
+            <div className="flex gap-2">
+              <Input
+                value={connectCode}
+                onChange={e => setConnectCode(e.target.value.toUpperCase())}
+                placeholder="Enter code"
+                className="flex-1 font-mono text-center text-lg tracking-widest"
+                maxLength={6}
+              />
+              <Button onClick={handleConnect} loading={isConnecting}>
+                Connect
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <DeviceList
-        connectedPeers={connectedPeers}
-        savedConnections={savedConnections}
-        isConnecting={isConnecting}
-        onDisconnect={handleDisconnect}
-        onConnect={connect}
-      />
+        <DeviceList
+          connectedPeers={connectedPeers}
+          savedConnections={savedConnections}
+          isConnecting={isConnecting}
+          onDisconnect={handleDisconnect}
+          onConnect={connect}
+        />
+      </div>
     </div>
   );
 }

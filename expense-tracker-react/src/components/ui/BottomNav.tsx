@@ -15,8 +15,8 @@ export function BottomNav() {
   const location = useLocation();
   const isSharedMode = useAccountStore(s => s.isSharedMode());
   
-  // Hide nav on add page
-  if (location.pathname === '/add') return null;
+  // Hide nav on add and camera pages
+  if (location.pathname === '/add' || location.pathname === '/camera') return null;
 
   const visibleItems = navItems.filter(item => !item.sharedOnly || isSharedMode);
 
