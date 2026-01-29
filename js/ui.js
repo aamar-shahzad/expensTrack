@@ -660,27 +660,33 @@ const UI = {
   // Generate QR code for sync
   generateSyncQR(deviceId) {
     const container = document.getElementById('qr-code');
-    if (!container || typeof QRCode === 'undefined') return;
+    if (!container) return;
     
     container.innerHTML = '';
     
-    // Create QR code with device ID
-    const canvas = document.createElement('canvas');
-    QRCode.toCanvas(canvas, `EXPENSE-SYNC:${deviceId}`, {
-      width: 180,
-      margin: 2,
-      color: {
-        dark: '#075e54',
-        light: '#ffffff'
-      }
-    }, (error) => {
-      if (error) {
-        console.error('QR generation error:', error);
-        container.innerHTML = `<div class="qr-fallback">${deviceId}</div>`;
-      } else {
-        container.appendChild(canvas);
-      }
-    });
+    // Check if qrcode library is loaded
+    if (typeof qrcode === 'undefined') {
+      console.warn('QRCode library not loaded');
+      container.innerHTML = `<div class="qr-fallback">${deviceId}</div>`;
+      return;
+    }
+    
+    try {
+      // Create QR code with device ID
+      const qr = qrcode(0, 'M');
+      qr.addData(`EXPENSE-SYNC:${deviceId}`);
+      qr.make();
+      
+      // Create image from QR code
+      const img = document.createElement('img');
+      img.src = qr.createDataURL(6, 4);
+      img.alt = 'QR Code';
+      img.style.borderRadius = '8px';
+      container.appendChild(img);
+    } catch (error) {
+      console.error('QR generation error:', error);
+      container.innerHTML = `<div class="qr-fallback">${deviceId}</div>`;
+    }
   },
 
   // Open QR scanner
