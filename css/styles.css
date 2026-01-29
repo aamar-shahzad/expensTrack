@@ -89,7 +89,7 @@ html, body {
   overflow-x: hidden;
   padding: 16px;
   padding-top: calc(16px + env(safe-area-inset-top, 0px));
-  padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
   -webkit-overflow-scrolling: touch;
 }
 
@@ -361,23 +361,24 @@ h1 {
 }
 
 .expense-desc {
-  font-weight: 500;
+  font-weight: 600;
   font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text);
+  letter-spacing: -0.2px;
 }
 
 .expense-meta {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-secondary);
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 .expense-amount {
-  font-weight: 600;
-  font-size: 16px;
+  font-weight: 700;
+  font-size: 17px;
   flex-shrink: 0;
   color: var(--text);
 }
@@ -2480,6 +2481,8 @@ textarea {
 @media (min-width: 375px) and (max-width: 414px) {
   .main-content {
     padding: 14px;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -2519,7 +2522,7 @@ textarea {
   }
   
   .main-content {
-    padding-bottom: 80px;
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
   }
 }
 
