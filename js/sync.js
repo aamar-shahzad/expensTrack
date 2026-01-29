@@ -18,6 +18,7 @@ const Sync = {
   idleTimeout: null,
   reconnectTimer: null,
   syncProgress: 0,
+  lastSyncTime: null,
   IDLE_TIMEOUT_MS: 10 * 60 * 1000, // 10 minutes
 
   async init() {
@@ -32,6 +33,30 @@ const Sync = {
     // Load saved connections for auto-reconnect
     const saved = localStorage.getItem('et_savedConnections');
     this.savedConnections = saved ? JSON.parse(saved) : [];
+    
+    // Load last sync time
+    this.lastSyncTime = localStorage.getItem('et_lastSyncTime');
+  },
+  
+  setLastSyncTime() {
+    this.lastSyncTime = new Date().toISOString();
+    localStorage.setItem('et_lastSyncTime', this.lastSyncTime);
+  },
+  
+  getLastSyncTimeFormatted() {
+    if (!this.lastSyncTime) return 'Never';
+    const date = new Date(this.lastSyncTime);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   },
 
   generateShortId() {
@@ -508,6 +533,9 @@ const Sync = {
         
         // Mark local expenses as synced
         await this.markLocalExpensesSynced();
+        
+        // Update last sync time
+        this.setLastSyncTime();
         
         this.updateProgress(100, 'Sync complete!');
         App.showSuccess('Sync complete!');

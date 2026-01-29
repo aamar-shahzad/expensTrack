@@ -585,6 +585,9 @@ const App = {
         const account = Accounts.createAccount(accountName, 'shared', '$');
         Accounts.setCurrentAccount(account.id);
         
+        // Initialize DB for the new account BEFORE adding person
+        await DB.init(account.id);
+        
         // Add self as a person
         await DB.addPerson({ name: userName });
         
@@ -760,19 +763,57 @@ const App = {
     };
   },
 
-  // Process recurring expenses - auto-add for current month if not exists
+  // Process recurring expenses - auto-add due expenses
   async processRecurringExpenses() {
     try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Check the new recurring store
+      const dueRecurring = await DB.getDueRecurring();
+      let addedCount = 0;
+      
+      for (const recurring of dueRecurring) {
+        // Add the expense
+        await DB.addExpense({
+          description: recurring.description,
+          amount: recurring.amount,
+          date: recurring.nextDue,
+          payerId: recurring.payerId,
+          splitType: 'equal',
+          recurring: recurring.frequency
+        });
+        
+        // Calculate next due date
+        const nextDate = new Date(recurring.nextDue);
+        switch (recurring.frequency) {
+          case 'weekly':
+            nextDate.setDate(nextDate.getDate() + 7);
+            break;
+          case 'monthly':
+            nextDate.setMonth(nextDate.getMonth() + 1);
+            break;
+          case 'yearly':
+            nextDate.setFullYear(nextDate.getFullYear() + 1);
+            break;
+        }
+        
+        // Update the recurring entry with new due date
+        await DB.updateRecurring(recurring.id, {
+          nextDue: nextDate.toISOString().split('T')[0],
+          lastProcessed: today
+        });
+        
+        addedCount++;
+      }
+      
+      // Also check legacy recurring expenses (from old system)
       const expenses = await DB.getExpenses();
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
       const currentMonthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
       
-      // Find recurring expenses (look at all months to find recurring ones)
       const recurringExpenses = expenses.filter(e => e.recurring === 'monthly');
-      
-      // Group by description + payerId to find unique recurring expenses
       const recurringMap = new Map();
       recurringExpenses.forEach(e => {
         const key = `${e.description}|${e.payerId}|${e.amount}`;
@@ -781,8 +822,6 @@ const App = {
         }
       });
       
-      // Check each recurring expense to see if it exists for current month
-      let addedCount = 0;
       for (const [key, template] of recurringMap) {
         const existsThisMonth = expenses.some(e => 
           e.description === template.description &&
@@ -792,7 +831,6 @@ const App = {
         );
         
         if (!existsThisMonth) {
-          // Add this recurring expense for current month
           const day = template.date.split('-')[2] || '01';
           const newDate = `${currentMonthStr}-${day}`;
           

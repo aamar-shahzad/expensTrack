@@ -10,6 +10,12 @@ const Expenses = {
   selectedIds: new Set(),
   newExpenseId: null, // Track newly added expense for animation
   currentCategoryFilter: 'all',
+  
+  // Pagination for large lists
+  PAGE_SIZE: 50,
+  currentPage: 0,
+  allExpenses: [],
+  hasMore: false,
 
   // Category detection keywords and icons
   categories: {
@@ -62,12 +68,122 @@ const Expenses = {
         });
       }
       
-      this.renderExpenses(filtered);
+      // Store all expenses for pagination
+      this.allExpenses = filtered;
+      this.currentPage = 0;
+      this.hasMore = filtered.length > this.PAGE_SIZE;
+      
+      // Render first page
+      const firstPage = filtered.slice(0, this.PAGE_SIZE);
+      this.renderExpenses(firstPage, false);
       this.updateMonthDisplay();
       this.updateSummary(filtered);
+      
+      // Setup infinite scroll
+      this.setupInfiniteScroll();
     } catch (e) {
       console.error('Failed to load expenses:', e);
     }
+  },
+  
+  setupInfiniteScroll() {
+    const scrollContainer = document.querySelector('.page-scroll-content');
+    if (!scrollContainer) return;
+    
+    // Remove old listener
+    scrollContainer.removeEventListener('scroll', this.handleScroll);
+    
+    // Add new listener
+    this.handleScroll = () => {
+      if (!this.hasMore) return;
+      
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      if (scrollTop + clientHeight >= scrollHeight - 200) {
+        this.loadMoreExpenses();
+      }
+    };
+    
+    scrollContainer.addEventListener('scroll', this.handleScroll, { passive: true });
+  },
+  
+  loadMoreExpenses() {
+    if (!this.hasMore) return;
+    
+    this.currentPage++;
+    const start = this.currentPage * this.PAGE_SIZE;
+    const end = start + this.PAGE_SIZE;
+    const nextPage = this.allExpenses.slice(start, end);
+    
+    if (nextPage.length === 0) {
+      this.hasMore = false;
+      return;
+    }
+    
+    this.hasMore = end < this.allExpenses.length;
+    this.appendExpenses(nextPage);
+  },
+  
+  appendExpenses(expenses) {
+    const list = document.getElementById('expenses-list');
+    if (!list) return;
+    
+    const currency = Settings.getCurrency();
+    const people = People.list || [];
+    const peopleMap = {};
+    people.forEach(p => peopleMap[p.id] = p.name);
+    
+    let html = '';
+    for (const exp of expenses) {
+      const icon = this.getCategoryIcon(exp.description);
+      const payerName = peopleMap[exp.payerId] || '';
+      const dateDisplay = this.formatDateShort(exp.date);
+      const isRecurring = exp.recurring;
+      const hasImage = exp.imageId;
+      const syncStatus = exp.syncStatus || 'pending';
+      
+      html += `
+        <div class="expense-item-wrapper">
+          <div class="expense-item" data-id="${exp.id}" onclick="Expenses.handleItemClick('${exp.id}')">
+            ${hasImage ? 
+              `<div class="expense-thumb" data-img="${exp.imageId}"></div>` :
+              `<div class="expense-icon">${icon}</div>`
+            }
+            <div class="expense-main">
+              <div class="expense-desc">${UI.escapeHtml(exp.description)}</div>
+              <div class="expense-meta">${dateDisplay}${payerName ? ' • ' + payerName : ''}${isRecurring ? ' • 🔄' : ''}${hasImage ? ' • 📎' : ''}</div>
+            </div>
+            <div class="expense-amount">${currency}${parseFloat(exp.amount).toFixed(2)}</div>
+            <div class="sync-indicator ${syncStatus}"></div>
+          </div>
+          <div class="swipe-actions">
+            <button class="swipe-action swipe-duplicate" onclick="Expenses.duplicateExpense('${exp.id}')">
+              <span>📋</span>
+              <span>Copy</span>
+            </button>
+            <button class="swipe-action swipe-delete" onclick="Expenses.deleteExpense('${exp.id}')">
+              <span>🗑️</span>
+              <span>Delete</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Append to list
+    list.insertAdjacentHTML('beforeend', html);
+    
+    // Load thumbnails for new items
+    this.loadThumbnails();
+    this.setupSwipeHandlers();
+    
+    // Setup long press for new items
+    document.querySelectorAll('.expense-item:not([data-longpress])').forEach(item => {
+      const id = item.dataset.id;
+      if (id) {
+        this.setupLongPress(item, id);
+        item.dataset.longpress = 'true';
+      }
+    });
   },
 
   showSkeleton() {
@@ -183,6 +299,12 @@ const Expenses = {
     // Load thumbnails and setup swipe
     this.loadThumbnails();
     this.setupSwipeHandlers();
+    
+    // Setup long press for context menu
+    document.querySelectorAll('.expense-item').forEach(item => {
+      const id = item.dataset.id;
+      if (id) this.setupLongPress(item, id);
+    });
   },
 
   // Group expenses by date category (Today, Yesterday, This Week, Earlier)
@@ -258,49 +380,73 @@ const Expenses = {
     wrappers.forEach(wrapper => {
       const item = wrapper.querySelector('.expense-item');
       let startX = 0;
+      let startY = 0;
       let currentX = 0;
       let isDragging = false;
+      let isHorizontalSwipe = null;
 
       item.addEventListener('touchstart', (e) => {
         startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
         isDragging = true;
+        isHorizontalSwipe = null;
         item.style.transition = 'none';
       }, { passive: true });
 
       item.addEventListener('touchmove', (e) => {
         if (!isDragging) return;
-        currentX = e.touches[0].clientX;
-        const diff = currentX - startX;
         
-        // Only allow left swipe (negative diff)
-        if (diff < 0) {
-          const translateX = Math.max(diff, -150);
+        currentX = e.touches[0].clientX;
+        const currentY = e.touches[0].clientY;
+        const diffX = currentX - startX;
+        const diffY = currentY - startY;
+        
+        // Determine swipe direction on first significant move
+        if (isHorizontalSwipe === null && (Math.abs(diffX) > 10 || Math.abs(diffY) > 10)) {
+          isHorizontalSwipe = Math.abs(diffX) > Math.abs(diffY);
+        }
+        
+        // Only handle horizontal swipes
+        if (isHorizontalSwipe && diffX < 0) {
+          const translateX = Math.max(diffX * 0.8, -150); // Add resistance
           item.style.transform = `translateX(${translateX}px)`;
         }
       }, { passive: true });
 
       item.addEventListener('touchend', () => {
+        if (!isDragging) return;
         isDragging = false;
-        item.style.transition = 'transform 0.3s ease';
+        item.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
         
         const diff = currentX - startX;
-        if (diff < -80) {
+        if (isHorizontalSwipe && diff < -60) {
           // Show actions with haptic
-          item.style.transform = 'translateX(-120px)';
+          item.style.transform = 'translateX(-150px)';
           wrapper.classList.add('swiped');
-          Expenses.hapticFeedback('light');
+          this.hapticFeedback('light');
+          
+          // Close other open swipes
+          document.querySelectorAll('.expense-item-wrapper.swiped').forEach(w => {
+            if (w !== wrapper) {
+              w.classList.remove('swiped');
+              w.querySelector('.expense-item').style.transform = 'translateX(0)';
+            }
+          });
         } else {
-          // Reset
+          // Reset with spring animation
+          item.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
           item.style.transform = 'translateX(0)';
           wrapper.classList.remove('swiped');
         }
         currentX = 0;
+        isHorizontalSwipe = null;
       });
 
       // Close on tap elsewhere
       item.addEventListener('click', (e) => {
         if (wrapper.classList.contains('swiped')) {
           e.stopPropagation();
+          item.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
           item.style.transform = 'translateX(0)';
           wrapper.classList.remove('swiped');
         }
@@ -335,11 +481,155 @@ const Expenses = {
     this.thumbnailUrls = [];
   },
 
+  // Track double tap
+  lastTapTime: 0,
+  lastTapId: null,
+
   handleItemClick(id) {
     if (this.selectionMode) {
       this.toggleSelection(id);
+      return;
+    }
+    
+    // Double tap detection
+    const now = Date.now();
+    if (this.lastTapId === id && now - this.lastTapTime < 300) {
+      // Double tap - edit
+      this.hapticFeedback('light');
+      this.editExpense(id);
+      this.lastTapTime = 0;
+      this.lastTapId = null;
+      return;
+    }
+    
+    this.lastTapTime = now;
+    this.lastTapId = id;
+    
+    // Single tap - show detail after delay
+    setTimeout(() => {
+      if (this.lastTapId === id) {
+        this.showDetail(id);
+        this.lastTapId = null;
+      }
+    }, 300);
+  },
+
+  // Long press context menu
+  setupLongPress(element, id) {
+    let pressTimer;
+    let longPressed = false;
+    
+    element.addEventListener('touchstart', (e) => {
+      longPressed = false;
+      pressTimer = setTimeout(() => {
+        longPressed = true;
+        this.hapticFeedback('medium');
+        this.showContextMenu(e, id);
+      }, 500);
+    }, { passive: true });
+    
+    element.addEventListener('touchend', () => {
+      clearTimeout(pressTimer);
+    });
+    
+    element.addEventListener('touchmove', () => {
+      clearTimeout(pressTimer);
+    });
+  },
+
+  showContextMenu(event, id) {
+    // Remove existing menu
+    document.querySelector('.context-menu')?.remove();
+    document.querySelector('.context-menu-backdrop')?.remove();
+    
+    const touch = event.touches?.[0] || event;
+    const x = Math.min(touch.clientX, window.innerWidth - 200);
+    const y = Math.min(touch.clientY, window.innerHeight - 250);
+    
+    const backdrop = document.createElement('div');
+    backdrop.className = 'context-menu-backdrop';
+    backdrop.style.cssText = 'position:fixed;inset:0;z-index:9999';
+    
+    const menu = document.createElement('div');
+    menu.className = 'context-menu';
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.innerHTML = `
+      <button class="context-menu-item" data-action="edit">
+        <span class="context-menu-icon">✏️</span>
+        <span>Edit</span>
+      </button>
+      <button class="context-menu-item" data-action="duplicate">
+        <span class="context-menu-icon">📋</span>
+        <span>Duplicate</span>
+      </button>
+      <button class="context-menu-item" data-action="share">
+        <span class="context-menu-icon">📤</span>
+        <span>Share</span>
+      </button>
+      <button class="context-menu-item danger" data-action="delete">
+        <span class="context-menu-icon">🗑️</span>
+        <span>Delete</span>
+      </button>
+    `;
+    
+    document.body.appendChild(backdrop);
+    document.body.appendChild(menu);
+    
+    backdrop.onclick = () => {
+      menu.remove();
+      backdrop.remove();
+    };
+    
+    menu.querySelectorAll('.context-menu-item').forEach(item => {
+      item.onclick = async () => {
+        const action = item.dataset.action;
+        menu.remove();
+        backdrop.remove();
+        
+        switch (action) {
+          case 'edit':
+            this.editExpense(id);
+            break;
+          case 'duplicate':
+            await this.duplicateExpense(id);
+            break;
+          case 'share':
+            await this.shareExpense(id);
+            break;
+          case 'delete':
+            await this.deleteExpense(id);
+            break;
+        }
+      };
+    });
+  },
+
+  // Share expense via native share API
+  async shareExpense(id) {
+    const expense = await DB.getExpense(id);
+    if (!expense) return;
+    
+    const currency = Settings.getCurrency();
+    const text = `${expense.description}: ${currency}${expense.amount.toFixed(2)} on ${expense.date}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Expense',
+          text: text
+        });
+      } catch (e) {
+        // User cancelled or error
+      }
     } else {
-      this.showDetail(id);
+      // Fallback: copy to clipboard
+      try {
+        await navigator.clipboard.writeText(text);
+        App.showSuccess('Copied to clipboard');
+      } catch (e) {
+        App.showError('Could not share');
+      }
     }
   },
 
@@ -1179,23 +1469,33 @@ const Expenses = {
   // Check for potential duplicate expense
   async checkForDuplicate(description, amount, date) {
     try {
+      // Skip check if description is too short
+      if (!description || description.length < 3) return null;
+      
       const recentExpenses = await DB.getExpenses();
+      if (!recentExpenses || recentExpenses.length === 0) return null;
+      
       const now = Date.now();
       const fiveMinutes = 5 * 60 * 1000;
       
       // Find expenses with same amount on same date, created recently
       const duplicate = recentExpenses.find(exp => {
+        if (!exp.description) return false;
         const sameAmount = Math.abs(parseFloat(exp.amount) - amount) < 0.01;
         const sameDate = exp.date === date;
-        const recentlyCreated = (now - exp.createdAt) < fiveMinutes;
-        const similarDesc = exp.description.toLowerCase().includes(description.toLowerCase().substring(0, 5)) ||
-                           description.toLowerCase().includes(exp.description.toLowerCase().substring(0, 5));
+        const recentlyCreated = (now - (exp.createdAt || 0)) < fiveMinutes;
+        const descLower = description.toLowerCase();
+        const expDescLower = exp.description.toLowerCase();
+        const similarDesc = descLower.length >= 5 && expDescLower.length >= 5 && 
+                           (expDescLower.includes(descLower.substring(0, 5)) ||
+                            descLower.includes(expDescLower.substring(0, 5)));
         
         return sameAmount && sameDate && (recentlyCreated || similarDesc);
       });
       
       return duplicate || null;
     } catch (e) {
+      console.error('Duplicate check error:', e);
       return null;
     }
   },

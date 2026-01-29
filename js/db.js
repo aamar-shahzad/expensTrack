@@ -7,7 +7,7 @@ const DB = {
   db: null,
   dbName: 'ExpenseTracker',
   currentAccountId: null,
-  version: 6, // Bumped for payments store
+  version: 7, // Bumped for recurring expenses and category budgets
 
   // Get database name for an account
   getDbName(accountId) {
@@ -82,6 +82,18 @@ const DB = {
           const paymentsStore = db.createObjectStore('payments', { keyPath: 'id' });
           paymentsStore.createIndex('date', 'date');
           paymentsStore.createIndex('syncId', 'syncId');
+        }
+
+        // Recurring expenses store
+        if (!db.objectStoreNames.contains('recurring')) {
+          const recurringStore = db.createObjectStore('recurring', { keyPath: 'id' });
+          recurringStore.createIndex('nextDue', 'nextDue');
+          recurringStore.createIndex('active', 'active');
+        }
+
+        // Category budgets store
+        if (!db.objectStoreNames.contains('categoryBudgets')) {
+          db.createObjectStore('categoryBudgets', { keyPath: 'category' });
         }
       };
     });
@@ -651,5 +663,134 @@ const DB = {
       request.onsuccess = () => resolve(true);
       request.onerror = () => reject(request.error);
     });
+  },
+
+  // Recurring expenses operations
+  async addRecurring(recurring) {
+    const store = await this.transaction('recurring', 'readwrite');
+    const id = crypto.randomUUID();
+    const data = {
+      ...recurring,
+      id,
+      active: true,
+      createdAt: Date.now()
+    };
+
+    return new Promise((resolve, reject) => {
+      const request = store.add(data);
+      request.onsuccess = () => resolve(data);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async getRecurring() {
+    const store = await this.transaction('recurring');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result.filter(r => r.active));
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async updateRecurring(id, updates) {
+    const store = await this.transaction('recurring', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const data = { ...getReq.result, ...updates };
+        const putReq = store.put(data);
+        putReq.onsuccess = () => resolve(data);
+        putReq.onerror = () => reject(putReq.error);
+      };
+      getReq.onerror = () => reject(getReq.error);
+    });
+  },
+
+  async deleteRecurring(id) {
+    const store = await this.transaction('recurring', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async getDueRecurring() {
+    const store = await this.transaction('recurring');
+    const today = new Date().toISOString().split('T')[0];
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const due = request.result.filter(r => r.active && r.nextDue <= today);
+        resolve(due);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  // Category budget operations
+  async setCategoryBudget(category, amount) {
+    const store = await this.transaction('categoryBudgets', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.put({ category, amount, updatedAt: Date.now() });
+      request.onsuccess = () => resolve({ category, amount });
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async getCategoryBudgets() {
+    const store = await this.transaction('categoryBudgets');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const budgets = {};
+        request.result.forEach(b => budgets[b.category] = b.amount);
+        resolve(budgets);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async deleteCategoryBudget(category) {
+    const store = await this.transaction('categoryBudgets', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.delete(category);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  // Get all images for gallery
+  async getAllImages() {
+    const store = await this.transaction('images');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const images = request.result;
+        images.sort((a, b) => b.createdAt - a.createdAt);
+        resolve(images);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  // Export all data for backup
+  async exportAllData() {
+    const expenses = await this.getAllExpenses();
+    const people = await this.getPeople();
+    const templates = await this.getTemplates();
+    const recurring = await this.getRecurring();
+    const budgets = await this.getCategoryBudgets();
+    const payments = await this.getPayments();
+    
+    return {
+      expenses,
+      people,
+      templates,
+      recurring,
+      categoryBudgets: budgets,
+      payments,
+      exportedAt: new Date().toISOString()
+    };
   }
 };

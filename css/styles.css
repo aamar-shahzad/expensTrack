@@ -755,6 +755,7 @@ h1 {
   background: var(--white);
 }
 
+/* Swipe Actions - iOS Style */
 .swipe-actions {
   position: absolute;
   right: 0;
@@ -762,11 +763,11 @@ h1 {
   bottom: 0;
   display: flex;
   z-index: 1;
+  overflow: hidden;
 }
 
 .swipe-action {
-  /* Larger touch targets for mobile */
-  width: 72px;
+  width: 75px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -775,25 +776,43 @@ h1 {
   border: none;
   color: white;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.2s var(--ease-out), opacity 0.15s;
 }
 
 .swipe-action:active {
-  opacity: 0.8;
+  opacity: 0.85;
+  transform: scale(0.95);
 }
 
 .swipe-action span:first-child {
-  font-size: 20px;
+  font-size: 22px;
+  margin-bottom: 2px;
 }
 
 .swipe-duplicate {
-  background: var(--primary);
+  background: var(--teal-green);
 }
 
 .swipe-delete {
   background: #ff3b30;
+}
+
+/* Swipe delete animation */
+.expense-item-wrapper.deleting {
+  animation: swipeOut 0.3s var(--ease-out) forwards;
+}
+
+@keyframes swipeOut {
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+    height: 0;
+    padding: 0;
+    margin: 0;
+  }
 }
 
 /* Detail View */
@@ -1504,6 +1523,12 @@ h1 {
 .status-info {
   font-size: 13px;
   color: #888;
+}
+
+.status-sync-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
 }
 
 .peer-id {
@@ -4352,6 +4377,233 @@ html {
 .category-name {
   font-size: 11px;
   color: var(--text-secondary);
+}
+
+/* Recurring Expenses */
+.recurring-list {
+  padding: 0;
+}
+
+.recurring-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 0.5px solid var(--border);
+}
+
+.recurring-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--bg);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.recurring-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.recurring-name {
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.recurring-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.recurring-amount {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--teal-green);
+}
+
+.recurring-delete {
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recurring-delete:active {
+  background: var(--bg);
+  color: #ff3b30;
+}
+
+/* Category Budgets */
+.category-budget-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.category-budget-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.category-budget-icon {
+  font-size: 24px;
+  width: 40px;
+  text-align: center;
+}
+
+.category-budget-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.category-budget-input {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg);
+  padding: 8px 12px;
+  border-radius: 8px;
+  width: 100px;
+}
+
+.category-budget-input span {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.category-budget-input input {
+  width: 60px;
+  border: none;
+  background: none;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Photo Gallery */
+.photo-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.gallery-item {
+  aspect-ratio: 1;
+  background-size: cover;
+  background-position: center;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.gallery-item:active {
+  opacity: 0.7;
+}
+
+/* Image Viewer */
+.image-viewer {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.95);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  animation: modalFadeIn 0.2s var(--ease-out);
+}
+
+.image-viewer-header {
+  padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+  display: flex;
+  justify-content: flex-end;
+}
+
+.image-viewer-close {
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,0.2);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-viewer img {
+  flex: 1;
+  object-fit: contain;
+  max-height: calc(100vh - 100px);
+  padding: 16px;
+}
+
+/* Context Menu */
+.context-menu {
+  position: fixed;
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  z-index: 10000;
+  min-width: 180px;
+  overflow: hidden;
+  animation: contextPop 0.15s var(--spring);
+}
+
+@keyframes contextPop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-size: 15px;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 0.5px solid var(--border);
+}
+
+.context-menu-item:last-child {
+  border-bottom: none;
+}
+
+.context-menu-item:active {
+  background: var(--bg);
+}
+
+.context-menu-item.danger {
+  color: #ff3b30;
+}
+
+.context-menu-icon {
+  font-size: 18px;
 }
 
 /* Hidden */

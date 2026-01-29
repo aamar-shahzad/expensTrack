@@ -1194,6 +1194,7 @@ const UI = {
         <div class="status-dot"></div>
         <div class="status-text">${isReady ? 'Ready to connect' : 'Connecting...'}</div>
         <div class="status-info">${connections} device${connections !== 1 ? 's' : ''} connected</div>
+        <div class="status-sync-time">Last sync: ${Sync.getLastSyncTimeFormatted()}</div>
       </div>
       
       <div class="card qr-card">
@@ -1503,6 +1504,36 @@ All our expenses will sync automatically!`;
       </div>
       
       <div class="settings-section">
+        <div class="settings-section-title">Features</div>
+        <div class="settings-list">
+          <div class="settings-item" id="recurring-btn">
+            <div class="settings-item-icon">🔄</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Recurring Expenses</div>
+              <div class="settings-item-subtitle">Auto-add monthly bills</div>
+            </div>
+            <span class="settings-item-arrow">›</span>
+          </div>
+          <div class="settings-item" id="category-budgets-btn">
+            <div class="settings-item-icon">📊</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Category Budgets</div>
+              <div class="settings-item-subtitle">Set limits per category</div>
+            </div>
+            <span class="settings-item-arrow">›</span>
+          </div>
+          <div class="settings-item" id="photo-gallery-btn">
+            <div class="settings-item-icon">🖼️</div>
+            <div class="settings-item-content">
+              <div class="settings-item-title">Receipt Gallery</div>
+              <div class="settings-item-subtitle">View all receipt photos</div>
+            </div>
+            <span class="settings-item-arrow">›</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="settings-section">
         <div class="settings-section-title">Backup & Export</div>
         <div class="settings-list">
           <div class="settings-item" id="full-backup-btn">
@@ -1519,18 +1550,18 @@ All our expenses will sync automatically!`;
               <div class="settings-item-subtitle">Import a backup file</div>
             </div>
           </div>
-          <div class="settings-item" id="export-btn">
-            <div class="settings-item-icon">📊</div>
+          <div class="settings-item" id="export-csv-btn">
+            <div class="settings-item-icon">📄</div>
             <div class="settings-item-content">
-              <div class="settings-item-title">Export Data</div>
-              <div class="settings-item-subtitle">CSV or JSON for spreadsheets</div>
+              <div class="settings-item-title">Export to CSV</div>
+              <div class="settings-item-subtitle">For spreadsheets</div>
             </div>
           </div>
-          <div class="settings-item" id="import-btn">
-            <div class="settings-item-icon">📤</div>
+          <div class="settings-item" id="export-pdf-btn">
+            <div class="settings-item-icon">📑</div>
             <div class="settings-item-content">
-              <div class="settings-item-title">Import Expenses</div>
-              <div class="settings-item-subtitle">Add from JSON file</div>
+              <div class="settings-item-title">Export to PDF</div>
+              <div class="settings-item-subtitle">Printable report</div>
             </div>
           </div>
         </div>
@@ -1583,6 +1614,15 @@ All our expenses will sync automatically!`;
         e.target.checked ? 'On' : 'Off';
     };
     
+    // Recurring expenses
+    document.getElementById('recurring-btn').onclick = () => this.showRecurringExpenses();
+    
+    // Category budgets
+    document.getElementById('category-budgets-btn').onclick = () => this.showCategoryBudgets();
+    
+    // Photo gallery
+    document.getElementById('photo-gallery-btn').onclick = () => this.showPhotoGallery();
+    
     // Full backup
     document.getElementById('full-backup-btn').onclick = () => Settings.createFullBackup();
     
@@ -1598,14 +1638,11 @@ All our expenses will sync automatically!`;
       e.target.value = '';
     };
     
-    // Export
-    document.getElementById('export-btn').onclick = () => this.exportData();
+    // Export CSV
+    document.getElementById('export-csv-btn').onclick = () => Settings.exportToCSV();
     
-    // Import
-    document.getElementById('import-btn').onclick = () => {
-      document.getElementById('import-file').click();
-    };
-    document.getElementById('import-file').onchange = (e) => this.importData(e);
+    // Export PDF
+    document.getElementById('export-pdf-btn').onclick = () => Settings.exportToPDF();
     
     // Clear data
     document.getElementById('clear-data-btn').onclick = () => this.clearAllData();
@@ -1948,16 +1985,62 @@ All our expenses will sync automatically!`;
     e.target.value = '';
   },
 
-  clearAllData() {
-    if (!confirm('Delete ALL data? This cannot be undone!')) return;
-    if (!confirm('Are you sure? All expenses, people, and photos will be permanently deleted.')) return;
-
-    DB.clearAllData().then(() => {
-      App.showSuccess('All data cleared');
-      App.navigateTo('home');
-    }).catch(() => {
-      App.showError('Failed to clear data');
-    });
+  async clearAllData() {
+    // Show modal with export option
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">Clear Data</span>
+          <span style="width:60px"></span>
+        </div>
+        <div class="sheet-body">
+          <div class="empty-state" style="padding:20px 0">
+            <div class="empty-illustration">⚠️</div>
+            <div class="empty-title">Delete all data?</div>
+            <div class="empty-text">All expenses, people, and photos will be permanently deleted. This cannot be undone.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+            <button class="btn-secondary" id="export-before-delete">
+              💾 Export Backup First
+            </button>
+            <button class="btn-primary" style="background:#ff3b30" id="confirm-delete">
+              🗑️ Delete Everything
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    document.getElementById('export-before-delete').onclick = async () => {
+      await Settings.createFullBackup();
+    };
+    
+    document.getElementById('confirm-delete').onclick = async () => {
+      if (!confirm('Final confirmation: Delete ALL data?')) return;
+      
+      modal.remove();
+      App.showLoading('Deleting...');
+      
+      try {
+        await DB.clearAllData();
+        App.hideLoading();
+        App.showSuccess('All data cleared');
+        App.navigateTo('home');
+      } catch (e) {
+        App.hideLoading();
+        App.showError('Failed to clear data');
+      }
+    };
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
   },
 
   showAddPersonModal() {
@@ -2009,6 +2092,299 @@ All our expenses will sync automatically!`;
     modal.onclick = (e) => {
       if (e.target === modal) {
         modal.remove();
+      }
+    };
+  },
+
+  // Recurring Expenses Modal
+  async showRecurringExpenses() {
+    const recurring = await DB.getRecurring();
+    const people = await DB.getPeople();
+    const currency = Settings.getCurrency();
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet" style="max-height:85vh">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Close</button>
+          <span class="sheet-title">Recurring Expenses</span>
+          <button class="sheet-save" id="add-recurring-btn">+ Add</button>
+        </div>
+        <div class="sheet-body" style="padding:0">
+          ${recurring.length === 0 ? `
+            <div class="empty-state" style="padding:40px 20px">
+              <div class="empty-illustration">🔄</div>
+              <div class="empty-title">No recurring expenses</div>
+              <div class="empty-text">Add monthly bills like rent, subscriptions, etc.</div>
+            </div>
+          ` : `
+            <div class="recurring-list">
+              ${recurring.map(r => `
+                <div class="recurring-item" data-id="${r.id}">
+                  <div class="recurring-icon">${Expenses.getCategoryIcon(r.description)}</div>
+                  <div class="recurring-info">
+                    <div class="recurring-name">${this.escapeHtml(r.description)}</div>
+                    <div class="recurring-meta">${r.frequency} • Next: ${r.nextDue}</div>
+                  </div>
+                  <div class="recurring-amount">${currency}${r.amount.toFixed(2)}</div>
+                  <button class="recurring-delete" data-id="${r.id}">×</button>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Add new recurring
+    document.getElementById('add-recurring-btn').onclick = () => {
+      modal.remove();
+      this.showAddRecurringModal();
+    };
+    
+    // Delete recurring
+    modal.querySelectorAll('.recurring-delete').forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        if (confirm('Delete this recurring expense?')) {
+          await DB.deleteRecurring(id);
+          App.showSuccess('Deleted');
+          modal.remove();
+          this.showRecurringExpenses();
+        }
+      };
+    });
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+  },
+
+  showAddRecurringModal() {
+    const people = People.list || [];
+    const currency = Settings.getCurrency();
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+          <span class="sheet-title">Add Recurring</span>
+          <button class="sheet-save" id="save-recurring-btn">Save</button>
+        </div>
+        <div class="sheet-body">
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" id="recurring-desc" placeholder="e.g., Netflix, Rent, Gym">
+          </div>
+          <div class="form-group">
+            <label>Amount</label>
+            <input type="number" id="recurring-amount" placeholder="0.00" step="0.01" inputmode="decimal">
+          </div>
+          <div class="form-group">
+            <label>Frequency</label>
+            <select id="recurring-frequency">
+              <option value="monthly">Monthly</option>
+              <option value="weekly">Weekly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Next Due Date</label>
+            <input type="date" id="recurring-date" value="${new Date().toISOString().split('T')[0]}">
+          </div>
+          ${people.length > 0 ? `
+          <div class="form-group">
+            <label>Payer</label>
+            <select id="recurring-payer">
+              ${people.map(p => `<option value="${p.id}">${this.escapeHtml(p.name)}</option>`).join('')}
+            </select>
+          </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    document.getElementById('save-recurring-btn').onclick = async () => {
+      const desc = document.getElementById('recurring-desc').value.trim();
+      const amount = parseFloat(document.getElementById('recurring-amount').value);
+      const frequency = document.getElementById('recurring-frequency').value;
+      const nextDue = document.getElementById('recurring-date').value;
+      const payerId = document.getElementById('recurring-payer')?.value;
+      
+      if (!desc || !amount || !nextDue) {
+        App.showError('Fill all fields');
+        return;
+      }
+      
+      await DB.addRecurring({ description: desc, amount, frequency, nextDue, payerId });
+      App.showSuccess('Recurring expense added');
+      modal.remove();
+      this.showRecurringExpenses();
+    };
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+  },
+
+  // Category Budgets Modal
+  async showCategoryBudgets() {
+    const budgets = await DB.getCategoryBudgets();
+    const currency = Settings.getCurrency();
+    const categories = [
+      { icon: '🍔', name: 'Food' },
+      { icon: '☕', name: 'Coffee' },
+      { icon: '🛒', name: 'Shopping' },
+      { icon: '🚗', name: 'Transport' },
+      { icon: '🏠', name: 'Home' },
+      { icon: '🎬', name: 'Entertainment' },
+      { icon: '🏥', name: 'Health' },
+      { icon: '💵', name: 'Other' }
+    ];
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet" style="max-height:85vh">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Close</button>
+          <span class="sheet-title">Category Budgets</span>
+          <button class="sheet-save" id="save-budgets-btn">Save</button>
+        </div>
+        <div class="sheet-body">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Set monthly spending limits for each category. Leave empty for no limit.</p>
+          <div class="category-budget-list">
+            ${categories.map(cat => `
+              <div class="category-budget-item">
+                <span class="category-budget-icon">${cat.icon}</span>
+                <span class="category-budget-name">${cat.name}</span>
+                <div class="category-budget-input">
+                  <span>${currency}</span>
+                  <input type="number" data-category="${cat.icon}" value="${budgets[cat.icon] || ''}" placeholder="0" step="1" inputmode="numeric">
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    document.getElementById('save-budgets-btn').onclick = async () => {
+      const inputs = modal.querySelectorAll('.category-budget-input input');
+      for (const input of inputs) {
+        const category = input.dataset.category;
+        const amount = parseFloat(input.value) || 0;
+        if (amount > 0) {
+          await DB.setCategoryBudget(category, amount);
+        } else {
+          await DB.deleteCategoryBudget(category);
+        }
+      }
+      App.showSuccess('Budgets saved');
+      modal.remove();
+    };
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+  },
+
+  // Photo Gallery Modal
+  async showPhotoGallery() {
+    App.showLoading('Loading photos...');
+    
+    try {
+      const images = await DB.getAllImages();
+      App.hideLoading();
+      
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-sheet" style="max-height:90vh">
+          <div class="sheet-handle"></div>
+          <div class="sheet-header">
+            <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Close</button>
+            <span class="sheet-title">Receipt Gallery</span>
+            <span style="width:60px"></span>
+          </div>
+          <div class="sheet-body" style="padding:8px">
+            ${images.length === 0 ? `
+              <div class="empty-state" style="padding:40px 20px">
+                <div class="empty-illustration">🖼️</div>
+                <div class="empty-title">No receipt photos</div>
+                <div class="empty-text">Photos from expenses will appear here</div>
+              </div>
+            ` : `
+              <div class="photo-gallery-grid" id="gallery-grid"></div>
+            `}
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Load thumbnails
+      if (images.length > 0) {
+        const grid = document.getElementById('gallery-grid');
+        for (const img of images) {
+          if (img.thumbnail) {
+            const url = URL.createObjectURL(img.thumbnail);
+            const div = document.createElement('div');
+            div.className = 'gallery-item';
+            div.style.backgroundImage = `url(${url})`;
+            div.onclick = () => this.showFullImage(img.id);
+            grid.appendChild(div);
+          }
+        }
+      }
+      
+      modal.onclick = (e) => {
+        if (e.target === modal) modal.remove();
+      };
+    } catch (e) {
+      App.hideLoading();
+      App.showError('Failed to load photos');
+    }
+  },
+
+  async showFullImage(imageId) {
+    const img = await DB.getImage(imageId);
+    if (!img || !img.data) return;
+    
+    const url = URL.createObjectURL(img.data);
+    const viewer = document.createElement('div');
+    viewer.className = 'image-viewer';
+    viewer.innerHTML = `
+      <div class="image-viewer-header">
+        <button class="image-viewer-close">×</button>
+      </div>
+      <img src="${url}" alt="Receipt">
+    `;
+    
+    document.body.appendChild(viewer);
+    
+    viewer.querySelector('.image-viewer-close').onclick = () => {
+      URL.revokeObjectURL(url);
+      viewer.remove();
+    };
+    
+    viewer.onclick = (e) => {
+      if (e.target === viewer) {
+        URL.revokeObjectURL(url);
+        viewer.remove();
       }
     };
   }

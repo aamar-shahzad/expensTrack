@@ -393,5 +393,134 @@ const Settings = {
       App.showError('Failed to restore backup');
       return false;
     }
+  },
+
+  // Export to CSV
+  async exportToCSV() {
+    try {
+      const expenses = await DB.getAllExpenses();
+      const people = await DB.getPeople();
+      const peopleMap = {};
+      people.forEach(p => peopleMap[p.id] = p.name);
+      
+      const headers = ['Date', 'Description', 'Amount', 'Payer', 'Category', 'Notes', 'Split With'];
+      const rows = expenses.map(exp => {
+        const payer = peopleMap[exp.payerId] || 'Unknown';
+        const splitWith = (exp.splitWith || []).map(id => peopleMap[id] || 'Unknown').join('; ');
+        const category = Expenses.getCategoryIcon(exp.description);
+        return [
+          exp.date,
+          `"${(exp.description || '').replace(/"/g, '""')}"`,
+          exp.amount,
+          payer,
+          category,
+          `"${(exp.notes || '').replace(/"/g, '""')}"`,
+          `"${splitWith}"`
+        ].join(',');
+      });
+      
+      const csv = [headers.join(','), ...rows].join('\n');
+      const filename = `expenses-${new Date().toISOString().split('T')[0]}.csv`;
+      this.downloadFile(csv, filename, 'text/csv');
+      
+      App.showSuccess(`Exported ${expenses.length} expenses`);
+    } catch (e) {
+      console.error('CSV export failed:', e);
+      App.showError('Export failed');
+    }
+  },
+
+  // Export to PDF (simple HTML-based)
+  async exportToPDF() {
+    try {
+      const expenses = await DB.getAllExpenses();
+      const people = await DB.getPeople();
+      const peopleMap = {};
+      people.forEach(p => peopleMap[p.id] = p.name);
+      
+      // Group by month
+      const byMonth = {};
+      expenses.forEach(exp => {
+        const month = exp.date.substring(0, 7);
+        if (!byMonth[month]) byMonth[month] = [];
+        byMonth[month].push(exp);
+      });
+      
+      const currency = this.getCurrency();
+      let html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Expense Report</title>
+          <style>
+            body { font-family: -apple-system, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+            h1 { color: #075e54; }
+            h2 { color: #333; border-bottom: 2px solid #075e54; padding-bottom: 8px; margin-top: 30px; }
+            table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+            th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+            th { background: #f5f5f5; font-weight: 600; }
+            .amount { text-align: right; font-weight: 600; }
+            .total { background: #e8f5e9; font-weight: 700; }
+            .footer { margin-top: 40px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <h1>💰 Expense Report</h1>
+          <p>Generated on ${new Date().toLocaleDateString()}</p>
+      `;
+      
+      const months = Object.keys(byMonth).sort().reverse();
+      for (const month of months) {
+        const monthExpenses = byMonth[month];
+        const total = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+        const monthName = new Date(month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        html += `
+          <h2>${monthName}</h2>
+          <table>
+            <tr><th>Date</th><th>Description</th><th>Payer</th><th class="amount">Amount</th></tr>
+        `;
+        
+        monthExpenses.forEach(exp => {
+          html += `
+            <tr>
+              <td>${exp.date}</td>
+              <td>${exp.description}</td>
+              <td>${peopleMap[exp.payerId] || '-'}</td>
+              <td class="amount">${currency}${exp.amount.toFixed(2)}</td>
+            </tr>
+          `;
+        });
+        
+        html += `
+            <tr class="total">
+              <td colspan="3">Total</td>
+              <td class="amount">${currency}${total.toFixed(2)}</td>
+            </tr>
+          </table>
+        `;
+      }
+      
+      const grandTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+      html += `
+          <div class="footer">
+            <p><strong>Grand Total: ${currency}${grandTotal.toFixed(2)}</strong></p>
+            <p>Total Expenses: ${expenses.length}</p>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // Open in new window for printing
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.print();
+      
+      App.showSuccess('PDF ready to print');
+    } catch (e) {
+      console.error('PDF export failed:', e);
+      App.showError('Export failed');
+    }
   }
 };
