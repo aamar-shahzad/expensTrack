@@ -6,6 +6,35 @@ const Expenses = {
   currentMonth: new Date().getMonth(),
   currentYear: new Date().getFullYear(),
 
+  // Category detection keywords and icons
+  categories: {
+    '🍔': ['food', 'lunch', 'dinner', 'breakfast', 'meal', 'restaurant', 'cafe', 'coffee', 'pizza', 'burger', 'snack', 'eat', 'drink', 'bar', 'pub'],
+    '🛒': ['grocery', 'groceries', 'supermarket', 'market', 'shopping', 'store', 'walmart', 'costco', 'target'],
+    '🚗': ['gas', 'fuel', 'petrol', 'uber', 'lyft', 'taxi', 'car', 'parking', 'toll', 'transport', 'bus', 'train', 'metro', 'subway'],
+    '✈️': ['flight', 'airline', 'airport', 'travel', 'trip', 'hotel', 'airbnb', 'booking', 'vacation'],
+    '🏠': ['rent', 'mortgage', 'utilities', 'electric', 'electricity', 'water', 'internet', 'wifi', 'cable', 'home'],
+    '📱': ['phone', 'mobile', 'cell', 'data', 'subscription', 'netflix', 'spotify', 'apple', 'google'],
+    '🏥': ['doctor', 'hospital', 'medical', 'medicine', 'pharmacy', 'health', 'dental', 'dentist', 'insurance'],
+    '🎬': ['movie', 'cinema', 'theater', 'concert', 'show', 'ticket', 'entertainment', 'game', 'sport'],
+    '👕': ['clothes', 'clothing', 'shoes', 'fashion', 'dress', 'shirt', 'pants', 'jacket'],
+    '🎁': ['gift', 'present', 'birthday', 'christmas', 'holiday'],
+    '📚': ['book', 'books', 'education', 'course', 'class', 'school', 'tuition'],
+    '💇': ['haircut', 'salon', 'spa', 'beauty', 'grooming'],
+    '🐕': ['pet', 'dog', 'cat', 'vet', 'veterinary'],
+    '💡': ['bill', 'bills', 'utility', 'payment']
+  },
+
+  // Get category icon based on description
+  getCategoryIcon(description) {
+    const desc = description.toLowerCase();
+    for (const [icon, keywords] of Object.entries(this.categories)) {
+      if (keywords.some(keyword => desc.includes(keyword))) {
+        return icon;
+      }
+    }
+    return '💵'; // Default
+  },
+
   async init() {
     // Nothing needed
   },
@@ -43,9 +72,10 @@ const Expenses = {
 
     list.innerHTML = expenses.map(exp => {
       const payerName = Accounts.isSharedMode() ? `${names[exp.payerId] || 'Unknown'} • ` : '';
+      const categoryIcon = this.getCategoryIcon(exp.description);
       return `
         <div class="expense-item" onclick="Expenses.showDetail('${exp.id}')">
-          ${exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : '<div class="expense-icon">💵</div>'}
+          ${exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : `<div class="expense-icon">${categoryIcon}</div>`}
           <div class="expense-main">
             <div class="expense-desc">${exp.description}</div>
             <div class="expense-meta">${payerName}${this.formatDate(exp.date)}</div>

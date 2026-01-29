@@ -1,5 +1,7 @@
 <svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="192" height="192" rx="40" fill="#2563eb"/>
-  <path d="M96 40L136 80H112V112H80V80H56L96 40Z" fill="white"/>
-  <circle cx="96" cy="136" r="8" fill="white"/>
+  <rect width="192" height="192" rx="40" fill="#075e54"/>
+  <circle cx="96" cy="80" r="36" fill="white" fill-opacity="0.2"/>
+  <text x="96" y="95" font-family="system-ui, -apple-system, sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle">$</text>
+  <rect x="56" y="120" width="80" height="8" rx="4" fill="white" fill-opacity="0.6"/>
+  <rect x="56" y="136" width="56" height="8" rx="4" fill="white" fill-opacity="0.4"/>
 </svg>

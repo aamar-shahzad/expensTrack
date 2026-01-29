@@ -236,12 +236,13 @@ h1 {
 
 /* Summary Box */
 .summary-box {
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
   color: white;
   padding: 12px 14px;
   border-radius: 12px;
   text-align: center;
   margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(7, 94, 84, 0.2);
 }
 
 .summary-label {
@@ -271,18 +272,30 @@ h1 {
   align-items: center;
   gap: 14px;
   cursor: pointer;
-  transition: transform 0.15s, background 0.15s;
+  transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+  animation: slideIn 0.3s ease backwards;
 }
+
+.expense-item:nth-child(1) { animation-delay: 0s; }
+.expense-item:nth-child(2) { animation-delay: 0.03s; }
+.expense-item:nth-child(3) { animation-delay: 0.06s; }
+.expense-item:nth-child(4) { animation-delay: 0.09s; }
+.expense-item:nth-child(5) { animation-delay: 0.12s; }
+.expense-item:nth-child(n+6) { animation-delay: 0.15s; }
 
 .expense-item:active {
   background: var(--bg);
   transform: scale(0.98);
 }
 
+.expense-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
 .expense-icon {
   width: 48px;
   height: 48px;
-  background: var(--bg);
+  background: linear-gradient(135deg, var(--bg) 0%, #e8f5e9 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1173,17 +1186,29 @@ h1 {
   text-align: center;
   padding: 60px 20px;
   color: var(--text-secondary);
+  animation: fadeIn 0.4s ease;
 }
 
 .empty-icon {
   font-size: 56px;
   margin-bottom: 16px;
   animation: bounce 2s ease infinite;
+  opacity: 0.8;
 }
 
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .empty-title {
