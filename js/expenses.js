@@ -8,6 +8,8 @@ const Expenses = {
   thumbnailUrls: [], // Track object URLs for cleanup
   selectionMode: false,
   selectedIds: new Set(),
+  newExpenseId: null, // Track newly added expense for animation
+  currentCategoryFilter: 'all',
 
   // Category detection keywords and icons
   categories: {
@@ -118,43 +120,133 @@ const Expenses = {
     // Sort by date descending (newest first)
     expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    list.innerHTML = expenses.map(exp => {
-      const payerName = Accounts.isSharedMode() ? `${names[exp.payerId] || 'Unknown'} • ` : '';
-      const categoryIcon = this.getCategoryIcon(exp.description);
-      const isSelected = this.selectedIds.has(exp.id);
-      return `
-        <div class="expense-item-wrapper" data-id="${exp.id}">
-          <div class="expense-item ${isSelected ? 'selected' : ''}" 
-               onclick="Expenses.handleItemClick('${exp.id}')" 
-               oncontextmenu="Expenses.toggleSelectionMode(event, '${exp.id}')">
-            ${this.selectionMode ? `
-              <div class="expense-checkbox ${isSelected ? 'checked' : ''}">
-                ${isSelected ? '✓' : ''}
-              </div>
-            ` : (exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : `<div class="expense-icon">${categoryIcon}</div>`)}
-            <div class="expense-main">
-              <div class="expense-desc">${exp.description}</div>
-              <div class="expense-meta">${payerName}${this.formatDate(exp.date)}${exp.tags ? ` • ${exp.tags}` : ''}</div>
-            </div>
-            <div class="expense-amount">${Settings.formatAmount(exp.amount)}</div>
-          </div>
-          <div class="swipe-actions">
-            <button class="swipe-action swipe-duplicate" onclick="Expenses.duplicateExpense('${exp.id}')">
-              <span>📋</span>
-              <span>Copy</span>
-            </button>
-            <button class="swipe-action swipe-delete" onclick="Expenses.deleteExpense('${exp.id}')">
-              <span>🗑️</span>
-              <span>Delete</span>
-            </button>
-          </div>
+    // Group expenses by date category
+    const grouped = this.groupByDateCategory(expenses);
+    
+    let html = '';
+    for (const group of grouped) {
+      // Add date separator
+      html += `
+        <div class="date-separator">
+          <span class="date-separator-text">${group.label}</span>
+          <span class="date-separator-total">${Settings.formatAmount(group.total)}</span>
         </div>
       `;
-    }).join('');
+      
+      // Add expenses in this group
+      for (const exp of group.expenses) {
+        const payerName = Accounts.isSharedMode() ? `${names[exp.payerId] || 'Unknown'} • ` : '';
+        const categoryIcon = this.getCategoryIcon(exp.description);
+        const isSelected = this.selectedIds.has(exp.id);
+        const isNew = this.newExpenseId === exp.id;
+        
+        html += `
+          <div class="expense-item-wrapper ${isNew ? 'new-entry' : ''}" data-id="${exp.id}">
+            <div class="expense-item ${isSelected ? 'selected' : ''}" 
+                 onclick="Expenses.handleItemClick('${exp.id}')" 
+                 oncontextmenu="Expenses.toggleSelectionMode(event, '${exp.id}')">
+              ${this.selectionMode ? `
+                <div class="expense-checkbox ${isSelected ? 'checked' : ''}">
+                  ${isSelected ? '✓' : ''}
+                </div>
+              ` : (exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : `<div class="expense-icon">${categoryIcon}</div>`)}
+              <div class="expense-main">
+                <div class="expense-desc">${exp.description}</div>
+                <div class="expense-meta">${payerName}${this.formatDateShort(exp.date)}${exp.tags ? ` • ${exp.tags}` : ''}${exp.isRecurring ? ' • 🔄' : ''}${exp.imageId ? ' • 📎' : ''}</div>
+              </div>
+              <div class="expense-amount">${Settings.formatAmount(exp.amount)}</div>
+            </div>
+            <div class="swipe-actions">
+              <button class="swipe-action swipe-duplicate" onclick="Expenses.duplicateExpense('${exp.id}')">
+                <span>📋</span>
+                <span>Copy</span>
+              </button>
+              <button class="swipe-action swipe-delete" onclick="Expenses.deleteExpense('${exp.id}')">
+                <span>🗑️</span>
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }
+    }
+    
+    list.innerHTML = html;
+    
+    // Clear new expense flag after animation
+    if (this.newExpenseId) {
+      setTimeout(() => { this.newExpenseId = null; }, 600);
+    }
 
     // Load thumbnails and setup swipe
     this.loadThumbnails();
     this.setupSwipeHandlers();
+  },
+
+  // Group expenses by date category (Today, Yesterday, This Week, Earlier)
+  groupByDateCategory(expenses) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    const groups = {
+      today: { label: 'Today', expenses: [], total: 0 },
+      yesterday: { label: 'Yesterday', expenses: [], total: 0 },
+      thisWeek: { label: 'This Week', expenses: [], total: 0 },
+      earlier: { label: 'Earlier', expenses: [], total: 0 }
+    };
+    
+    for (const exp of expenses) {
+      const expDate = new Date(exp.date);
+      expDate.setHours(0, 0, 0, 0);
+      const amount = parseFloat(exp.amount);
+      
+      if (expDate.getTime() === today.getTime()) {
+        groups.today.expenses.push(exp);
+        groups.today.total += amount;
+      } else if (expDate.getTime() === yesterday.getTime()) {
+        groups.yesterday.expenses.push(exp);
+        groups.yesterday.total += amount;
+      } else if (expDate > weekAgo) {
+        groups.thisWeek.expenses.push(exp);
+        groups.thisWeek.total += amount;
+      } else {
+        groups.earlier.expenses.push(exp);
+        groups.earlier.total += amount;
+      }
+    }
+    
+    // Return only non-empty groups
+    return Object.values(groups).filter(g => g.expenses.length > 0);
+  },
+
+  // Shorter date format for list (since we have separators)
+  formatDateShort(dateStr) {
+    const date = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const expDate = new Date(date);
+    expDate.setHours(0, 0, 0, 0);
+    
+    // If today or yesterday, just show time
+    if (expDate.getTime() === today.getTime() || 
+        expDate.getTime() === today.getTime() - 86400000) {
+      return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+    
+    // Otherwise show day name or date
+    const daysDiff = Math.floor((today - expDate) / 86400000);
+    if (daysDiff < 7) {
+      return date.toLocaleDateString('en-US', { weekday: 'short' });
+    }
+    
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   },
 
   setupSwipeHandlers() {
@@ -830,7 +922,7 @@ const Expenses = {
     }
 
     try {
-      await DB.addExpense({
+      const savedExpense = await DB.addExpense({
         description: desc,
         amount: amount,
         date: date,
@@ -843,6 +935,9 @@ const Expenses = {
         notes: notes
       });
 
+      // Track new expense for animation
+      this.newExpenseId = savedExpense.id;
+
       // Remember last payer
       if (payerId) {
         People.setLastPayer(payerId);
@@ -854,6 +949,7 @@ const Expenses = {
       Camera.removeImage(false);  // Clear preview but keep image in database
 
       App.showSuccess('Saved!');
+      App.haptic('success');
       App.navigateTo('home');
     } catch (e) {
       console.error('Failed to save:', e);

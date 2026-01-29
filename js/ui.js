@@ -1238,14 +1238,17 @@ const UI = {
       </div>
       
       ${connections === 0 && savedConnections.length === 0 ? `
-      <div class="card">
-        <label>How to Sync</label>
+      <div class="card invite-card">
+        <label>Invite Someone to Join</label>
+        <p class="help-text" style="margin-bottom:12px">Share your account with friends or family:</p>
         <ol class="help-list">
-          <li>Show your QR code or share your ID</li>
-          <li>Other person scans QR or enters ID</li>
-          <li>Both devices will connect automatically</li>
-          <li>Tap "Sync Now" to share expenses</li>
+          <li><strong>New user?</strong> They select "Join Group" on first launch</li>
+          <li><strong>Existing user?</strong> They scan your QR or enter your ID</li>
+          <li>All expenses will sync automatically</li>
         </ol>
+        <button class="btn-primary" style="margin-top:12px;width:100%" onclick="UI.shareInvite()">
+          📤 Send Invite Link
+        </button>
       </div>
       ` : ''}
     `;
@@ -1406,7 +1409,13 @@ const UI = {
     const accountName = Accounts.getCurrentAccount()?.name || 'Expense Tracker';
     const appUrl = window.location.origin + window.location.pathname;
     
-    const shareText = `Join "${accountName}" on Expense Tracker!\n\n1. Open: ${appUrl}\n2. Create a Shared account\n3. Go to Sync tab\n4. Enter ID: ${deviceId}\n\nOr scan my QR code in the app!`;
+    const shareText = `Join "${accountName}" on Expense Tracker!
+
+1. Open: ${appUrl}
+2. Select "Join Group" 
+3. Enter my ID: ${deviceId}
+
+All our expenses will sync automatically!`;
     
     if (navigator.share) {
       navigator.share({

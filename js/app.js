@@ -127,6 +127,19 @@ const App = {
       if (!localStorage.getItem('et_onboarded')) {
         setTimeout(() => this.showOnboarding(), 500);
       }
+      
+      // Check for pending connection (from join flow)
+      const pendingConnect = localStorage.getItem('et_pendingConnect');
+      if (pendingConnect) {
+        localStorage.removeItem('et_pendingConnect');
+        setTimeout(() => {
+          this.navigateTo('sync');
+          setTimeout(() => {
+            Sync.connectToDevice(pendingConnect);
+            this.showToast('Connecting to sync partner...', 'info');
+          }, 1000);
+        }, 500);
+      }
 
       console.log('App ready');
 
@@ -267,20 +280,26 @@ const App = {
         </div>
         
         <div class="onboarding-section">
-          <h2>Create Your First Account</h2>
-          <p class="onboarding-hint">Choose how you want to track expenses:</p>
+          <h2>Get Started</h2>
+          <p class="onboarding-hint">Choose how you want to begin:</p>
           
           <div class="account-type-cards">
             <div class="account-type-card" id="create-private">
               <div class="account-type-icon">👤</div>
-              <div class="account-type-name">Private</div>
-              <div class="account-type-desc">Track your personal expenses. No sharing or sync.</div>
+              <div class="account-type-name">Personal</div>
+              <div class="account-type-desc">Track your own expenses privately</div>
             </div>
             
             <div class="account-type-card" id="create-shared">
               <div class="account-type-icon">👥</div>
-              <div class="account-type-name">Shared</div>
-              <div class="account-type-desc">Split expenses with others. Sync between devices.</div>
+              <div class="account-type-name">New Group</div>
+              <div class="account-type-desc">Create a shared account to split with others</div>
+            </div>
+            
+            <div class="account-type-card highlight" id="join-existing">
+              <div class="account-type-icon">🔗</div>
+              <div class="account-type-name">Join Group</div>
+              <div class="account-type-desc">Someone invited you? Join their shared account</div>
             </div>
           </div>
         </div>
@@ -295,6 +314,248 @@ const App = {
     // Handle shared account creation
     document.getElementById('create-shared').onclick = () => {
       this.showAccountNamePrompt('shared');
+    };
+    
+    // Handle join existing
+    document.getElementById('join-existing').onclick = () => {
+      this.showJoinAccountFlow();
+    };
+  },
+  
+  // Show join account flow for new users
+  showJoinAccountFlow() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Back</button>
+          <span class="sheet-title">Join Shared Account</span>
+          <span></span>
+        </div>
+        <div class="sheet-body">
+          <div class="join-instructions">
+            <div class="join-step">
+              <div class="join-step-num">1</div>
+              <div class="join-step-text">Ask the account owner for their <strong>6-letter ID</strong> or <strong>QR code</strong></div>
+            </div>
+            <div class="join-step">
+              <div class="join-step-num">2</div>
+              <div class="join-step-text">Enter the ID below or scan their QR code</div>
+            </div>
+            <div class="join-step">
+              <div class="join-step-num">3</div>
+              <div class="join-step-text">All expenses will sync automatically</div>
+            </div>
+          </div>
+          
+          <div class="form-group" style="margin-top:20px">
+            <label>Enter their Device ID</label>
+            <input type="text" id="join-device-id" placeholder="e.g. ABC123" maxlength="6" style="text-transform:uppercase;text-align:center;font-size:24px;letter-spacing:4px;font-weight:700">
+          </div>
+          
+          <div style="text-align:center;margin:16px 0;color:var(--text-secondary)">or</div>
+          
+          <button class="btn-secondary" id="join-scan-qr" style="width:100%;margin-bottom:16px">
+            📷 Scan QR Code
+          </button>
+          
+          <button class="btn-primary" id="join-connect-btn">Connect & Join</button>
+          
+          <p class="join-note">You'll create a local account that syncs with theirs. Your name will be added to the group.</p>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Focus input
+    setTimeout(() => document.getElementById('join-device-id').focus(), 300);
+    
+    // Scan QR
+    document.getElementById('join-scan-qr').onclick = () => {
+      modal.remove();
+      this.showJoinQRScanner();
+    };
+    
+    // Connect button
+    document.getElementById('join-connect-btn').onclick = async () => {
+      const deviceId = document.getElementById('join-device-id').value.trim().toUpperCase();
+      if (!deviceId || deviceId.length < 4) {
+        this.showError('Enter a valid device ID');
+        return;
+      }
+      
+      modal.remove();
+      await this.joinWithDeviceId(deviceId);
+    };
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+  },
+  
+  // QR Scanner for joining
+  showJoinQRScanner() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="qr-scanner-modal">
+        <div class="qr-scanner-header">
+          <button class="qr-close" id="qr-close">✕</button>
+          <span>Scan QR Code</span>
+        </div>
+        <div class="qr-scanner-body">
+          <video id="qr-video" autoplay playsinline></video>
+          <div class="qr-overlay">
+            <div class="qr-frame"></div>
+          </div>
+        </div>
+        <div class="qr-scanner-hint">Point camera at the QR code shown on their device</div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const video = document.getElementById('qr-video');
+    let stream = null;
+    let scanning = true;
+    
+    // Start camera
+    navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: 'environment' } 
+    }).then(s => {
+      stream = s;
+      video.srcObject = stream;
+      this.scanQRCode(video, (result) => {
+        if (!scanning) return;
+        
+        // Check if it's our format
+        if (result.startsWith('EXPENSE-SYNC:')) {
+          scanning = false;
+          const deviceId = result.replace('EXPENSE-SYNC:', '');
+          stream.getTracks().forEach(t => t.stop());
+          modal.remove();
+          this.joinWithDeviceId(deviceId);
+        }
+      });
+    }).catch(err => {
+      console.error('Camera error:', err);
+      this.showError('Could not access camera');
+      modal.remove();
+      this.showJoinAccountFlow();
+    });
+    
+    document.getElementById('qr-close').onclick = () => {
+      scanning = false;
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      modal.remove();
+      this.showJoinAccountFlow();
+    };
+  },
+  
+  // Scan QR code from video
+  scanQRCode(video, onResult) {
+    if (typeof jsQR === 'undefined') {
+      console.warn('jsQR not loaded');
+      return;
+    }
+    
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const scan = () => {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        
+        if (code) {
+          onResult(code.data);
+          return;
+        }
+      }
+      requestAnimationFrame(scan);
+    };
+    
+    scan();
+  },
+  
+  // Join with device ID
+  async joinWithDeviceId(deviceId) {
+    // Show loading
+    this.showToast('Connecting...', 'info');
+    
+    // First create a shared account for this user
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span></span>
+          <span class="sheet-title">Almost there!</span>
+          <span></span>
+        </div>
+        <div class="sheet-body">
+          <p style="text-align:center;margin-bottom:20px">Enter your name so others know who you are:</p>
+          
+          <div class="form-group">
+            <label>Your Name</label>
+            <input type="text" id="join-user-name" placeholder="e.g. John" maxlength="30">
+          </div>
+          
+          <div class="form-group">
+            <label>Account Name (optional)</label>
+            <input type="text" id="join-account-name" placeholder="e.g. Roommates, Trip" maxlength="30">
+          </div>
+          
+          <button class="btn-primary" id="join-finish-btn">Join & Sync</button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('join-user-name').focus(), 300);
+    
+    document.getElementById('join-finish-btn').onclick = async () => {
+      const userName = document.getElementById('join-user-name').value.trim();
+      const accountName = document.getElementById('join-account-name').value.trim() || 'Shared Expenses';
+      
+      if (!userName) {
+        this.showError('Enter your name');
+        return;
+      }
+      
+      try {
+        // Create shared account
+        const account = Accounts.createAccount(accountName, 'shared', '$');
+        Accounts.setCurrentAccount(account.id);
+        
+        // Add self as a person
+        await DB.addPerson({ name: userName });
+        
+        // Mark as onboarded
+        localStorage.setItem('et_onboarded', 'true');
+        
+        // Store the device to connect to
+        localStorage.setItem('et_pendingConnect', deviceId);
+        
+        modal.remove();
+        
+        this.showSuccess('Account created! Syncing...');
+        
+        // Reload and connect
+        setTimeout(() => location.reload(), 500);
+        
+      } catch (e) {
+        console.error('Join failed:', e);
+        this.showError('Failed to create account');
+      }
     };
   },
 
