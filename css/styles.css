@@ -166,7 +166,7 @@ html, body {
 /* Floating Action Button */
 .fab-main {
   position: fixed;
-  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   right: 16px;
   width: 56px;
   height: 56px;
@@ -1426,7 +1426,7 @@ h1 {
 /* Floating Action Button (People page) */
 .fab {
   position: fixed;
-  bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   right: 20px;
   width: 56px;
   height: 56px;
