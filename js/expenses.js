@@ -56,8 +56,6 @@ const Expenses = {
     const list = document.getElementById('expenses-list');
     if (!list) return;
 
-    console.log('Rendering expenses:', expenses.length, expenses);
-
     if (expenses.length === 0) {
       list.innerHTML = `
         <div class="empty-state">
@@ -642,6 +640,8 @@ const Expenses = {
   // Search expenses
   async searchExpenses(query) {
     if (!query) {
+      document.querySelector('.month-nav')?.classList.remove('hidden');
+      document.querySelector('.filter-row')?.classList.remove('hidden');
       this.loadCurrentMonth();
       return;
     }

@@ -100,25 +100,21 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Sticky Header for Home */
-.sticky-header {
-  position: sticky;
-  top: 0;
+/* Expenses Header - no sticky to prevent overlap on iOS */
+.expenses-header {
   background: var(--bg);
-  margin: calc(-16px - env(safe-area-inset-top, 0px)) -16px 0 -16px;
-  padding: 12px;
-  padding-top: calc(12px + env(safe-area-inset-top, 0px));
-  z-index: 10;
+  padding-bottom: 4px;
 }
 
-.sticky-header h1 {
+.expenses-header h1 {
   font-size: 20px;
   margin-bottom: 8px;
 }
 
 .expenses-list {
-  padding-top: 16px;
+  padding-top: 12px;
   display: block;
+  min-height: 60px;
 }
 
 /* Bottom Navigation */
@@ -2456,12 +2452,7 @@ textarea {
     padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   }
   
-  .sticky-header {
-    padding: 8px;
-    margin: calc(-12px - env(safe-area-inset-top, 0px)) -12px 0 -12px;
-  }
-  
-  .sticky-header h1 {
+  .expenses-header h1 {
     font-size: 18px;
   }
   
@@ -2546,10 +2537,6 @@ textarea {
 
 /* Landscape mode on phones */
 @media (max-height: 500px) and (orientation: landscape) {
-  .sticky-header {
-    position: relative;
-  }
-  
   .main-content {
     padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   }

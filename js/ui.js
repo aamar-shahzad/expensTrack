@@ -44,7 +44,7 @@ const UI = {
     const hasMultipleAccounts = Accounts.getAll().length > 1;
     
     main.innerHTML = `
-      <div class="sticky-header">
+      <div class="expenses-header">
         ${hasMultipleAccounts ? `
         <div class="account-header" onclick="App.navigateTo('settings')">
           <span class="account-badge">${account?.mode === 'single' ? '👤' : '👥'} ${account?.name || 'Account'}</span>

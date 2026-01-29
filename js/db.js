@@ -89,8 +89,9 @@ const DB = {
 
         if (month !== null && year !== null) {
           expenses = expenses.filter(expense => {
-            const date = new Date(expense.date);
-            return date.getMonth() === month && date.getFullYear() === year;
+            const dateStr = String(expense.date).split('T')[0];
+            const [y, m] = dateStr.split('-').map(n => parseInt(n, 10));
+            return m === month + 1 && y === year;
           });
         }
 
