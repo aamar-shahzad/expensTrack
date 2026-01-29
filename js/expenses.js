@@ -5,6 +5,7 @@
 const Expenses = {
   currentMonth: new Date().getMonth(),
   currentYear: new Date().getFullYear(),
+  thumbnailUrls: [], // Track object URLs for cleanup
 
   // Category detection keywords and icons
   categories: {
@@ -95,6 +96,9 @@ const Expenses = {
   },
 
   async loadThumbnails() {
+    // Revoke previous URLs to prevent memory leaks
+    this.revokeThumbnailUrls();
+    
     const thumbs = document.querySelectorAll('.expense-thumb[data-img]');
     for (const thumb of thumbs) {
       const imgId = thumb.dataset.img;
@@ -102,10 +106,20 @@ const Expenses = {
         const img = await DB.getImage(imgId);
         if (img && img.thumbnail) {
           const url = URL.createObjectURL(img.thumbnail);
+          this.thumbnailUrls.push(url);
           thumb.style.backgroundImage = `url(${url})`;
         }
       } catch (e) {}
     }
+  },
+
+  revokeThumbnailUrls() {
+    for (const url of this.thumbnailUrls) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {}
+    }
+    this.thumbnailUrls = [];
   },
 
   async showDetail(id) {

@@ -523,35 +523,59 @@ const Sync = {
     try {
       const localData = await DB.getAllData();
 
-      // Merge expenses
-      const localExpenseIds = new Set(
-        (localData.expenses || []).map(e => e.syncId).filter(Boolean)
+      // Merge expenses with timestamp-based conflict resolution
+      const localExpenseMap = new Map(
+        (localData.expenses || []).filter(e => e.syncId).map(e => [e.syncId, e])
       );
       
       for (const expense of (remoteData.expenses || [])) {
-        if (expense.syncId && !localExpenseIds.has(expense.syncId)) {
+        if (!expense.syncId) continue;
+        
+        const localExpense = localExpenseMap.get(expense.syncId);
+        if (!localExpense) {
+          // New expense - add it
           await DB.addExpenseRaw(expense);
+        } else {
+          // Existing expense - keep the newer version
+          const remoteTime = expense.updatedAt || expense.createdAt || 0;
+          const localTime = localExpense.updatedAt || localExpense.createdAt || 0;
+          if (remoteTime > localTime) {
+            await DB.addExpenseRaw(expense);
+          }
         }
       }
 
-      // Merge people
-      const localPeopleIds = new Set(
-        (localData.people || []).map(p => p.syncId).filter(Boolean)
+      // Merge people with timestamp-based conflict resolution
+      const localPeopleMap = new Map(
+        (localData.people || []).filter(p => p.syncId).map(p => [p.syncId, p])
       );
       
       for (const person of (remoteData.people || [])) {
-        if (person.syncId && !localPeopleIds.has(person.syncId)) {
+        if (!person.syncId) continue;
+        
+        const localPerson = localPeopleMap.get(person.syncId);
+        if (!localPerson) {
+          // New person - add it
           await DB.addPersonRaw(person);
+        } else {
+          // Existing person - keep the newer version
+          const remoteTime = person.updatedAt || person.createdAt || 0;
+          const localTime = localPerson.updatedAt || localPerson.createdAt || 0;
+          if (remoteTime > localTime) {
+            await DB.addPersonRaw(person);
+          }
         }
       }
 
       // Merge images (convert base64 back to blobs)
-      const localImageIds = new Set(
-        (localData.images || []).map(i => i.id).filter(Boolean)
+      // Use syncId for deduplication, fall back to id for older images
+      const localImageSyncIds = new Set(
+        (localData.images || []).map(i => i.syncId || i.id).filter(Boolean)
       );
       
       for (const image of (remoteData.images || [])) {
-        if (image.id && !localImageIds.has(image.id)) {
+        const imageSyncId = image.syncId || image.id;
+        if (imageSyncId && !localImageSyncIds.has(imageSyncId)) {
           // Convert base64 back to blobs
           const imageToSave = { ...image };
           if (image.blobBase64) {

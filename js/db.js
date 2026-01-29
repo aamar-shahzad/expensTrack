@@ -118,11 +118,24 @@ const DB = {
   },
 
   async deleteExpense(id) {
+    // First get the expense to check for associated image
+    const expense = await this.getExpenseById(id);
+    
     const store = await this.transaction('expenses', 'readwrite');
 
     return new Promise((resolve, reject) => {
       const request = store.delete(id);
-      request.onsuccess = () => resolve(true);
+      request.onsuccess = async () => {
+        // Delete associated image if exists
+        if (expense && expense.imageId) {
+          try {
+            await this.deleteImage(expense.imageId);
+          } catch (e) {
+            console.warn('Failed to delete associated image:', e);
+          }
+        }
+        resolve(true);
+      };
       request.onerror = () => reject(request.error);
     });
   },
@@ -204,7 +217,8 @@ const DB = {
       id,
       blob,
       thumbnail,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      syncId: crypto.randomUUID() // For sync deduplication
     };
 
     return new Promise((resolve, reject) => {
