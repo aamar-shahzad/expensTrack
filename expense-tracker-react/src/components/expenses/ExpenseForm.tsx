@@ -1,30 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Expense } from '@/types';
+import type { Expense, Template } from '@/types';
 import { getToday } from '@/types';
 import { Button, useToast } from '@/components/ui';
+import { Sheet } from '@/components/ui/Modal';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useCamera } from '@/hooks/useCamera';
 import { haptic, cn } from '@/lib/utils';
+import * as db from '@/db/operations';
 
 interface ExpenseFormProps {
   expense?: Expense;
   onSuccess?: () => void;
 }
-
-const QUICK_CATEGORIES = [
-  { icon: '🍔', name: 'Food', color: 'bg-orange-100' },
-  { icon: '☕', name: 'Coffee', color: 'bg-amber-100' },
-  { icon: '🛒', name: 'Shopping', color: 'bg-blue-100' },
-  { icon: '🚗', name: 'Transport', color: 'bg-green-100' },
-  { icon: '🏠', name: 'Home', color: 'bg-purple-100' },
-  { icon: '🎬', name: 'Fun', color: 'bg-pink-100' },
-  { icon: '🏥', name: 'Health', color: 'bg-red-100' },
-  { icon: '💵', name: 'Other', color: 'bg-gray-100' },
-];
 
 export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const navigate = useNavigate();
@@ -42,13 +33,16 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const [amount, setAmount] = useState(expense?.amount?.toString() || '');
   const [date, setDate] = useState(expense?.date || getToday());
   const [payerId, setPayerId] = useState(expense?.payerId || lastPayerId || '');
-  const [selectedCategory, setSelectedCategory] = useState('');
   const [notes, setNotes] = useState(expense?.notes || '');
   const [tags, setTags] = useState(expense?.tags || '');
   const [loading, setLoading] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [attachedImage, setAttachedImage] = useState<Blob | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  
+  // Templates state
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [showManageTemplates, setShowManageTemplates] = useState(false);
   
   const amountInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -93,11 +87,61 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     setTimeout(() => amountInputRef.current?.focus(), 100);
   }, []);
 
-  const handleCategorySelect = (icon: string, name: string) => {
+  // Load templates
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  const loadTemplates = async () => {
+    try {
+      const t = await db.getTemplates();
+      setTemplates(t);
+    } catch (e) {
+      console.error('Failed to load templates:', e);
+    }
+  };
+
+  const applyTemplate = async (template: Template) => {
     haptic('light');
-    setSelectedCategory(icon);
-    if (!description) {
-      setDescription(name);
+    if (template.amount) setAmount(template.amount.toString());
+    setDescription(template.description);
+    if (template.payerId) setPayerId(template.payerId);
+    
+    // Increment use count
+    await db.incrementTemplateUse(template.id);
+    loadTemplates();
+    showSuccess('Template applied');
+  };
+
+  const saveAsTemplate = async () => {
+    if (!description.trim()) {
+      showError('Enter a description first');
+      return;
+    }
+    
+    haptic('light');
+    try {
+      await db.addTemplate({
+        description: description.trim(),
+        amount: amount ? parseFloat(amount) : undefined,
+        payerId: isSharedMode ? payerId : undefined
+      });
+      showSuccess('Template saved!');
+      loadTemplates();
+    } catch (e) {
+      console.error('Failed to save template:', e);
+      showError('Failed to save template');
+    }
+  };
+
+  const deleteTemplate = async (id: string) => {
+    haptic('light');
+    try {
+      await db.deleteTemplate(id);
+      loadTemplates();
+      showSuccess('Template deleted');
+    } catch (e) {
+      console.error('Failed to delete template:', e);
     }
   };
 
@@ -275,27 +319,38 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         </div>
       )}
 
-      {/* Quick Categories */}
-      <div className="px-4 py-4 bg-[var(--white)] border-b border-[var(--border)]">
-        <div className="grid grid-cols-4 gap-2">
-          {QUICK_CATEGORIES.map(cat => (
+      {/* Quick Templates */}
+      {templates.length > 0 && (
+        <div className="px-4 py-3 bg-[var(--white)] border-b border-[var(--border)]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-[var(--text-secondary)] uppercase tracking-wide">Quick Add</span>
             <button
-              key={cat.icon}
               type="button"
-              onClick={() => handleCategorySelect(cat.icon, cat.name)}
-              className={cn(
-                'flex flex-col items-center gap-1 py-3 rounded-xl transition-all active:scale-95',
-                selectedCategory === cat.icon
-                  ? 'bg-[var(--teal-green)] text-white shadow-lg shadow-[var(--teal-green)]/30'
-                  : 'bg-[var(--bg)]'
-              )}
+              onClick={() => setShowManageTemplates(true)}
+              className="text-xs text-[var(--teal-green)] font-medium"
             >
-              <span className="text-2xl">{cat.icon}</span>
-              <span className="text-[10px] font-medium">{cat.name}</span>
+              Edit
             </button>
-          ))}
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+            {templates.slice(0, 5).map(template => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => applyTemplate(template)}
+                className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[var(--bg)] rounded-full active:scale-95 transition-transform"
+              >
+                <span className="text-sm font-medium truncate max-w-[100px]">{template.description}</span>
+                {template.amount && (
+                  <span className="text-xs text-[var(--teal-green)] font-semibold">
+                    {currency}{template.amount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main Form Fields */}
       <div className="bg-[var(--white)] divide-y divide-[var(--border)]">
@@ -423,6 +478,19 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         </button>
       </div>
 
+      {/* Save as Template Button */}
+      {!expense && (
+        <div className="px-4 pb-4">
+          <button
+            type="button"
+            onClick={saveAsTemplate}
+            className="w-full py-3 bg-[var(--white)] rounded-xl text-[var(--text-secondary)] text-sm font-medium active:bg-[var(--bg)] transition-colors border border-[var(--border)]"
+          >
+            Save as Template
+          </button>
+        </div>
+      )}
+
       {/* Submit Button */}
       <div className="px-4 pt-2 pb-safe">
         <Button
@@ -433,6 +501,41 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           {expense ? 'Update Expense' : 'Save Expense'}
         </Button>
       </div>
+
+      {/* Manage Templates Modal */}
+      <Sheet
+        isOpen={showManageTemplates}
+        onClose={() => setShowManageTemplates(false)}
+        title="Manage Templates"
+      >
+        <div className="divide-y divide-[var(--border)]">
+          {templates.length === 0 ? (
+            <div className="p-8 text-center text-[var(--text-secondary)]">
+              No templates yet.<br />
+              Save an expense as a template to get started.
+            </div>
+          ) : (
+            templates.map(template => (
+              <div key={template.id} className="flex items-center justify-between p-4">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{template.description}</div>
+                  <div className="text-sm text-[var(--text-secondary)]">
+                    {template.amount ? `${currency}${template.amount}` : 'No amount'}
+                    {template.useCount > 0 && ` · Used ${template.useCount}x`}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => deleteTemplate(template.id)}
+                  className="w-10 h-10 flex items-center justify-center text-[var(--danger)] text-xl rounded-full active:bg-[var(--danger)]/10"
+                >
+                  ✕
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </Sheet>
     </form>
   );
 }

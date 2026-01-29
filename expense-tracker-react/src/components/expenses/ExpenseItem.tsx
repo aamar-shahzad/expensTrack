@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Expense } from '@/types';
 import { getCategoryIcon, formatDate } from '@/types';
 import { cn, haptic } from '@/lib/utils';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { useAccountStore } from '@/stores/accountStore';
+import * as db from '@/db/operations';
 
 interface ExpenseItemProps {
   expense: Expense;
@@ -31,6 +32,7 @@ export function ExpenseItem({
   
   const [swiped, setSwiped] = useState(false);
   const [translateX, setTranslateX] = useState(0);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const itemRef = useRef<HTMLDivElement>(null);
   const startX = useRef(0);
   const startY = useRef(0);
@@ -38,9 +40,41 @@ export function ExpenseItem({
   const isHorizontal = useRef<boolean | null>(null);
   const lastTap = useRef(0);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const thumbnailUrlRef = useRef<string | null>(null);
 
   const icon = getCategoryIcon(expense.description);
   const payerName = isSharedMode && expense.payerId ? getPersonName(expense.payerId) : '';
+
+  // Load thumbnail for expenses with images
+  const loadThumbnail = useCallback(async () => {
+    if (!expense.imageId) return;
+    
+    try {
+      const image = await db.getImage(expense.imageId);
+      if (image?.thumbnail) {
+        // Revoke old URL
+        if (thumbnailUrlRef.current) {
+          URL.revokeObjectURL(thumbnailUrlRef.current);
+        }
+        const url = URL.createObjectURL(image.thumbnail);
+        thumbnailUrlRef.current = url;
+        setThumbnailUrl(url);
+      }
+    } catch (e) {
+      console.error('Failed to load thumbnail:', e);
+    }
+  }, [expense.imageId]);
+
+  useEffect(() => {
+    loadThumbnail();
+    
+    // Cleanup on unmount
+    return () => {
+      if (thumbnailUrlRef.current) {
+        URL.revokeObjectURL(thumbnailUrlRef.current);
+      }
+    };
+  }, [loadThumbnail]);
 
   // Touch handlers for swipe
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -175,10 +209,20 @@ export function ExpenseItem({
         onTouchEnd={handleTouchEnd}
         onClick={handleClick}
       >
-        {/* Icon */}
-        <div className="w-11 h-11 rounded-xl bg-[var(--bg)] flex items-center justify-center text-xl flex-shrink-0">
-          {icon}
-        </div>
+        {/* Icon / Thumbnail */}
+        {thumbnailUrl ? (
+          <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
+            <img 
+              src={thumbnailUrl} 
+              alt="" 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="w-11 h-11 rounded-xl bg-[var(--bg)] flex items-center justify-center text-xl flex-shrink-0">
+            {icon}
+          </div>
+        )}
         
         {/* Content */}
         <div className="flex-1 min-w-0">

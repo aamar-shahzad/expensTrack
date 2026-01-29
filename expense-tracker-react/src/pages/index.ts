@@ -1,5 +1,6 @@
 export { HomePage } from './HomePage';
 export { AddExpensePage } from './AddExpensePage';
+export { ExpenseDetailPage } from './ExpenseDetailPage';
 export { PeoplePage } from './PeoplePage';
 export { StatsPage } from './StatsPage';
 export { SettlePage } from './SettlePage';

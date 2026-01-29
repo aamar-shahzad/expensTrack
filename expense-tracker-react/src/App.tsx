@@ -8,6 +8,7 @@ import { initDB, isDBInitialized } from '@/db/schema';
 import {
   HomePage,
   AddExpensePage,
+  ExpenseDetailPage,
   PeoplePage,
   StatsPage,
   SettlePage,
@@ -41,6 +42,8 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/add" element={<AddExpensePage />} />
+        <Route path="/expense/:id" element={<ExpenseDetailPage />} />
+        <Route path="/expense/:id/edit" element={<AddExpensePage />} />
         <Route path="/camera" element={<CameraCapture />} />
         <Route path="/people" element={<PeoplePage />} />
         <Route path="/stats" element={<StatsPage />} />
