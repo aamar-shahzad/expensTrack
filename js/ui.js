@@ -596,10 +596,15 @@ const UI = {
         <div class="status-info">${connections} device${connections !== 1 ? 's' : ''} connected</div>
       </div>
       
-      <div class="card">
-        <label>Your Device ID (never changes)</label>
-        <div class="device-id">${deviceId}</div>
-        <button class="btn-secondary" onclick="UI.copyDeviceId()">Copy ID</button>
+      <div class="card qr-card">
+        <label>Your QR Code</label>
+        <p class="help-text" style="margin-bottom:12px">Let others scan this to connect instantly</p>
+        <div id="qr-code" class="qr-code-container"></div>
+        <div class="device-id" style="margin-top:12px">${deviceId}</div>
+        <div class="qr-actions">
+          <button class="btn-secondary" onclick="UI.copyDeviceId()">Copy ID</button>
+          <button class="btn-secondary" onclick="UI.shareInvite()">Share</button>
+        </div>
       </div>
       
       ${connectedHtml}
@@ -608,25 +613,34 @@ const UI = {
       
       <div class="card">
         <label>Connect to Another Device</label>
-        <input type="text" id="remote-id" placeholder="Enter their 6-letter ID" maxlength="6" style="text-transform:uppercase">
-        <button class="btn-primary" id="connect-btn">Connect</button>
+        <div class="connect-options">
+          <button class="btn-primary scan-btn" id="scan-qr-btn">
+            <span class="scan-icon">📷</span> Scan QR Code
+          </button>
+          <div class="connect-divider"><span>or enter ID manually</span></div>
+          <input type="text" id="remote-id" placeholder="Enter their 6-letter ID" maxlength="6" style="text-transform:uppercase">
+          <button class="btn-primary" id="connect-btn">Connect</button>
+        </div>
       </div>
       
       ${connections === 0 && savedConnections.length === 0 ? `
       <div class="card">
         <label>How to Sync</label>
         <ol class="help-list">
-          <li>Share your 6-letter ID with the other person</li>
-          <li>Either person enters the other's ID and taps Connect</li>
-          <li>Both devices will show as connected</li>
-          <li>Either person can tap "Sync Now" to share data</li>
+          <li>Show your QR code or share your ID</li>
+          <li>Other person scans QR or enters ID</li>
+          <li>Both devices will connect automatically</li>
+          <li>Tap "Sync Now" to share expenses</li>
         </ol>
-        <p class="help-text" style="margin-top:12px">
-          <strong>Note:</strong> Only one person needs to connect. The connection works both ways automatically.
-        </p>
       </div>
       ` : ''}
     `;
+    
+    // Generate QR code
+    this.generateSyncQR(deviceId);
+    
+    // QR Scanner button
+    document.getElementById('scan-qr-btn').onclick = () => this.openQRScanner();
     
     document.getElementById('connect-btn').onclick = () => {
       const id = document.getElementById('remote-id').value.trim();
@@ -641,6 +655,157 @@ const UI = {
     if (syncBtn) {
       syncBtn.onclick = () => Sync.syncNow();
     }
+  },
+
+  // Generate QR code for sync
+  generateSyncQR(deviceId) {
+    const container = document.getElementById('qr-code');
+    if (!container || typeof QRCode === 'undefined') return;
+    
+    container.innerHTML = '';
+    
+    // Create QR code with device ID
+    const canvas = document.createElement('canvas');
+    QRCode.toCanvas(canvas, `EXPENSE-SYNC:${deviceId}`, {
+      width: 180,
+      margin: 2,
+      color: {
+        dark: '#075e54',
+        light: '#ffffff'
+      }
+    }, (error) => {
+      if (error) {
+        console.error('QR generation error:', error);
+        container.innerHTML = `<div class="qr-fallback">${deviceId}</div>`;
+      } else {
+        container.appendChild(canvas);
+      }
+    });
+  },
+
+  // Open QR scanner
+  openQRScanner() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay qr-scanner-modal';
+    modal.innerHTML = `
+      <div class="qr-scanner-container">
+        <div class="qr-scanner-header">
+          <button class="qr-close-btn" id="close-scanner">✕</button>
+          <span>Scan QR Code</span>
+        </div>
+        <div class="qr-scanner-viewport">
+          <video id="qr-video" autoplay playsinline></video>
+          <div class="qr-scanner-frame"></div>
+        </div>
+        <p class="qr-scanner-hint">Point camera at QR code to connect</p>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const video = document.getElementById('qr-video');
+    let stream = null;
+    let scanning = true;
+    
+    // Start camera
+    navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: 'environment' } 
+    }).then(s => {
+      stream = s;
+      video.srcObject = stream;
+      video.play();
+      
+      // Start scanning
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      const scanFrame = () => {
+        if (!scanning) return;
+        
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          
+          if (typeof jsQR !== 'undefined') {
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            
+            if (code && code.data.startsWith('EXPENSE-SYNC:')) {
+              const deviceId = code.data.replace('EXPENSE-SYNC:', '');
+              scanning = false;
+              
+              // Stop camera
+              stream.getTracks().forEach(t => t.stop());
+              modal.remove();
+              
+              // Connect to device
+              App.showSuccess('Found device: ' + deviceId);
+              Sync.connectToDevice(deviceId);
+              return;
+            }
+          }
+        }
+        
+        requestAnimationFrame(scanFrame);
+      };
+      
+      scanFrame();
+      
+    }).catch(err => {
+      console.error('Camera error:', err);
+      App.showError('Could not access camera');
+      modal.remove();
+    });
+    
+    // Close button
+    document.getElementById('close-scanner').onclick = () => {
+      scanning = false;
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+      modal.remove();
+    };
+    
+    // Close on backdrop click
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        scanning = false;
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
+        }
+        modal.remove();
+      }
+    };
+  },
+
+  // Share invite link
+  shareInvite() {
+    const deviceId = Sync.getDeviceId();
+    const accountName = Accounts.getCurrentAccount()?.name || 'Expense Tracker';
+    const appUrl = window.location.origin + window.location.pathname;
+    
+    const shareText = `Join "${accountName}" on Expense Tracker!\n\n1. Open: ${appUrl}\n2. Create a Shared account\n3. Go to Sync tab\n4. Enter ID: ${deviceId}\n\nOr scan my QR code in the app!`;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: 'Join ' + accountName,
+        text: shareText
+      }).catch(() => {
+        this.copyShareText(shareText);
+      });
+    } else {
+      this.copyShareText(shareText);
+    }
+  },
+
+  copyShareText(text) {
+    navigator.clipboard.writeText(text).then(() => {
+      App.showSuccess('Invite copied!');
+    }).catch(() => {
+      App.showError('Could not copy');
+    });
   },
 
   copyDeviceId() {
