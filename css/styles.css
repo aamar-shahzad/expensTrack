@@ -427,6 +427,71 @@ h1 {
   color: var(--text);
 }
 
+/* Selection Mode */
+.expense-item.selected {
+  background: rgba(37, 211, 102, 0.1);
+}
+
+.expense-checkbox {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: white;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.expense-checkbox.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.selection-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--white);
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.selection-cancel {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 500;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.selection-count {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.selection-delete {
+  background: #ff3b30;
+  border: none;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 /* Detail View */
 .detail-image {
   margin: -16px -16px 16px -16px;
@@ -645,6 +710,7 @@ h1 {
   color: var(--text);
   -webkit-appearance: none;
   -moz-appearance: textfield;
+  appearance: none;
 }
 
 .amount-input input:focus {
@@ -665,6 +731,7 @@ h1 {
   color: var(--text);
   border-radius: 0;
   -webkit-appearance: none;
+  appearance: none;
 }
 
 .desc-input:focus {
@@ -719,7 +786,8 @@ h1 {
 }
 
 .form-field-content input,
-.form-field-content select {
+.form-field-content select,
+.form-field-content textarea {
   width: 100%;
   padding: 8px 0;
   border: none;
@@ -727,17 +795,209 @@ h1 {
   background: transparent;
   color: var(--text);
   -webkit-appearance: none;
+  appearance: none;
   border-radius: 0;
 }
 
 .form-field-content input:focus,
-.form-field-content select:focus {
+.form-field-content select:focus,
+.form-field-content textarea:focus {
   outline: none;
+}
+
+/* Notes textarea */
+.notes-input {
+  resize: none;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+/* Tags input */
+.tags-input {
+  font-size: 15px;
 }
 
 /* Fix iOS date input */
 .form-field-content input[type="date"] {
   min-height: 24px;
+}
+
+/* Quick Templates */
+.quick-templates {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.templates-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.templates-manage-btn {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.templates-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.template-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg);
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.template-chip:active {
+  background: var(--border);
+}
+
+.template-desc {
+  font-size: 14px;
+  color: var(--text);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-amount {
+  font-size: 13px;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.template-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.template-delete-btn:hover {
+  color: #ff3b30;
+}
+
+/* Split Presets */
+.split-presets {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.split-presets-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.split-presets-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.split-preset-chip {
+  padding: 8px 14px;
+  background: var(--bg);
+  border: none;
+  border-radius: 16px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.split-preset-chip:active {
+  background: var(--border);
+}
+
+/* Suggestions dropdown */
+.suggestions-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background: var(--white);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 100;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.form-card {
+  position: relative;
+}
+
+.suggestion-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:active {
+  background: var(--bg);
+}
+
+.suggestion-desc {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.suggestion-amount {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Save buttons row */
+.save-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-template {
+  background: var(--bg);
+  color: var(--text);
+  border: none;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-template:active {
+  background: var(--border);
 }
 
 /* Photo Options */

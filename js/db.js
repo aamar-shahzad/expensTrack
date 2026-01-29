@@ -7,7 +7,7 @@ const DB = {
   db: null,
   dbName: 'ExpenseTracker',
   currentAccountId: null,
-  version: 2, // Bumped for tombstones store
+  version: 5, // Bumped for splitPresets store
 
   // Get database name for an account
   getDbName(accountId) {
@@ -37,6 +37,15 @@ const DB = {
           expensesStore.createIndex('date', 'date');
           expensesStore.createIndex('payerId', 'payerId');
           expensesStore.createIndex('syncId', 'syncId');
+          expensesStore.createIndex('yearMonth', 'yearMonth');
+        }
+        
+        // Add yearMonth index to existing expenses store
+        if (event.oldVersion < 4 && db.objectStoreNames.contains('expenses')) {
+          const expensesStore = event.target.transaction.objectStore('expenses');
+          if (!expensesStore.indexNames.contains('yearMonth')) {
+            expensesStore.createIndex('yearMonth', 'yearMonth');
+          }
         }
 
         if (!db.objectStoreNames.contains('people')) {
@@ -56,6 +65,17 @@ const DB = {
           tombstoneStore.createIndex('type', 'type');
           tombstoneStore.createIndex('deletedAt', 'deletedAt');
         }
+
+        // Templates store for quick-add
+        if (!db.objectStoreNames.contains('templates')) {
+          const templateStore = db.createObjectStore('templates', { keyPath: 'id' });
+          templateStore.createIndex('useCount', 'useCount');
+        }
+
+        // Split presets store
+        if (!db.objectStoreNames.contains('splitPresets')) {
+          db.createObjectStore('splitPresets', { keyPath: 'id' });
+        }
       };
     });
   },
@@ -71,9 +91,14 @@ const DB = {
   async addExpense(expense) {
     const store = await this.transaction('expenses', 'readwrite');
     const id = crypto.randomUUID();
+    
+    // Extract yearMonth from date for indexing (e.g., "2024-01")
+    const yearMonth = expense.date ? expense.date.substring(0, 7) : null;
+    
     const expenseData = {
       ...expense,
       id,
+      yearMonth,
       createdAt: Date.now(),
       syncId: crypto.randomUUID()
     };
@@ -89,6 +114,26 @@ const DB = {
     const store = await this.transaction('expenses');
 
     return new Promise((resolve, reject) => {
+      // Use yearMonth index if filtering by month
+      if (month !== null && year !== null) {
+        const yearMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
+        
+        // Try to use index, fall back to filter if index doesn't exist
+        if (store.indexNames.contains('yearMonth')) {
+          const index = store.index('yearMonth');
+          const request = index.getAll(yearMonth);
+          
+          request.onsuccess = () => {
+            const expenses = request.result;
+            expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
+            resolve(expenses);
+          };
+          request.onerror = () => reject(request.error);
+          return;
+        }
+      }
+      
+      // Fallback: get all and filter
       const request = store.getAll();
 
       request.onsuccess = () => {
@@ -436,6 +481,102 @@ const DB = {
           resolve(true);
         }
       };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  // Template operations for quick-add
+  async addTemplate(template) {
+    const store = await this.transaction('templates', 'readwrite');
+    const id = crypto.randomUUID();
+    const templateData = {
+      ...template,
+      id,
+      useCount: 0,
+      createdAt: Date.now()
+    };
+
+    return new Promise((resolve, reject) => {
+      const request = store.add(templateData);
+      request.onsuccess = () => resolve(templateData);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async getTemplates() {
+    const store = await this.transaction('templates');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        // Sort by use count (most used first)
+        const templates = request.result;
+        templates.sort((a, b) => b.useCount - a.useCount);
+        resolve(templates);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async updateTemplateUseCount(id) {
+    const store = await this.transaction('templates', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const template = getReq.result;
+        if (template) {
+          template.useCount = (template.useCount || 0) + 1;
+          template.lastUsed = Date.now();
+          const putReq = store.put(template);
+          putReq.onsuccess = () => resolve(template);
+          putReq.onerror = () => reject(putReq.error);
+        } else {
+          resolve(null);
+        }
+      };
+      getReq.onerror = () => reject(getReq.error);
+    });
+  },
+
+  async deleteTemplate(id) {
+    const store = await this.transaction('templates', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  // Split preset operations
+  async addSplitPreset(preset) {
+    const store = await this.transaction('splitPresets', 'readwrite');
+    const id = crypto.randomUUID();
+    const presetData = {
+      ...preset,
+      id,
+      createdAt: Date.now()
+    };
+
+    return new Promise((resolve, reject) => {
+      const request = store.add(presetData);
+      request.onsuccess = () => resolve(presetData);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async getSplitPresets() {
+    const store = await this.transaction('splitPresets');
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async deleteSplitPreset(id) {
+    const store = await this.transaction('splitPresets', 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve(true);
       request.onerror = () => reject(request.error);
     });
   }

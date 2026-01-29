@@ -240,6 +240,14 @@ const UI = {
         <h1>Add Expense</h1>
       </div>
       
+      <div id="quick-templates" class="quick-templates hidden">
+        <div class="templates-header">
+          <span>Quick Add</span>
+          <button type="button" class="templates-manage-btn" id="manage-templates">Edit</button>
+        </div>
+        <div id="templates-list" class="templates-list"></div>
+      </div>
+      
       <form id="expense-form" class="add-form">
         <div class="form-card">
           <div class="amount-input">
@@ -248,6 +256,7 @@ const UI = {
           </div>
           
           <input type="text" id="expense-description" class="desc-input" placeholder="What was it for?" required>
+          <div id="suggestions-list" class="suggestions-list hidden"></div>
         </div>
         
         <div class="form-card">
@@ -294,6 +303,23 @@ const UI = {
             </div>
           </div>
         </div>
+
+        <div class="form-card">
+          <div class="form-field-row">
+            <div class="form-field-icon">🏷️</div>
+            <div class="form-field-content">
+              <label>Tags</label>
+              <input type="text" id="expense-tags" class="tags-input" placeholder="e.g., food, work, travel">
+            </div>
+          </div>
+          <div class="form-field-row">
+            <div class="form-field-icon">📝</div>
+            <div class="form-field-content">
+              <label>Notes</label>
+              <textarea id="expense-notes" class="notes-input" placeholder="Add any extra details..." rows="2"></textarea>
+            </div>
+          </div>
+        </div>
         
         <div class="form-card">
           <div id="image-preview" class="hidden"></div>
@@ -310,7 +336,10 @@ const UI = {
           <div id="ocr-status" class="hidden" style="text-align:center;padding:8px;color:#667781;font-size:13px"></div>
         </div>
         
-        <button type="submit" class="btn-primary btn-save">Save Expense</button>
+        <div class="save-buttons">
+          <button type="submit" class="btn-primary btn-save">Save Expense</button>
+          <button type="button" class="btn-secondary btn-template" id="save-as-template">Save as Template</button>
+        </div>
       </form>
     `;
     
@@ -318,6 +347,15 @@ const UI = {
       e.preventDefault();
       Expenses.saveExpense();
     };
+    
+    document.getElementById('save-as-template').onclick = () => this.saveAsTemplate();
+    document.getElementById('manage-templates').onclick = () => this.showManageTemplates();
+    
+    // Load templates
+    this.loadQuickTemplates();
+    
+    // Setup description suggestions
+    this.setupDescriptionSuggestions();
     
     document.getElementById('capture-photo').onclick = () => Camera.capturePhoto();
     document.getElementById('choose-photo').onclick = () => Camera.chooseFromGallery();
@@ -340,11 +378,28 @@ const UI = {
   async renderCustomSplitInputs() {
     try {
       const people = await DB.getPeople();
+      const presets = await DB.getSplitPresets();
       const container = document.getElementById('split-inputs');
       if (!container || people.length === 0) return;
       
       const equalShare = Math.round(100 / people.length);
+      
+      // Build presets HTML if any exist
+      const presetsHtml = presets.length > 0 ? `
+        <div class="split-presets">
+          <div class="split-presets-label">Saved presets:</div>
+          <div class="split-presets-list">
+            ${presets.map(p => `
+              <button type="button" class="split-preset-chip" data-preset='${JSON.stringify(p.splits)}'>
+                ${this.escapeHtml(p.name)}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      ` : '';
+      
       container.innerHTML = `
+        ${presetsHtml}
         <div style="font-size:13px;color:#667781;margin-bottom:8px">Enter percentage for each person (must total 100%)</div>
         ${people.map((p, i) => `
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -354,6 +409,7 @@ const UI = {
           </div>
         `).join('')}
         <div id="split-total" style="text-align:right;font-size:13px;color:#667781">Total: 100%</div>
+        <button type="button" class="btn-small btn-secondary" id="save-split-preset" style="margin-top:8px">Save as Preset</button>
       `;
       
       // Update total on change
@@ -366,9 +422,269 @@ const UI = {
           totalEl.style.color = total === 100 ? '#25d366' : '#ff3b30';
         };
       });
+      
+      // Apply preset on click
+      container.querySelectorAll('.split-preset-chip').forEach(chip => {
+        chip.onclick = () => {
+          const splits = JSON.parse(chip.dataset.preset);
+          container.querySelectorAll('.split-percent').forEach(input => {
+            const personId = input.dataset.id;
+            if (splits[personId] !== undefined) {
+              input.value = splits[personId];
+            }
+          });
+          // Trigger total update
+          container.querySelector('.split-percent')?.dispatchEvent(new Event('input'));
+        };
+      });
+      
+      // Save preset button
+      document.getElementById('save-split-preset').onclick = () => this.showSaveSplitPresetModal();
     } catch (err) {
       console.error('Failed to load split inputs:', err);
       App.showError('Could not load people');
+    }
+  },
+
+  async showSaveSplitPresetModal() {
+    const inputs = document.querySelectorAll('.split-percent');
+    const total = Array.from(inputs).reduce((sum, inp) => sum + (parseInt(inp.value) || 0), 0);
+    
+    if (total !== 100) {
+      App.showError('Split must total 100% to save');
+      return;
+    }
+    
+    const splits = {};
+    inputs.forEach(inp => {
+      splits[inp.dataset.id] = parseInt(inp.value) || 0;
+    });
+    
+    const name = prompt('Name this split preset:');
+    if (!name || !name.trim()) return;
+    
+    try {
+      await DB.addSplitPreset({ name: name.trim(), splits });
+      App.showSuccess('Preset saved!');
+      this.renderCustomSplitInputs();
+    } catch (e) {
+      console.error('Failed to save preset:', e);
+      App.showError('Failed to save preset');
+    }
+  },
+
+  // Quick templates
+  async loadQuickTemplates() {
+    try {
+      const templates = await DB.getTemplates();
+      const container = document.getElementById('quick-templates');
+      const list = document.getElementById('templates-list');
+      
+      if (templates.length === 0) {
+        container.classList.add('hidden');
+        return;
+      }
+      
+      container.classList.remove('hidden');
+      list.innerHTML = templates.slice(0, 5).map(t => `
+        <button type="button" class="template-chip" data-id="${t.id}">
+          <span class="template-desc">${this.escapeHtml(t.description)}</span>
+          <span class="template-amount">${Settings.formatAmount(t.amount)}</span>
+        </button>
+      `).join('');
+      
+      list.querySelectorAll('.template-chip').forEach(chip => {
+        chip.onclick = () => this.applyTemplate(chip.dataset.id);
+      });
+    } catch (e) {
+      console.error('Failed to load templates:', e);
+    }
+  },
+
+  async applyTemplate(templateId) {
+    try {
+      const templates = await DB.getTemplates();
+      const template = templates.find(t => t.id === templateId);
+      if (!template) return;
+      
+      document.getElementById('expense-amount').value = template.amount;
+      document.getElementById('expense-description').value = template.description;
+      if (template.tags) {
+        document.getElementById('expense-tags').value = template.tags;
+      }
+      if (template.payerId) {
+        const payerSelect = document.getElementById('expense-payer');
+        if (payerSelect) payerSelect.value = template.payerId;
+      }
+      
+      await DB.updateTemplateUseCount(templateId);
+      App.showSuccess('Template applied');
+    } catch (e) {
+      console.error('Failed to apply template:', e);
+    }
+  },
+
+  async saveAsTemplate() {
+    const amount = parseFloat(document.getElementById('expense-amount').value);
+    const description = document.getElementById('expense-description').value.trim();
+    const tags = document.getElementById('expense-tags')?.value.trim() || '';
+    const payerId = document.getElementById('expense-payer')?.value || '';
+    
+    if (!amount || !description) {
+      App.showError('Enter amount and description first');
+      return;
+    }
+    
+    try {
+      await DB.addTemplate({
+        amount,
+        description,
+        tags,
+        payerId
+      });
+      App.showSuccess('Template saved!');
+      this.loadQuickTemplates();
+    } catch (e) {
+      console.error('Failed to save template:', e);
+      App.showError('Failed to save template');
+    }
+  },
+
+  showManageTemplates() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <button class="sheet-cancel" onclick="this.closest('.modal-overlay').remove()">Done</button>
+          <span class="sheet-title">Manage Templates</span>
+          <span></span>
+        </div>
+        <div class="sheet-body" id="templates-manage-list" style="padding:0">
+          <div style="padding:20px;text-align:center;color:var(--text-secondary)">Loading...</div>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    this.loadTemplatesForManage();
+    
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.remove();
+    };
+  },
+
+  async loadTemplatesForManage() {
+    const container = document.getElementById('templates-manage-list');
+    try {
+      const templates = await DB.getTemplates();
+      
+      if (templates.length === 0) {
+        container.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary)">
+          No templates yet.<br>Save an expense as a template to get started.
+        </div>`;
+        return;
+      }
+      
+      container.innerHTML = `<div class="settings-list">
+        ${templates.map(t => `
+          <div class="settings-item template-manage-item" data-id="${t.id}">
+            <div class="settings-item-content">
+              <div class="settings-item-title">${this.escapeHtml(t.description)}</div>
+              <div class="settings-item-subtitle">${Settings.formatAmount(t.amount)} • Used ${t.useCount || 0} times</div>
+            </div>
+            <button class="template-delete-btn" data-id="${t.id}">✕</button>
+          </div>
+        `).join('')}
+      </div>`;
+      
+      container.querySelectorAll('.template-delete-btn').forEach(btn => {
+        btn.onclick = async (e) => {
+          e.stopPropagation();
+          await DB.deleteTemplate(btn.dataset.id);
+          this.loadTemplatesForManage();
+          this.loadQuickTemplates();
+        };
+      });
+    } catch (e) {
+      container.innerHTML = `<div style="padding:20px;text-align:center;color:#ff3b30">Failed to load templates</div>`;
+    }
+  },
+
+  // Smart suggestions based on history
+  setupDescriptionSuggestions() {
+    const input = document.getElementById('expense-description');
+    const suggestionsList = document.getElementById('suggestions-list');
+    if (!input || !suggestionsList) return;
+    
+    let debounceTimer;
+    
+    input.oninput = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => this.showSuggestions(input.value), 200);
+    };
+    
+    input.onfocus = () => {
+      if (input.value.length >= 2) {
+        this.showSuggestions(input.value);
+      }
+    };
+    
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.suggestions-list') && e.target !== input) {
+        suggestionsList.classList.add('hidden');
+      }
+    });
+  },
+
+  async showSuggestions(query) {
+    const suggestionsList = document.getElementById('suggestions-list');
+    if (!query || query.length < 2) {
+      suggestionsList.classList.add('hidden');
+      return;
+    }
+    
+    try {
+      const expenses = await DB.getAllExpenses();
+      const q = query.toLowerCase();
+      
+      // Find unique descriptions that match
+      const matches = new Map();
+      expenses.forEach(exp => {
+        if (exp.description.toLowerCase().includes(q)) {
+          const key = exp.description.toLowerCase();
+          if (!matches.has(key)) {
+            matches.set(key, { description: exp.description, amount: exp.amount });
+          }
+        }
+      });
+      
+      const suggestions = Array.from(matches.values()).slice(0, 5);
+      
+      if (suggestions.length === 0) {
+        suggestionsList.classList.add('hidden');
+        return;
+      }
+      
+      suggestionsList.innerHTML = suggestions.map(s => `
+        <div class="suggestion-item" data-desc="${this.escapeHtml(s.description)}" data-amount="${s.amount}">
+          <span class="suggestion-desc">${this.escapeHtml(s.description)}</span>
+          <span class="suggestion-amount">${Settings.formatAmount(s.amount)}</span>
+        </div>
+      `).join('');
+      
+      suggestionsList.classList.remove('hidden');
+      
+      suggestionsList.querySelectorAll('.suggestion-item').forEach(item => {
+        item.onclick = () => {
+          document.getElementById('expense-description').value = item.dataset.desc;
+          document.getElementById('expense-amount').value = item.dataset.amount;
+          suggestionsList.classList.add('hidden');
+        };
+      });
+    } catch (e) {
+      console.error('Failed to load suggestions:', e);
     }
   },
 

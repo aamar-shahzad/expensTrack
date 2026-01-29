@@ -6,6 +6,8 @@ const Expenses = {
   currentMonth: new Date().getMonth(),
   currentYear: new Date().getFullYear(),
   thumbnailUrls: [], // Track object URLs for cleanup
+  selectionMode: false,
+  selectedIds: new Set(),
 
   // Category detection keywords and icons
   categories: {
@@ -79,12 +81,20 @@ const Expenses = {
     list.innerHTML = expenses.map(exp => {
       const payerName = Accounts.isSharedMode() ? `${names[exp.payerId] || 'Unknown'} • ` : '';
       const categoryIcon = this.getCategoryIcon(exp.description);
+      const isSelected = this.selectedIds.has(exp.id);
       return `
-        <div class="expense-item" onclick="Expenses.showDetail('${exp.id}')">
-          ${exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : `<div class="expense-icon">${categoryIcon}</div>`}
+        <div class="expense-item ${isSelected ? 'selected' : ''}" 
+             onclick="Expenses.handleItemClick('${exp.id}')" 
+             oncontextmenu="Expenses.toggleSelectionMode(event, '${exp.id}')"
+             data-id="${exp.id}">
+          ${this.selectionMode ? `
+            <div class="expense-checkbox ${isSelected ? 'checked' : ''}">
+              ${isSelected ? '✓' : ''}
+            </div>
+          ` : (exp.imageId ? `<div class="expense-thumb" data-img="${exp.imageId}"></div>` : `<div class="expense-icon">${categoryIcon}</div>`)}
           <div class="expense-main">
             <div class="expense-desc">${exp.description}</div>
-            <div class="expense-meta">${payerName}${this.formatDate(exp.date)}</div>
+            <div class="expense-meta">${payerName}${this.formatDate(exp.date)}${exp.tags ? ` • ${exp.tags}` : ''}</div>
           </div>
           <div class="expense-amount">${Settings.formatAmount(exp.amount)}</div>
         </div>
@@ -120,6 +130,97 @@ const Expenses = {
       } catch (e) {}
     }
     this.thumbnailUrls = [];
+  },
+
+  handleItemClick(id) {
+    if (this.selectionMode) {
+      this.toggleSelection(id);
+    } else {
+      this.showDetail(id);
+    }
+  },
+
+  toggleSelectionMode(event, id) {
+    event.preventDefault();
+    if (!this.selectionMode) {
+      this.selectionMode = true;
+      this.selectedIds.clear();
+      this.selectedIds.add(id);
+      this.showSelectionBar();
+      this.loadCurrentMonth();
+    }
+  },
+
+  toggleSelection(id) {
+    if (this.selectedIds.has(id)) {
+      this.selectedIds.delete(id);
+    } else {
+      this.selectedIds.add(id);
+    }
+    
+    // Update UI
+    const item = document.querySelector(`.expense-item[data-id="${id}"]`);
+    if (item) {
+      item.classList.toggle('selected', this.selectedIds.has(id));
+      const checkbox = item.querySelector('.expense-checkbox');
+      if (checkbox) {
+        checkbox.classList.toggle('checked', this.selectedIds.has(id));
+        checkbox.textContent = this.selectedIds.has(id) ? '✓' : '';
+      }
+    }
+    
+    this.updateSelectionBar();
+    
+    // Exit selection mode if nothing selected
+    if (this.selectedIds.size === 0) {
+      this.exitSelectionMode();
+    }
+  },
+
+  showSelectionBar() {
+    // Remove existing bar
+    document.querySelector('.selection-bar')?.remove();
+    
+    const bar = document.createElement('div');
+    bar.className = 'selection-bar';
+    bar.innerHTML = `
+      <button class="selection-cancel" onclick="Expenses.exitSelectionMode()">Cancel</button>
+      <span class="selection-count">${this.selectedIds.size} selected</span>
+      <button class="selection-delete" onclick="Expenses.deleteSelected()">Delete</button>
+    `;
+    document.body.appendChild(bar);
+  },
+
+  updateSelectionBar() {
+    const countEl = document.querySelector('.selection-count');
+    if (countEl) {
+      countEl.textContent = `${this.selectedIds.size} selected`;
+    }
+  },
+
+  exitSelectionMode() {
+    this.selectionMode = false;
+    this.selectedIds.clear();
+    document.querySelector('.selection-bar')?.remove();
+    this.loadCurrentMonth();
+  },
+
+  async deleteSelected() {
+    if (this.selectedIds.size === 0) return;
+    
+    const count = this.selectedIds.size;
+    if (!confirm(`Delete ${count} expense${count > 1 ? 's' : ''}?`)) return;
+    
+    try {
+      for (const id of this.selectedIds) {
+        await DB.deleteExpense(id);
+      }
+      App.showSuccess(`Deleted ${count} expense${count > 1 ? 's' : ''}`);
+      this.exitSelectionMode();
+    } catch (e) {
+      console.error('Failed to delete:', e);
+      App.showError('Failed to delete some expenses');
+    }
   },
 
   async showDetail(id) {
@@ -173,6 +274,18 @@ const Expenses = {
           <div class="detail-row">
             <span class="detail-label">Type</span>
             <span class="detail-value">Recurring monthly</span>
+          </div>
+          ` : ''}
+          ${exp.tags ? `
+          <div class="detail-row">
+            <span class="detail-label">Tags</span>
+            <span class="detail-value">${exp.tags}</span>
+          </div>
+          ` : ''}
+          ${exp.notes ? `
+          <div class="detail-row detail-notes">
+            <span class="detail-label">Notes</span>
+            <span class="detail-value">${exp.notes}</span>
           </div>
           ` : ''}
         </div>
@@ -535,13 +648,24 @@ const Expenses = {
     const imageId = Camera.capturedImage?.id || null;
     const splitType = document.getElementById('expense-split')?.value || 'equal';
     const recurring = document.getElementById('expense-recurring')?.value || '';
+    const tags = document.getElementById('expense-tags')?.value.trim() || '';
+    const notes = document.getElementById('expense-notes')?.value.trim() || '';
 
-    if (!amount || amount <= 0) {
-      App.showError('Enter amount');
+    // Validate amount
+    if (!amount || amount <= 0 || isNaN(amount)) {
+      App.showError('Enter a valid amount');
+      return;
+    }
+    if (amount > 999999999) {
+      App.showError('Amount too large');
       return;
     }
     if (!desc) {
       App.showError('Enter description');
+      return;
+    }
+    if (desc.length > 200) {
+      App.showError('Description too long');
       return;
     }
     if (Accounts.isSharedMode() && !payerId) {
@@ -573,7 +697,9 @@ const Expenses = {
         imageId: imageId,
         splitType: splitType,
         splitDetails: splitDetails,
-        recurring: recurring
+        recurring: recurring,
+        tags: tags,
+        notes: notes
       });
 
       // Remember last payer
