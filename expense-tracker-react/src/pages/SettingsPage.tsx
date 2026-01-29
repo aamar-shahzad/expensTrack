@@ -5,7 +5,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { Button, Input, Sheet, useToast } from '@/components/ui';
 import { CURRENCIES } from '@/types';
-import { haptic, downloadFile } from '@/lib/utils';
+import { haptic, downloadFile, cn } from '@/lib/utils';
 import * as db from '@/db/operations';
 import { clearAllData } from '@/db/schema';
 
@@ -13,7 +13,12 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   
+  const accounts = useAccountStore(s => s.accounts);
+  const currentAccountId = useAccountStore(s => s.currentAccountId);
   const currentAccount = useAccountStore(s => s.getCurrentAccount());
+  const createAccount = useAccountStore(s => s.createAccount);
+  const deleteAccount = useAccountStore(s => s.deleteAccount);
+  const setCurrentAccount = useAccountStore(s => s.setCurrentAccount);
   const setOnboarded = useAccountStore(s => s.setOnboarded);
   
   const { currency, monthlyBudget, darkMode, setCurrency, setMonthlyBudget, setDarkMode } = useSettingsStore();
@@ -21,8 +26,16 @@ export function SettingsPage() {
   
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [showAccountsModal, setShowAccountsModal] = useState(false);
+  const [showNewAccountModal, setShowNewAccountModal] = useState(false);
   const [budgetInput, setBudgetInput] = useState(monthlyBudget.toString());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // New account form
+  const [newAccountName, setNewAccountName] = useState('');
+  const [newAccountMode, setNewAccountMode] = useState<'single' | 'shared'>('single');
+  const [newAccountCurrency, setNewAccountCurrency] = useState('$');
+  const [creatingAccount, setCreatingAccount] = useState(false);
 
   const handleCurrencyChange = (symbol: string) => {
     setCurrency(symbol);
@@ -46,6 +59,72 @@ export function SettingsPage() {
   const handleDarkModeToggle = () => {
     setDarkMode(!darkMode);
     haptic('light');
+  };
+
+  const handleSwitchAccount = async (id: string) => {
+    if (id === currentAccountId) return;
+    
+    haptic('light');
+    try {
+      await setCurrentAccount(id);
+      setShowAccountsModal(false);
+      showSuccess('Switched account');
+      navigate('/');
+    } catch {
+      showError('Failed to switch');
+    }
+  };
+
+  const handleCreateAccount = async () => {
+    if (!newAccountName.trim()) {
+      showError('Enter account name');
+      return;
+    }
+    
+    setCreatingAccount(true);
+    haptic('light');
+    
+    try {
+      const account = createAccount(newAccountName.trim(), newAccountMode, newAccountCurrency);
+      await setCurrentAccount(account.id);
+      
+      setNewAccountName('');
+      setNewAccountMode('single');
+      setNewAccountCurrency('$');
+      setShowNewAccountModal(false);
+      setShowAccountsModal(false);
+      
+      haptic('success');
+      showSuccess('Account created');
+      navigate('/');
+    } catch {
+      showError('Failed to create account');
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    if (accounts.length <= 1) {
+      showError("Can't delete last account");
+      return;
+    }
+    
+    if (id === currentAccountId) {
+      showError('Switch to another account first');
+      return;
+    }
+    
+    const account = accounts.find(a => a.id === id);
+    if (!confirm(`Delete "${account?.name}"? This cannot be undone.`)) return;
+    
+    haptic('light');
+    try {
+      deleteAccount(id);
+      showSuccess('Account deleted');
+    } catch {
+      showError('Failed to delete');
+    }
   };
 
   const handleExportCSV = async () => {
@@ -105,17 +184,28 @@ export function SettingsPage() {
           Account
         </h2>
         <div className="bg-[var(--white)] rounded-xl divide-y divide-[var(--border)]">
-          <div className="flex items-center justify-between p-4">
+          <button
+            onClick={() => setShowAccountsModal(true)}
+            className="flex items-center justify-between p-4 w-full text-left"
+          >
             <div>
               <div className="font-medium">{currentAccount?.name || 'My Expenses'}</div>
               <div className="text-sm text-[var(--text-secondary)]">
                 {currentAccount?.mode === 'shared' ? 'Shared' : 'Personal'} Account
               </div>
             </div>
-          </div>
+            <div className="flex items-center gap-2">
+              {accounts.length > 1 && (
+                <span className="text-xs bg-[var(--teal-green)]/10 text-[var(--teal-green)] px-2 py-1 rounded-full">
+                  {accounts.length} accounts
+                </span>
+              )}
+              <span className="text-[var(--text-secondary)]">›</span>
+            </div>
+          </button>
           <div className="flex items-center justify-between p-4">
             <span>Device ID</span>
-            <span className="font-mono text-[var(--text-secondary)]">{deviceId}</span>
+            <span className="font-mono text-sm text-[var(--text-secondary)]">{deviceId}</span>
           </div>
         </div>
       </div>
@@ -202,6 +292,159 @@ export function SettingsPage() {
         </div>
       </div>
 
+      </div>
+
+      {/* Accounts Modal */}
+      <Sheet
+        isOpen={showAccountsModal}
+        onClose={() => setShowAccountsModal(false)}
+        title="Accounts"
+        actions={
+          <button
+            onClick={() => setShowNewAccountModal(true)}
+            className="text-[var(--teal-green)] text-[17px] font-semibold px-2 py-1 -mx-2 rounded-lg active:bg-[var(--teal-green)]/10"
+          >
+            + New
+          </button>
+        }
+      >
+        <div className="divide-y divide-[var(--border)]">
+          {accounts.map(account => (
+            <div
+              key={account.id}
+              className={cn(
+                'flex items-center justify-between p-4',
+                account.id === currentAccountId && 'bg-[var(--teal-green)]/5'
+              )}
+            >
+              <button
+                onClick={() => handleSwitchAccount(account.id)}
+                className="flex-1 text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[var(--bg)] flex items-center justify-center text-xl">
+                    {account.mode === 'shared' ? '👥' : '👤'}
+                  </div>
+                  <div>
+                    <div className="font-medium">{account.name}</div>
+                    <div className="text-sm text-[var(--text-secondary)]">
+                      {account.mode === 'shared' ? 'Shared' : 'Personal'} • {account.currency}
+                    </div>
+                  </div>
+                </div>
+              </button>
+              
+              {account.id === currentAccountId ? (
+                <span className="text-[var(--teal-green)] text-sm font-medium">Active</span>
+              ) : (
+                <button
+                  onClick={() => handleDeleteAccount(account.id)}
+                  className="text-[var(--danger)] text-xl p-2"
+                >
+                  🗑️
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        
+        {accounts.length === 0 && (
+          <div className="text-center py-8 text-[var(--text-secondary)]">
+            No accounts yet
+          </div>
+        )}
+      </Sheet>
+
+      {/* New Account Modal */}
+      <Sheet
+        isOpen={showNewAccountModal}
+        onClose={() => setShowNewAccountModal(false)}
+        title="New Account"
+        actions={
+          <button
+            onClick={handleCreateAccount}
+            disabled={creatingAccount}
+            className="text-[var(--teal-green)] text-[17px] font-semibold px-2 py-1 -mx-2 rounded-lg active:bg-[var(--teal-green)]/10 disabled:opacity-50"
+          >
+            {creatingAccount ? 'Creating...' : 'Create'}
+          </button>
+        }
+      >
+        <div className="p-4 space-y-4">
+          <Input
+            label="Account Name"
+            value={newAccountName}
+            onChange={e => setNewAccountName(e.target.value)}
+            placeholder="e.g., Personal, Trip to Paris"
+            autoFocus
+          />
+          
+          <div>
+            <label className="block text-[13px] font-medium text-[var(--text-secondary)] mb-2 uppercase tracking-wide">
+              Account Type
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setNewAccountMode('single')}
+                className={cn(
+                  'p-4 rounded-xl text-left transition-all',
+                  newAccountMode === 'single'
+                    ? 'bg-[var(--teal-green)] text-white'
+                    : 'bg-[var(--bg)]'
+                )}
+              >
+                <div className="text-2xl mb-1">👤</div>
+                <div className="font-medium">Personal</div>
+                <div className={cn('text-xs', newAccountMode === 'single' ? 'text-white/70' : 'text-[var(--text-secondary)]')}>
+                  Just for you
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewAccountMode('shared')}
+                className={cn(
+                  'p-4 rounded-xl text-left transition-all',
+                  newAccountMode === 'shared'
+                    ? 'bg-[var(--teal-green)] text-white'
+                    : 'bg-[var(--bg)]'
+                )}
+              >
+                <div className="text-2xl mb-1">👥</div>
+                <div className="font-medium">Shared</div>
+                <div className={cn('text-xs', newAccountMode === 'shared' ? 'text-white/70' : 'text-[var(--text-secondary)]')}>
+                  Split with others
+                </div>
+              </button>
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-[13px] font-medium text-[var(--text-secondary)] mb-2 uppercase tracking-wide">
+              Currency
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {CURRENCIES.slice(0, 6).map(curr => (
+                <button
+                  key={curr.code}
+                  type="button"
+                  onClick={() => setNewAccountCurrency(curr.symbol)}
+                  className={cn(
+                    'p-3 rounded-xl text-center transition-all',
+                    newAccountCurrency === curr.symbol
+                      ? 'bg-[var(--teal-green)] text-white'
+                      : 'bg-[var(--bg)]'
+                  )}
+                >
+                  <div className="text-xl">{curr.symbol}</div>
+                  <div className="text-xs">{curr.code}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Sheet>
+
       {/* Currency Modal */}
       <Sheet
         isOpen={showCurrencyModal}
@@ -255,8 +498,6 @@ export function SettingsPage() {
           </p>
         </div>
       </Sheet>
-
-      </div>
 
       {/* Delete Confirmation */}
       <Sheet

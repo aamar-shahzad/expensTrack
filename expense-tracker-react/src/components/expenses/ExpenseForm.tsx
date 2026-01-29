@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Expense } from '@/types';
 import { getToday } from '@/types';
@@ -48,26 +48,38 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const [loading, setLoading] = useState(false);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [attachedImage, setAttachedImage] = useState<Blob | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   
   const amountInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
 
-  // Create stable object URL for preview
-  const imagePreviewUrl = useMemo(() => {
-    if (attachedImage) {
-      return URL.createObjectURL(attachedImage);
+  // Create preview URL when image changes
+  const updatePreviewUrl = useCallback((blob: Blob | null) => {
+    // Revoke old URL
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
     }
-    return null;
-  }, [attachedImage]);
+    
+    // Create new URL
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      previewUrlRef.current = url;
+      setImagePreviewUrl(url);
+    } else {
+      setImagePreviewUrl(null);
+    }
+  }, []);
 
-  // Cleanup object URL on unmount or when image changes
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
       }
     };
-  }, [imagePreviewUrl]);
+  }, []);
 
   // Set default payer
   useEffect(() => {
@@ -95,6 +107,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     
     haptic('light');
     setAttachedImage(file);
+    updatePreviewUrl(file);
     
     // Process OCR to extract data
     const result = await processOCR(file);
@@ -113,11 +126,15 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       haptic('success');
       showSuccess('Receipt scanned!');
     }
+    
+    // Reset file input so same file can be selected again
+    e.target.value = '';
   };
 
   const handleRemoveImage = () => {
     haptic('light');
     setAttachedImage(null);
+    updatePreviewUrl(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, useToast } from '@/components/ui';
 import { useCamera } from '@/hooks/useCamera';
@@ -14,6 +14,7 @@ export function CameraCapture() {
   const { showSuccess, showError } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
   
   const {
     isActive,
@@ -33,6 +34,7 @@ export function CameraCapture() {
   const currency = useSettingsStore(s => s.currency);
   
   const [capturedImage, setCapturedImage] = useState<Blob | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [ocrResult, setOcrResult] = useState<{
     amount: number | null;
     description: string | null;
@@ -44,22 +46,32 @@ export function CameraCapture() {
   const [editDescription, setEditDescription] = useState('');
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Create stable object URL for preview
-  const imagePreviewUrl = useMemo(() => {
-    if (capturedImage) {
-      return URL.createObjectURL(capturedImage);
+  // Create preview URL when image changes
+  const updatePreviewUrl = useCallback((blob: Blob | null) => {
+    // Revoke old URL
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
     }
-    return null;
-  }, [capturedImage]);
+    
+    // Create new URL
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      previewUrlRef.current = url;
+      setImagePreviewUrl(url);
+    } else {
+      setImagePreviewUrl(null);
+    }
+  }, []);
 
-  // Cleanup object URL on unmount or when image changes
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
       }
     };
-  }, [imagePreviewUrl]);
+  }, []);
 
   // Start camera on mount
   useEffect(() => {
@@ -97,6 +109,7 @@ export function CameraCapture() {
     }
     
     setCapturedImage(blob);
+    updatePreviewUrl(blob);
     
     // Process OCR
     const result = await processOCR(blob);
@@ -114,6 +127,7 @@ export function CameraCapture() {
     
     haptic('light');
     setCapturedImage(file);
+    updatePreviewUrl(file);
     
     // Process OCR
     const result = await processOCR(file);
@@ -123,6 +137,9 @@ export function CameraCapture() {
       haptic('success');
       showSuccess('Receipt scanned!');
     }
+    
+    // Reset file input so same file can be selected again
+    e.target.value = '';
   };
 
   const handleSave = async () => {
@@ -172,6 +189,7 @@ export function CameraCapture() {
   const handleRetake = () => {
     haptic('light');
     setCapturedImage(null);
+    updatePreviewUrl(null);
     setOcrResult(null);
     setEditMode(false);
     setEditAmount('');
@@ -196,11 +214,11 @@ export function CameraCapture() {
 
       {/* Camera View or Captured Image */}
       {capturedImage && imagePreviewUrl ? (
-        <div className="flex-1 flex items-center justify-center bg-black">
+        <div className="flex-1 flex items-center justify-center bg-black pt-16">
           <img
             src={imagePreviewUrl}
             alt="Captured receipt"
-            className="max-w-full max-h-[60vh] object-contain"
+            className="max-w-full max-h-[50vh] object-contain rounded-lg"
           />
         </div>
       ) : cameraError ? (
@@ -220,6 +238,7 @@ export function CameraCapture() {
           className="flex-1 object-cover"
           playsInline
           muted
+          autoPlay
         />
       )}
 
@@ -258,7 +277,7 @@ export function CameraCapture() {
 
       {/* OCR Results Card */}
       {capturedImage && ocrResult && !isProcessing && (
-        <div className="bg-white rounded-t-3xl px-4 pt-6 pb-32 safe-bottom">
+        <div className="bg-white rounded-t-3xl px-4 pt-6 pb-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-lg">Receipt Details</h3>
             <button
@@ -340,19 +359,26 @@ export function CameraCapture() {
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileSelect}
         className="hidden"
       />
 
       {/* Controls */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 safe-bottom bg-gradient-to-t from-black via-black/80 to-transparent">
+      <div className={cn(
+        "p-4 safe-bottom",
+        capturedImage && ocrResult && !isProcessing 
+          ? "bg-white" 
+          : "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent"
+      )}>
         {capturedImage ? (
           <div className="flex gap-3">
             <Button
               variant="secondary"
               onClick={handleRetake}
-              className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className={cn(
+                "flex-1",
+                ocrResult ? "" : "bg-white/10 border-white/30 text-white hover:bg-white/20"
+              )}
             >
               Retake
             </Button>
