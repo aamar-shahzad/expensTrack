@@ -74,13 +74,16 @@ body {
 html, body {
   height: 100%;
   overflow: hidden;
+  background: var(--bg);
 }
 
 #app {
   height: 100%;
+  min-height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  background: var(--bg);
 }
 
 .main-content {
@@ -123,7 +126,7 @@ html, body {
   border-top: 1px solid var(--border);
   display: flex;
   padding: 8px 0;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   z-index: 100;
 }
 

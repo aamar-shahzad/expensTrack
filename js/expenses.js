@@ -8,7 +8,9 @@ const Expenses = {
 
   // Category detection keywords and icons
   categories: {
-    '🍔': ['food', 'lunch', 'dinner', 'breakfast', 'meal', 'restaurant', 'cafe', 'coffee', 'pizza', 'burger', 'snack', 'eat', 'drink', 'bar', 'pub'],
+    '☕': ['coffee', 'cafe', 'starbucks', 'tim hortons', 'latte', 'espresso', 'tea'],
+    '🍔': ['food', 'lunch', 'dinner', 'breakfast', 'meal', 'restaurant', 'pizza', 'burger', 'snack', 'eat', 'bar', 'pub'],
+    '🍺': ['drink', 'drinks', 'beer', 'wine', 'alcohol', 'cocktail'],
     '🛒': ['grocery', 'groceries', 'supermarket', 'market', 'shopping', 'store', 'walmart', 'costco', 'target'],
     '🚗': ['gas', 'fuel', 'petrol', 'uber', 'lyft', 'taxi', 'car', 'parking', 'toll', 'transport', 'bus', 'train', 'metro', 'subway'],
     '✈️': ['flight', 'airline', 'airport', 'travel', 'trip', 'hotel', 'airbnb', 'booking', 'vacation'],
