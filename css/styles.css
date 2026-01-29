@@ -147,11 +147,10 @@ html, body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 16px;
-  padding-top: calc(16px + env(safe-area-inset-top, 0px));
-  padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  padding: 0 16px;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: 0;
   -webkit-overflow-scrolling: touch;
-  /* Smooth native scrolling */
   scroll-behavior: smooth;
   overscroll-behavior-y: contain;
 }
@@ -172,27 +171,30 @@ html, body {
   }
 }
 
-/* Expenses Header - no sticky to prevent overlap on iOS */
+/* Expenses Header - WhatsApp Style */
 .expenses-header {
   position: sticky;
-  top: -16px; /* Offset for main-content padding */
-  margin-top: -16px;
-  padding-top: 16px;
+  top: 0;
   background: var(--bg);
-  padding-bottom: 8px;
+  padding: 12px 0 8px;
   z-index: 50;
+  margin: 0;
 }
 
 .expenses-header h1 {
-  font-size: 20px;
-  margin-bottom: 8px;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
 }
 
 .expenses-list {
-  padding-top: 12px;
+  padding-top: 8px;
   display: block;
   min-height: 60px;
-  padding-bottom: 100px; /* Space for bottom nav */
+  padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  margin: 0 -16px; /* Full width */
+  background: var(--white);
 }
 
 /* Bottom Navigation - Native Tab Bar */
@@ -363,116 +365,115 @@ h1 {
   flex-shrink: 0;
 }
 
-/* Month Navigation */
+/* Month Navigation - Compact */
 .month-nav {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background: var(--white);
-  padding: 8px 14px;
-  border-radius: var(--radius-md);
-  margin-bottom: 10px;
-  box-shadow: var(--shadow-sm);
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 0;
+  margin-bottom: 8px;
 }
 
 .month-nav button {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
-  background: var(--bg);
-  border-radius: var(--radius-sm);
-  font-size: 16px;
+  background: var(--white);
+  border-radius: 50%;
+  font-size: 18px;
   cursor: pointer;
-  color: var(--primary);
+  color: var(--teal-green);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s ease;
+  transition: transform 0.15s var(--ease-out);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .month-nav button:active {
-  background: var(--border);
+  transform: scale(0.9);
 }
 
 .month-nav span {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text);
+  min-width: 140px;
+  text-align: center;
 }
 
-/* Summary Box */
+/* Summary Box - Clean Card Style */
 .summary-box {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-  color: white;
-  padding: 16px 20px;
-  border-radius: var(--radius-lg);
+  background: var(--white);
+  padding: 16px;
+  border-radius: 12px;
   margin-bottom: 12px;
-  box-shadow: 0 4px 12px rgba(7, 94, 84, 0.25);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .summary-stats {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  gap: 16px;
 }
 
 .summary-main {
-  text-align: left;
+  flex: 1;
 }
 
 .summary-label {
-  font-size: 12px;
-  opacity: 0.85;
+  font-size: 13px;
+  color: var(--text-secondary);
   margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .summary-amount {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: -1px;
+  color: var(--text);
 }
 
 .summary-count {
-  font-size: 11px;
-  opacity: 0.8;
+  font-size: 13px;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
 /* Today's Stats */
 .summary-today {
-  text-align: right;
-  padding: 8px 12px;
-  background: rgba(255,255,255,0.15);
-  border-radius: 10px;
-  min-width: 100px;
+  text-align: center;
+  padding: 12px 16px;
+  background: var(--bg);
+  border-radius: 12px;
+  min-width: 90px;
 }
 
 .today-label {
-  font-size: 11px;
-  opacity: 0.85;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
 }
 
 .today-amount {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
-  margin: 2px 0;
+  color: var(--text);
 }
 
 .today-trend {
-  font-size: 10px;
-  opacity: 0.85;
+  font-size: 11px;
+  margin-top: 2px;
 }
 
 .trend-up {
-  color: #ff6b6b;
+  color: #e74c3c;
 }
 
 .trend-down {
-  color: #51cf66;
+  color: var(--teal-green);
 }
 
 /* Expense Items - WhatsApp Chat Style */
@@ -533,22 +534,22 @@ h1 {
 }
 
 .expense-icon {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  border-radius: 14px;
+  width: 44px;
+  height: 44px;
+  background: var(--bg);
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 20px;
   flex-shrink: 0;
 }
 
 .expense-thumb {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   background: var(--bg);
-  border-radius: 14px;
+  border-radius: 12px;
   flex-shrink: 0;
   background-size: cover;
   background-position: center;
@@ -557,35 +558,32 @@ h1 {
 .expense-main {
   flex: 1;
   min-width: 0;
-  /* Better vertical rhythm */
-  padding: 2px 0;
+  padding: 0;
 }
 
 .expense-desc {
-  font-weight: 600;
+  font-weight: 500;
   font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text);
-  letter-spacing: -0.2px;
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
 .expense-meta {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-secondary);
-  margin-top: 3px;
+  margin-top: 2px;
   line-height: 1.3;
-  /* Allow wrapping for long meta text */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .expense-amount {
-  font-weight: 700;
-  font-size: 17px;
+  font-weight: 600;
+  font-size: 16px;
   flex-shrink: 0;
   color: var(--text);
   /* Tabular numbers for alignment */
@@ -673,32 +671,37 @@ h1 {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 16px 0 12px;
-  margin-top: 0;
+  padding: 12px 16px;
+  margin: 0;
+  background: var(--white);
 }
 
 .date-separator:first-child {
-  padding-top: 8px;
+  padding-top: 12px;
 }
 
 .date-separator-text {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--text-secondary);
-  background: var(--bg);
-  padding: 6px 14px;
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  background: rgba(225, 229, 232, 0.9);
+  padding: 5px 12px;
+  border-radius: 7px;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.06);
+}
+
+[data-theme="dark"] .date-separator-text {
+  background: rgba(34, 45, 52, 0.9);
 }
 
 .date-separator-total {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--teal-green);
-  margin-left: 8px;
+  margin-left: 6px;
 }
 
-/* Expense list container - WhatsApp chat style */
+/* Expense list container */
 .expense-item-wrapper {
   position: relative;
   overflow: hidden;
@@ -1985,22 +1988,23 @@ h1 {
 /* Empty States */
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
+  padding: 60px 24px;
   color: var(--text-secondary);
-  animation: fadeIn 0.4s ease;
+  animation: pageFade 0.3s var(--ease-out);
+  background: var(--white);
+  margin: 0 -16px;
 }
 
 .empty-illustration {
-  font-size: 64px;
-  margin-bottom: 20px;
-  animation: float 3s ease-in-out infinite;
+  font-size: 56px;
+  margin-bottom: 16px;
+  opacity: 0.9;
 }
 
 .empty-icon {
-  font-size: 56px;
-  margin-bottom: 16px;
-  animation: bounce 2s ease infinite;
-  opacity: 0.8;
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.7;
 }
 
 @keyframes float {
@@ -2742,40 +2746,44 @@ h1 {
   font-weight: bold;
 }
 
-/* Filter Row */
+/* Filter Row - Segmented Control */
 .filter-row {
   display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 0;
+  margin-bottom: 10px;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 3px;
 }
 
 .filter-btn {
   flex: 1;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: none;
-  border-radius: var(--radius-sm);
-  background: var(--white);
+  border-radius: 8px;
+  background: transparent;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: var(--shadow-sm);
+  transition: all 0.2s var(--ease-out);
 }
 
 .filter-btn.active {
-  background: var(--primary);
-  color: white;
-  box-shadow: 0 2px 8px rgba(7, 94, 84, 0.3);
+  background: var(--white);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-/* Category Filter */
+/* Category Filter - Horizontal Scroll */
 .category-filter {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 4px 0;
-  margin-bottom: 8px;
+  padding: 4px 0 8px;
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
@@ -2785,29 +2793,27 @@ h1 {
 }
 
 .category-chip {
-  /* Minimum 44px touch target */
-  padding: 10px 16px;
-  min-height: 44px;
+  padding: 8px 14px;
+  min-height: 36px;
   border: none;
-  border-radius: 22px;
+  border-radius: 18px;
   background: var(--white);
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: var(--shadow-sm);
-  transition: all 0.15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  transition: all 0.15s var(--ease-out);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  flex-shrink: 0;
 }
 
 .category-chip.active {
-  background: var(--primary);
+  background: var(--teal-green);
   color: white;
-  box-shadow: 0 2px 8px rgba(7, 94, 84, 0.3);
 }
 
 .category-chip:not(.active):active {
-  background: var(--border);
   transform: scale(0.95);
 }
 
@@ -2998,37 +3004,33 @@ html {
 }
 
 /* Search Box */
+/* Search Box - WhatsApp Style */
 .search-box {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: var(--white);
-  /* Comfortable touch height */
-  padding: 12px 16px;
-  min-height: 48px;
-  border-radius: var(--radius-md);
+  gap: 10px;
+  background: var(--bg);
+  padding: 10px 14px;
+  min-height: 40px;
+  border-radius: 10px;
   margin-bottom: 12px;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.2s;
 }
 
 .search-box:focus-within {
-  box-shadow: 0 0 0 2px var(--primary);
+  background: var(--border);
 }
 
 .search-icon {
-  font-size: 16px;
+  font-size: 15px;
   opacity: 0.5;
 }
 
 .search-box input {
   flex: 1;
   border: none;
-  /* 16px prevents iOS zoom */
   font-size: 16px;
   background: transparent;
   color: var(--text);
-  /* Remove iOS styling */
   -webkit-appearance: none;
   appearance: none;
 }

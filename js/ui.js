@@ -64,12 +64,6 @@ const UI = {
           <span class="account-switch">Switch ›</span>
         </div>
         ` : ''}
-        <h1>Expenses</h1>
-        
-        <div class="search-box">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="expense-search" placeholder="Search expenses...">
-        </div>
         
         <div class="month-nav">
           <button id="prev-month">‹</button>
@@ -80,13 +74,13 @@ const UI = {
         <div class="summary-box">
           <div class="summary-stats">
             <div class="summary-main">
-              <div class="summary-label">This Month</div>
-              <div class="summary-amount" id="total-amount">${Settings.getCurrency()}0.00</div>
+              <div class="summary-label">Total Spent</div>
+              <div class="summary-amount" id="total-amount">${Settings.getCurrency()}0</div>
               <div class="summary-count" id="expense-count">0 expenses</div>
             </div>
             <div class="summary-today" id="today-stats">
               <div class="today-label">Today</div>
-              <div class="today-amount" id="today-amount">${Settings.getCurrency()}0.00</div>
+              <div class="today-amount" id="today-amount">${Settings.getCurrency()}0</div>
               <div class="today-trend" id="today-trend"></div>
             </div>
           </div>
@@ -96,28 +90,20 @@ const UI = {
           </div>
         </div>
         
-        <div class="filter-row">
-          <button class="filter-btn active" data-filter="month">This Month</button>
-          <button class="filter-btn" data-filter="all">All Time</button>
-          <button class="filter-btn" data-filter="custom">Custom</button>
-        </div>
-        
-        <div id="custom-date-range" class="custom-range hidden">
-          <input type="date" id="filter-from">
-          <span>to</span>
-          <input type="date" id="filter-to">
-          <button class="btn-small btn-primary" id="apply-filter">Apply</button>
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="expense-search" placeholder="Search expenses...">
         </div>
         
         <div id="category-filter" class="category-filter">
           <button class="category-chip active" data-category="all">All</button>
-          <button class="category-chip" data-category="🍔">🍔</button>
-          <button class="category-chip" data-category="☕">☕</button>
-          <button class="category-chip" data-category="🛒">🛒</button>
-          <button class="category-chip" data-category="🚗">🚗</button>
-          <button class="category-chip" data-category="🏠">🏠</button>
-          <button class="category-chip" data-category="🎬">🎬</button>
-          <button class="category-chip" data-category="💵">💵</button>
+          <button class="category-chip" data-category="🍔">🍔 Food</button>
+          <button class="category-chip" data-category="☕">☕ Coffee</button>
+          <button class="category-chip" data-category="🛒">🛒 Shop</button>
+          <button class="category-chip" data-category="🚗">🚗 Travel</button>
+          <button class="category-chip" data-category="🏠">🏠 Home</button>
+          <button class="category-chip" data-category="🎬">🎬 Fun</button>
+          <button class="category-chip" data-category="💵">💵 Other</button>
         </div>
       </div>
       
@@ -133,47 +119,6 @@ const UI = {
     
     // Setup pull-to-refresh
     this.setupPullToRefresh();
-    
-    // Filter buttons
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.onclick = () => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        
-        const filter = btn.dataset.filter;
-        const customRange = document.getElementById('custom-date-range');
-        const monthNav = document.querySelector('.month-nav');
-        
-        if (filter === 'custom') {
-          customRange.classList.remove('hidden');
-          monthNav.classList.add('hidden');
-        } else {
-          customRange.classList.add('hidden');
-          monthNav.classList.remove('hidden');
-          
-          if (filter === 'all') {
-            Expenses.loadAllExpenses();
-          } else {
-            Expenses.loadCurrentMonth();
-          }
-        }
-      };
-    });
-    
-    // Apply custom filter
-    document.getElementById('apply-filter').onclick = () => {
-      const from = document.getElementById('filter-from').value;
-      const to = document.getElementById('filter-to').value;
-      if (!from || !to) {
-        App.showError('Select both dates');
-        return;
-      }
-      if (from > to) {
-        App.showError('Start date must be before end date');
-        return;
-      }
-      Expenses.loadDateRange(from, to);
-    };
     
     // Search
     let searchTimeout;
