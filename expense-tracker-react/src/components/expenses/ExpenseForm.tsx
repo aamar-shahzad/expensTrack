@@ -300,45 +300,53 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       {/* Main Form Fields */}
       <div className="bg-[var(--white)] divide-y divide-[var(--border)]">
         {/* Description */}
-        <div className="flex items-center px-4 py-3 gap-3">
-          <span className="text-xl w-8 text-center">📝</span>
+        <div className="px-4 py-3">
+          <label className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1 block">
+            Description
+          </label>
           <input
             type="text"
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="What was this for?"
-            className="flex-1 bg-transparent border-none outline-none text-[16px] placeholder:text-[var(--text-secondary)]"
+            className="w-full bg-transparent border-none outline-none text-[16px] placeholder:text-[var(--text-secondary)]"
           />
         </div>
 
         {/* Date */}
-        <div className="flex items-center px-4 py-3 gap-3">
-          <span className="text-xl w-8 text-center">📅</span>
+        <div className="px-4 py-3">
+          <label className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1 block">
+            Date
+          </label>
           <input
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
-            className="flex-1 bg-transparent border-none outline-none text-[16px]"
+            className="w-full bg-transparent border-none outline-none text-[16px]"
           />
         </div>
 
         {/* Payer (shared mode only) */}
         {isSharedMode && people.length > 0 && (
-          <div className="flex items-center px-4 py-3 gap-3">
-            <span className="text-xl w-8 text-center">👤</span>
-            <select
-              value={payerId}
-              onChange={e => setPayerId(e.target.value)}
-              className="flex-1 bg-transparent border-none outline-none text-[16px] appearance-none"
-            >
-              <option value="" disabled>Who paid?</option>
-              {people.map(person => (
-                <option key={person.id} value={person.id}>
-                  {person.name}
-                </option>
-              ))}
-            </select>
-            <span className="text-[var(--text-secondary)]">▾</span>
+          <div className="px-4 py-3">
+            <label className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1 block">
+              Paid By
+            </label>
+            <div className="flex items-center">
+              <select
+                value={payerId}
+                onChange={e => setPayerId(e.target.value)}
+                className="flex-1 bg-transparent border-none outline-none text-[16px] appearance-none"
+              >
+                <option value="" disabled>Who paid?</option>
+                {people.map(person => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[var(--text-secondary)]">▾</span>
+            </div>
           </div>
         )}
       </div>
@@ -357,26 +365,30 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       {showMoreOptions && (
         <div className="bg-[var(--white)] divide-y divide-[var(--border)] animate-fadeIn">
           {/* Tags */}
-          <div className="flex items-center px-4 py-3 gap-3">
-            <span className="text-xl w-8 text-center">🏷️</span>
+          <div className="px-4 py-3">
+            <label className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1 block">
+              Tags
+            </label>
             <input
               type="text"
               value={tags}
               onChange={e => setTags(e.target.value)}
-              placeholder="Tags (e.g., work, vacation)"
-              className="flex-1 bg-transparent border-none outline-none text-[16px] placeholder:text-[var(--text-secondary)]"
+              placeholder="e.g., work, vacation"
+              className="w-full bg-transparent border-none outline-none text-[16px] placeholder:text-[var(--text-secondary)]"
             />
           </div>
 
           {/* Notes */}
-          <div className="flex items-start px-4 py-3 gap-3">
-            <span className="text-xl w-8 text-center mt-1">📋</span>
+          <div className="px-4 py-3">
+            <label className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1 block">
+              Notes
+            </label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              placeholder="Notes (optional)"
+              placeholder="Any additional details..."
               rows={3}
-              className="flex-1 bg-transparent border-none outline-none text-[16px] placeholder:text-[var(--text-secondary)] resize-none"
+              className="w-full bg-transparent border-none outline-none text-[16px] placeholder:text-[var(--text-secondary)] resize-none"
             />
           </div>
         </div>

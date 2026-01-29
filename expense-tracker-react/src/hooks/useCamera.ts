@@ -78,9 +78,14 @@ export function useCamera() {
 
   // Create thumbnail
   const createThumbnail = useCallback(async (blob: Blob): Promise<Blob> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
+      const objectUrl = URL.createObjectURL(blob);
+      
       img.onload = () => {
+        // Revoke the object URL after image loads
+        URL.revokeObjectURL(objectUrl);
+        
         const canvas = document.createElement('canvas');
         const maxSize = 200;
         let width = img.width;
@@ -102,11 +107,32 @@ export function useCamera() {
         canvas.height = height;
         
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
         
-        canvas.toBlob((thumb) => resolve(thumb!), 'image/jpeg', 0.7);
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (thumb) => {
+            if (thumb) {
+              resolve(thumb);
+            } else {
+              reject(new Error('Failed to create thumbnail'));
+            }
+          },
+          'image/jpeg',
+          0.7
+        );
       };
-      img.src = URL.createObjectURL(blob);
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Failed to load image'));
+      };
+      
+      img.src = objectUrl;
     });
   }, []);
 
@@ -211,9 +237,14 @@ export function useCamera() {
 
   // Save image to database
   const saveImage = useCallback(async (blob: Blob): Promise<string> => {
-    const thumbnail = await createThumbnail(blob);
-    const record = await db.addImage(blob, thumbnail);
-    return record.id;
+    try {
+      const thumbnail = await createThumbnail(blob);
+      const record = await db.addImage(blob, thumbnail);
+      return record.id;
+    } catch (error) {
+      console.error('Failed to save image:', error);
+      throw error;
+    }
   }, [createThumbnail]);
 
   return {
