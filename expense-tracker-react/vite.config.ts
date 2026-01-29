@@ -5,12 +5,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 export default defineConfig(() => {
-  // GitHub Pages: CI sets VITE_BASE_PATH=/repoName/; local dev uses /
-  const base = process.env.VITE_BASE_PATH || '/'
-
   return {
-    base,
-  plugins: [
+    // Base is set via --base CLI flag for GH Pages build (e.g. --base=/expensTrack/)
+    plugins: [
     react(),
     tailwindcss(),
     VitePWA({
@@ -24,15 +21,17 @@ export default defineConfig(() => {
         background_color: '#f0f2f5',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: base,
+        // Use '.' for start_url so it's relative to manifest location
+        start_url: '.',
         icons: [
           {
-            src: `${base}icons/icon-192.png`,
+            // Relative paths - resolved from manifest location
+            src: 'icons/icon-192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: `${base}icons/icon-512.png`,
+            src: 'icons/icon-512.png',
             sizes: '512x512',
             type: 'image/png'
           }
