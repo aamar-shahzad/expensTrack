@@ -575,24 +575,29 @@ h1 {
 .amount-input {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
+  justify-content: center;
+  gap: 4px;
+  padding: 24px 16px;
+  margin-bottom: 8px;
 }
 
 .currency-symbol {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 600;
   color: var(--primary);
 }
 
 .amount-input input {
   flex: 1;
-  font-size: 36px;
+  font-size: 42px;
   font-weight: 700;
   border: none;
   padding: 0;
   background: transparent;
   min-width: 0;
+  max-width: 200px;
+  text-align: left;
+  color: var(--text);
   -webkit-appearance: none;
   -moz-appearance: textfield;
 }
@@ -602,19 +607,28 @@ h1 {
 }
 
 .amount-input input::placeholder {
-  color: #ccc;
+  color: #d0d0d0;
 }
 
 .desc-input {
   width: 100%;
-  padding: 14px 0;
+  padding: 16px;
   border: none;
   border-top: 1px solid var(--border);
-  font-size: 16px;
+  font-size: 17px;
   background: transparent;
   color: var(--text);
   border-radius: 0;
   -webkit-appearance: none;
+}
+
+.desc-input:focus {
+  outline: none;
+  background: rgba(7, 94, 84, 0.02);
+}
+
+.desc-input::placeholder {
+  color: #999;
 }
 
 .desc-input:focus {
@@ -2394,9 +2408,18 @@ html {
   min-height: 56px;
 }
 
-/* Prevent zoom on input focus (iOS) */
-input, select, textarea {
-  font-size: 16px !important;
+/* Prevent zoom on input focus (iOS) - except amount input */
+input:not(.amount-input input):not(#expense-amount),
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Preserve large amount input */
+.amount-input input,
+#expense-amount {
+  font-size: 42px !important;
+  font-weight: 700;
 }
 
 /* Better scrolling on iOS */
