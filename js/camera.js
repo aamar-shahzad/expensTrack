@@ -264,19 +264,25 @@ const Camera = {
     const ocrStatus = document.getElementById('ocr-status');
     const amountInput = document.getElementById('expense-amount');
     
-    if (!ocrStatus || !amountInput) return;
+    if (!ocrStatus || !amountInput) {
+      console.log('OCR: Missing elements');
+      return;
+    }
     
     try {
+      console.log('OCR: Starting scan...');
       ocrStatus.textContent = '🔍 Scanning receipt...';
+      ocrStatus.style.color = '#667781';
       ocrStatus.classList.remove('hidden');
       
       // Create URL for the blob
       const imageUrl = URL.createObjectURL(blob);
       
-      // Run OCR
+      // Run OCR with Tesseract.js v5 API
       const result = await Tesseract.recognize(imageUrl, 'eng', {
         logger: m => {
-          if (m.status === 'recognizing text') {
+          console.log('OCR progress:', m.status, m.progress);
+          if (m.status === 'recognizing text' && m.progress) {
             const progress = Math.round(m.progress * 100);
             ocrStatus.textContent = `🔍 Scanning... ${progress}%`;
           }
@@ -285,9 +291,13 @@ const Camera = {
       
       URL.revokeObjectURL(imageUrl);
       
+      console.log('OCR: Raw text:', result.data.text);
+      
       // Extract amounts from text (look for currency patterns)
       const text = result.data.text;
       const amounts = this.extractAmounts(text);
+      
+      console.log('OCR: Found amounts:', amounts);
       
       if (amounts.length > 0) {
         // Use the largest amount (usually the total)
@@ -299,7 +309,7 @@ const Camera = {
           ocrStatus.textContent = `✓ Found: ${Settings.getCurrency()}${bestAmount.toFixed(2)}`;
           ocrStatus.style.color = '#25d366';
         } else {
-          ocrStatus.textContent = `Found ${Settings.getCurrency()}${bestAmount.toFixed(2)} (field not empty)`;
+          ocrStatus.textContent = `Found ${Settings.getCurrency()}${bestAmount.toFixed(2)} (field has value)`;
           ocrStatus.style.color = '#667781';
         }
       } else {
@@ -307,16 +317,16 @@ const Camera = {
         ocrStatus.style.color = '#667781';
       }
       
-      // Hide after 5 seconds
+      // Hide after 8 seconds (longer to see result)
       setTimeout(() => {
         ocrStatus.classList.add('hidden');
-      }, 5000);
+      }, 8000);
       
     } catch (error) {
       console.error('OCR failed:', error);
-      ocrStatus.textContent = 'Could not scan receipt';
+      ocrStatus.textContent = 'Scan failed - try again';
       ocrStatus.style.color = '#ff3b30';
-      setTimeout(() => ocrStatus.classList.add('hidden'), 3000);
+      setTimeout(() => ocrStatus.classList.add('hidden'), 5000);
     }
   },
 
@@ -324,25 +334,46 @@ const Camera = {
   extractAmounts(text) {
     const amounts = [];
     
-    // Patterns for common currency formats
+    // Normalize text - handle common OCR mistakes
+    const normalizedText = text
+      .replace(/[oO]/g, '0')  // Sometimes O is read as 0
+      .replace(/[lI]/g, '1')  // Sometimes l/I is read as 1
+      .replace(/\s+/g, ' ');
+    
+    // Patterns for common currency formats (order matters - more specific first)
     const patterns = [
-      /\$\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/g,  // $123.45 or $1,234.56
-      /(\d+(?:,\d{3})*(?:\.\d{2})?)\s*(?:USD|EUR|GBP)/gi,  // 123.45 USD
-      /(?:total|amount|sum|due|balance)[:\s]*\$?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/gi,  // Total: 123.45
-      /(\d+\.\d{2})/g,  // Any decimal number like 123.45
+      // Currency symbol patterns
+      /[\$€£¥₹]\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)/g,  // $123.45 or $1,234.56
+      /(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*[\$€£¥₹]/g,  // 123.45$
+      
+      // Keyword patterns (total, amount, due, etc.)
+      /(?:total|amount|sum|due|balance|subtotal|grand\s*total)[:\s]*[\$€£¥₹]?\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)/gi,
+      
+      // Currency code patterns
+      /(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:USD|EUR|GBP|INR)/gi,
+      
+      // Generic decimal patterns (most permissive - last)
+      /(\d{1,3}(?:,\d{3})*\.\d{2})/g,  // 1,234.56
+      /(\d+\.\d{2})/g,  // 123.45
     ];
     
     for (const pattern of patterns) {
       let match;
-      while ((match = pattern.exec(text)) !== null) {
+      // Reset lastIndex for global patterns
+      pattern.lastIndex = 0;
+      while ((match = pattern.exec(normalizedText)) !== null) {
         const numStr = match[1].replace(/,/g, '');
         const num = parseFloat(numStr);
-        if (num > 0 && num < 100000) {  // Reasonable range for expenses
+        // Reasonable range for expenses (more than $0.50, less than $100,000)
+        if (num >= 0.50 && num < 100000) {
           amounts.push(num);
         }
       }
     }
     
-    return [...new Set(amounts)];  // Remove duplicates
+    // Remove duplicates and sort by value (descending)
+    const unique = [...new Set(amounts)].sort((a, b) => b - a);
+    console.log('OCR: Unique amounts found:', unique);
+    return unique;
   }
 };

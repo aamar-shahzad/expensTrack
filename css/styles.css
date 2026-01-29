@@ -1989,5 +1989,16 @@ html {
   margin-top: 6px;
 }
 
+/* OCR Status */
+#ocr-status {
+  text-align: center;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
 /* Hidden */
 .hidden { display: none !important; }
