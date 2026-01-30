@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Tesseract from 'tesseract.js';
 import jsQR from 'jsqr';
 import * as db from '@/db/operations';
@@ -17,9 +17,27 @@ export function useCamera() {
   const [isActive, setIsActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
   // Start camera
   const startCamera = useCallback(async (video: HTMLVideoElement) => {
+    // Stop any existing stream first to prevent resource leaks
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    
+    setError(null);
+    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -37,8 +55,19 @@ export function useCamera() {
       setIsActive(true);
       
       return true;
-    } catch (error) {
-      console.error('Camera error:', error);
+    } catch (err) {
+      console.error('Camera error:', err);
+      if (err instanceof Error) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setError('Camera permission denied');
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          setError('No camera found');
+        } else {
+          setError(err.message || 'Failed to access camera');
+        }
+      } else {
+        setError('Failed to access camera');
+      }
       return false;
     }
   }, []);
@@ -165,29 +194,45 @@ export function useCamera() {
       for (const pattern of amountPatterns) {
         const match = text.match(pattern);
         if (match) {
-          amount = parseFloat(match[1].replace(',', ''));
+          // Use global regex to replace ALL commas (e.g., $1,234,567.89)
+          amount = parseFloat(match[1].replace(/,/g, ''));
           break;
         }
       }
 
       // Extract date
-      const datePatterns = [
-        /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/,
-        /(\w{3,9})\s+(\d{1,2}),?\s+(\d{4})/i
-      ];
-
       let date: string | null = null;
-      for (const pattern of datePatterns) {
-        const match = text.match(pattern);
-        if (match) {
+      
+      // Pattern 1: MM/DD/YY or MM/DD/YYYY or MM-DD-YY or MM-DD-YYYY
+      const numericDateMatch = text.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
+      if (numericDateMatch) {
+        const [, part1, part2, part3] = numericDateMatch;
+        let year = parseInt(part3, 10);
+        const month = parseInt(part1, 10);
+        const day = parseInt(part2, 10);
+        
+        // Handle 2-digit years
+        if (year < 100) {
+          year = year >= 50 ? 1900 + year : 2000 + year;
+        }
+        
+        // Validate date parts
+        if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+          date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+      }
+      
+      // Pattern 2: Month DD, YYYY (e.g., "January 15, 2024")
+      if (!date) {
+        const textDateMatch = text.match(/(\w{3,9})\s+(\d{1,2}),?\s+(\d{4})/i);
+        if (textDateMatch) {
           try {
-            const parsed = new Date(match[0]);
+            const parsed = new Date(textDateMatch[0]);
             if (!isNaN(parsed.getTime())) {
               date = parsed.toISOString().split('T')[0];
-              break;
             }
           } catch {
-            // Continue to next pattern
+            // Ignore parsing errors
           }
         }
       }
@@ -218,9 +263,14 @@ export function useCamera() {
   const scanQRCode = useCallback((): string | null => {
     if (!videoRef.current) return null;
 
-    const canvas = document.createElement('canvas');
     const video = videoRef.current;
     
+    // Validate video dimensions - video may not be fully loaded yet
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      return null;
+    }
+    
+    const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
@@ -251,6 +301,7 @@ export function useCamera() {
     isActive,
     isProcessing,
     ocrProgress,
+    error,
     startCamera,
     stopCamera,
     captureImage,
