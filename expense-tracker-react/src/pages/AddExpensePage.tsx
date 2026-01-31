@@ -4,15 +4,13 @@ import { ExpenseForm } from '@/components/expenses';
 import { LoadingSpinner } from '@/components/ui';
 import type { Expense } from '@/types';
 import { useExpenseStore } from '@/stores/expenseStore';
-import { useSyncStore } from '@/stores/syncStore';
 import * as db from '@/db/operations';
 
 export function AddExpensePage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const allExpenses = useExpenseStore(s => s.allExpenses);
-  const isSynced = useSyncStore(s => s.isSynced);
-  
+
   // Prefer store (Yjs source of truth); fallback to DB for legacy or before sync
   const expenseFromStore = id ? allExpenses.find(e => e.id === id) ?? undefined : undefined;
   const [expenseFromDb, setExpenseFromDb] = useState<Expense | undefined>(undefined);
