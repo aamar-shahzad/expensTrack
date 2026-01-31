@@ -135,7 +135,6 @@ export function PeoplePage() {
           isSharedMode={isSharedMode}
           selfPersonId={selfPersonId}
           onSetAsMe={isSharedMode ? handleSetAsMe : undefined}
-          canManagePeople={canManage}
         />
       </div>
 
