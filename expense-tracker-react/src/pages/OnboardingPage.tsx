@@ -7,7 +7,7 @@ import { useAccountStore } from '@/stores/accountStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSyncStore } from '@/stores/syncStore';
-import { useSync } from '@/hooks/useSync';
+import { useYjs } from '@/sync';
 import { CURRENCIES } from '@/types';
 import { haptic } from '@/lib/utils';
 import type { Person } from '@/types';
@@ -45,11 +45,9 @@ export function OnboardingPage() {
   
   // Sync store
   const deviceId = useSyncStore(s => s.deviceId);
-  const syncProgress = useSyncStore(s => s.syncProgress);
-  const syncStatus = useSyncStore(s => s.syncStatus);
   
-  // Sync hook
-  const { connectAndSync } = useSync();
+  // Yjs hook
+  const { connect, setAwareness, isConnected, isSynced } = useYjs();
   
   // Form state
   const [step, setStep] = useState<Step>('welcome');
@@ -217,8 +215,18 @@ export function OnboardingPage() {
       );
       await setCurrentAccount(account.id);
       
-      // Connect and sync
-      await connectAndSync(data.deviceId, data.accountId);
+      // Connect to Yjs room (sync happens automatically)
+      const roomName = `expense-tracker-${data.accountId}`;
+      connect(roomName);
+      
+      // Set awareness
+      setAwareness({
+        id: deviceId,
+        name: 'New User'
+      });
+      
+      // Wait for sync to happen
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
       // Load synced people
       await loadPeople();
@@ -575,17 +583,14 @@ export function OnboardingPage() {
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
           <div className="w-16 h-16 border-4 border-[var(--teal-green)] border-t-transparent rounded-full animate-spin mb-6" />
           <h1 className="text-2xl font-bold mb-2">
-            {syncProgress < 30 ? 'Connecting...' : 'Syncing...'}
+            {isConnected ? 'Syncing...' : 'Connecting...'}
           </h1>
           <p className="text-[var(--text-secondary)] mb-4">
-            {syncStatus || `Joining ${joinAccountName}`}
+            {`Joining ${joinAccountName}`}
           </p>
-          {syncProgress > 0 && (
-            <div className="w-full max-w-xs bg-[var(--bg)] rounded-full h-2 overflow-hidden">
-              <div 
-                className="h-full bg-[var(--teal-green)] transition-all duration-300"
-                style={{ width: `${syncProgress}%` }}
-              />
+          {isConnected && (
+            <div className="text-sm text-[var(--teal-green)]">
+              Connected! Syncing data...
             </div>
           )}
         </div>

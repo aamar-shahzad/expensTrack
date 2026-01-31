@@ -1,39 +1,23 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-
-type PeerStatus = 'online' | 'offline' | 'connecting';
-
-interface SyncHistoryEntry {
-  timestamp: string;
-  itemsSynced: number;
-}
+import type { AwarenessUser } from '@/sync/YjsProvider';
 
 interface SyncState {
   deviceId: string;
   isConnected: boolean;
-  isConnecting: boolean;
-  connectedPeers: string[];
-  savedConnections: string[];
-  lastSyncTime: string | null;
-  syncProgress: number;
-  syncStatus: string;
-  peerStatuses: Record<string, PeerStatus>;
-  syncHistory: Record<string, SyncHistoryEntry[]>;
+  isSynced: boolean; // IndexedDB sync status
+  connectedPeers: AwarenessUser[];
+  roomName: string | null;
   
   // Actions
   setDeviceId: (id: string) => void;
   setConnected: (connected: boolean) => void;
-  setConnecting: (connecting: boolean) => void;
+  setSynced: (synced: boolean) => void;
+  setConnectedPeers: (peers: AwarenessUser[]) => void;
   addConnectedPeer: (peerId: string) => void;
   removeConnectedPeer: (peerId: string) => void;
-  addSavedConnection: (peerId: string) => void;
-  removeSavedConnection: (peerId: string) => void;
-  setLastSyncTime: () => void;
+  setRoomName: (roomName: string | null) => void;
   getLastSyncTimeFormatted: () => string;
-  setSyncProgress: (progress: number, status: string) => void;
-  setPeerStatus: (peerId: string, status: PeerStatus) => void;
-  addSyncHistoryEntry: (peerId: string, itemsSynced: number) => void;
-  getLastSyncForPeer: (peerId: string) => string;
   resetSync: () => void;
 }
 
@@ -53,14 +37,9 @@ export const useSyncStore = create<SyncState>()(
       // Initialize device ID immediately - never null
       deviceId: generateShortId(),
       isConnected: false,
-      isConnecting: false,
+      isSynced: false,
       connectedPeers: [],
-      savedConnections: [],
-      lastSyncTime: null,
-      syncProgress: 0,
-      syncStatus: '',
-      peerStatuses: {},
-      syncHistory: {},
+      roomName: null,
 
       setDeviceId: (id) => {
         set({ deviceId: id });
@@ -70,124 +49,61 @@ export const useSyncStore = create<SyncState>()(
         set({ isConnected });
       },
 
-      setConnecting: (isConnecting) => {
-        set({ isConnecting });
+      setSynced: (isSynced) => {
+        set({ isSynced });
+      },
+
+      setConnectedPeers: (peers) => {
+        set({ connectedPeers: peers });
       },
 
       addConnectedPeer: (peerId) => {
-        set(state => ({
-          connectedPeers: [...new Set([...state.connectedPeers, peerId])],
-          peerStatuses: { ...state.peerStatuses, [peerId]: 'online' as PeerStatus }
-        }));
-      },
-
-      removeConnectedPeer: (peerId) => {
-        set(state => ({
-          connectedPeers: state.connectedPeers.filter(p => p !== peerId),
-          peerStatuses: { ...state.peerStatuses, [peerId]: 'offline' as PeerStatus }
-        }));
-      },
-
-      addSavedConnection: (peerId) => {
-        set(state => ({
-          savedConnections: [...new Set([...state.savedConnections, peerId])]
-        }));
-      },
-
-      removeSavedConnection: (peerId) => {
-        set(state => ({
-          savedConnections: state.savedConnections.filter(p => p !== peerId)
-        }));
-      },
-
-      setLastSyncTime: () => {
-        set({ lastSyncTime: new Date().toISOString() });
-      },
-
-      getLastSyncTimeFormatted: () => {
-        const { lastSyncTime } = get();
-        if (!lastSyncTime) return 'Never';
-        
-        const date = new Date(lastSyncTime);
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-        
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-        return date.toLocaleDateString();
-      },
-
-      setSyncProgress: (progress, status) => {
-        set({ syncProgress: progress, syncStatus: status });
-      },
-
-      setPeerStatus: (peerId, status) => {
-        set(state => ({
-          peerStatuses: { ...state.peerStatuses, [peerId]: status }
-        }));
-      },
-
-      addSyncHistoryEntry: (peerId, itemsSynced) => {
         set(state => {
-          const history = state.syncHistory[peerId] || [];
-          // Keep last 10 entries per peer
-          const newHistory = [
-            { timestamp: new Date().toISOString(), itemsSynced },
-            ...history.slice(0, 9)
-          ];
+          // Check if peer already exists
+          if (state.connectedPeers.some(p => p.id === peerId)) {
+            return state;
+          }
           return {
-            syncHistory: { ...state.syncHistory, [peerId]: newHistory }
+            connectedPeers: [...state.connectedPeers, { id: peerId, name: 'Unknown' }]
           };
         });
       },
 
-      getLastSyncForPeer: (peerId) => {
-        const { syncHistory } = get();
-        const history = syncHistory[peerId];
-        if (!history || history.length === 0) return 'Never';
-        
-        const date = new Date(history[0].timestamp);
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-        
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-        return date.toLocaleDateString();
+      removeConnectedPeer: (peerId) => {
+        set(state => ({
+          connectedPeers: state.connectedPeers.filter(p => p.id !== peerId)
+        }));
+      },
+
+      setRoomName: (roomName) => {
+        set({ roomName });
+      },
+
+      getLastSyncTimeFormatted: () => {
+        // With Yjs, sync is continuous - just return connection status
+        const { isConnected, isSynced } = get();
+        if (isConnected) return 'Live';
+        if (isSynced) return 'Offline (synced)';
+        return 'Not synced';
       },
 
       resetSync: () => {
         set({
           isConnected: false,
-          isConnecting: false,
+          isSynced: false,
           connectedPeers: [],
-          syncProgress: 0,
-          syncStatus: '',
-          peerStatuses: {}
+          roomName: null
         });
       }
     }),
     {
       name: 'expense-tracker-sync',
       partialize: (state) => ({
-        // Device ID is now always a string, preserve it
-        deviceId: state.deviceId,
-        savedConnections: state.savedConnections,
-        lastSyncTime: state.lastSyncTime,
-        syncHistory: state.syncHistory
+        deviceId: state.deviceId
       })
     }
   )
 );
 
-// Export the generateShortId function for use in useSync
+// Export the generateShortId function
 export { generateShortId };

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Person } from '@/types';
-import * as db from '@/db/operations';
 
 interface PeopleState {
   people: Person[];
@@ -9,11 +8,11 @@ interface PeopleState {
   lastPayerId: string | null;
   
   // Actions
-  loadPeople: () => Promise<void>;
-  addPerson: (name: string, claimedBy?: string) => Promise<Person>;
-  updatePerson: (id: string, name: string) => Promise<void>;
-  deletePerson: (id: string) => Promise<void>;
-  claimPerson: (id: string, deviceId: string) => Promise<void>;
+  setPeople: (people: Person[]) => void;
+  setLoading: (loading: boolean) => void;
+  addPersonToStore: (person: Person) => void;
+  updatePersonInStore: (id: string, updates: Partial<Person>) => void;
+  deletePersonFromStore: (id: string) => void;
   setLastPayer: (id: string) => void;
   getPersonName: (id: string) => string;
   isPersonClaimed: (id: string, currentDeviceId: string) => boolean;
@@ -26,57 +25,36 @@ export const usePeopleStore = create<PeopleState>()(
       loading: false,
       lastPayerId: null,
 
-      loadPeople: async () => {
-        set({ loading: true });
-        try {
-          const people = await db.getAllPeople();
-          set({ people, loading: false });
-        } catch (error) {
-          console.error('Failed to load people:', error);
-          set({ loading: false });
-        }
+      // Set people from Yjs observer
+      setPeople: (people) => {
+        set({ people, loading: false });
       },
 
-      addPerson: async (name, claimedBy) => {
-        const person = await db.addPerson({ name, claimedBy });
+      setLoading: (loading) => {
+        set({ loading });
+      },
+
+      // Add person to local store (called after Yjs add)
+      addPersonToStore: (person) => {
         set(state => ({
           people: [...state.people, person]
         }));
-        return person;
       },
 
-      updatePerson: async (id, name) => {
-        await db.updatePerson(id, { name });
+      // Update person in local store (called after Yjs update)
+      updatePersonInStore: (id, updates) => {
         set(state => ({
           people: state.people.map(p => 
-            p.id === id ? { ...p, name, updatedAt: Date.now() } : p
+            p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p
           )
         }));
       },
 
-      deletePerson: async (id) => {
-        // Check if person is referenced before deleting
-        const { referenced, expenseCount, paymentCount } = await db.isPersonReferenced(id);
-        if (referenced) {
-          throw new Error(
-            `Cannot delete: This person is referenced by ${expenseCount} expense(s) and ${paymentCount} payment(s). ` +
-            `Please reassign or delete those first.`
-          );
-        }
-        
-        await db.deletePerson(id);
+      // Delete person from local store (called after Yjs delete)
+      deletePersonFromStore: (id) => {
         set(state => ({
           people: state.people.filter(p => p.id !== id),
           lastPayerId: state.lastPayerId === id ? null : state.lastPayerId
-        }));
-      },
-
-      claimPerson: async (id, deviceId) => {
-        await db.claimPerson(id, deviceId);
-        set(state => ({
-          people: state.people.map(p => 
-            p.id === id ? { ...p, claimedBy: deviceId, updatedAt: Date.now() } : p
-          )
         }));
       },
 

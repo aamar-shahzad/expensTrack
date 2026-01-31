@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { Expense } from '@/types';
-import { getCategoryIcon } from '@/types';
-import * as db from '@/db/operations';
+import { getCategoryIcon, generateId, getYearMonth } from '@/types';
 
 interface ExpenseState {
   expenses: Expense[];
@@ -14,12 +13,9 @@ interface ExpenseState {
   newExpenseId: string | null;
   
   // Actions
-  loadExpenses: () => Promise<void>;
-  loadAllExpenses: () => Promise<void>;
-  addExpense: (expense: Omit<Expense, 'id' | 'syncId' | 'syncStatus' | 'yearMonth' | 'createdAt'>) => Promise<Expense>;
-  updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
-  deleteExpense: (id: string) => Promise<void>;
-  duplicateExpense: (id: string) => Promise<Expense | null>;
+  setExpenses: (expenses: Expense[]) => void;
+  setAllExpenses: (expenses: Expense[]) => void;
+  setLoading: (loading: boolean) => void;
   setMonth: (month: number, year: number) => void;
   navigateMonth: (direction: number) => void;
   setCategoryFilter: (category: string) => void;
@@ -28,6 +24,12 @@ interface ExpenseState {
   getFilteredExpenses: () => Expense[];
   getTotalForMonth: () => number;
   getTodayTotal: () => number;
+  getExpensesByMonth: (month: number, year: number) => Expense[];
+  
+  // Legacy methods that now work with Yjs (called from useYjsSync)
+  addExpenseToStore: (expense: Expense) => void;
+  updateExpenseInStore: (id: string, updates: Partial<Expense>) => void;
+  deleteExpenseFromStore: (id: string) => void;
 }
 
 export const useExpenseStore = create<ExpenseState>((set, get) => ({
@@ -40,41 +42,31 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   searchQuery: '',
   newExpenseId: null,
 
-  loadExpenses: async () => {
-    set({ loading: true });
-    try {
-      const { currentMonth, currentYear } = get();
-      const expenses = await db.getExpensesByMonth(currentMonth, currentYear);
-      set({ expenses, loading: false });
-    } catch (error) {
-      console.error('Failed to load expenses:', error);
-      set({ loading: false });
-    }
+  // Set expenses from Yjs observer
+  setExpenses: (expenses) => {
+    set({ expenses });
   },
 
-  loadAllExpenses: async () => {
-    set({ loading: true });
-    try {
-      const allExpenses = await db.getAllExpenses();
-      set({ allExpenses, loading: false });
-    } catch (error) {
-      console.error('Failed to load all expenses:', error);
-      set({ loading: false });
-    }
+  // Set all expenses from Yjs observer
+  setAllExpenses: (allExpenses) => {
+    set({ allExpenses, loading: false });
   },
 
-  addExpense: async (expense) => {
-    const saved = await db.addExpense(expense);
+  setLoading: (loading) => {
+    set({ loading });
+  },
+
+  // Add expense to local store (called after Yjs add)
+  addExpenseToStore: (expense) => {
     set(state => ({
-      expenses: [saved, ...state.expenses],
-      allExpenses: [saved, ...state.allExpenses],
-      newExpenseId: saved.id
+      expenses: [expense, ...state.expenses],
+      allExpenses: [expense, ...state.allExpenses],
+      newExpenseId: expense.id
     }));
-    return saved;
   },
 
-  updateExpense: async (id, updates) => {
-    await db.updateExpense(id, updates);
+  // Update expense in local store (called after Yjs update)
+  updateExpenseInStore: (id, updates) => {
     const updatedExpense = { ...updates, updatedAt: Date.now() };
     set(state => ({
       expenses: state.expenses.map(e => 
@@ -86,35 +78,23 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     }));
   },
 
-  deleteExpense: async (id) => {
-    await db.deleteExpense(id);
+  // Delete expense from local store (called after Yjs delete)
+  deleteExpenseFromStore: (id) => {
     set(state => ({
       expenses: state.expenses.filter(e => e.id !== id),
       allExpenses: state.allExpenses.filter(e => e.id !== id)
     }));
   },
 
-  duplicateExpense: async (id) => {
-    const expense = get().expenses.find(e => e.id === id) || get().allExpenses.find(e => e.id === id);
-    if (!expense) return null;
-    
-    const { id: _, syncId: __, syncStatus: ___, createdAt: ____, ...rest } = expense;
-    const newExpense = await db.addExpense({
-      ...rest,
-      date: new Date().toISOString().split('T')[0]
-    });
-    
-    set(state => ({
-      expenses: [newExpense, ...state.expenses],
-      allExpenses: [newExpense, ...state.allExpenses]
-    }));
-    
-    return newExpense;
-  },
-
   setMonth: (month, year) => {
     set({ currentMonth: month, currentYear: year });
-    get().loadExpenses();
+    // Filter expenses for the new month from allExpenses
+    const yearMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
+    const { allExpenses } = get();
+    const monthExpenses = allExpenses
+      .filter(e => e.yearMonth === yearMonth)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    set({ expenses: monthExpenses });
   },
 
   navigateMonth: (direction) => {
@@ -166,6 +146,14 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     }
     
     return filtered;
+  },
+
+  getExpensesByMonth: (month, year) => {
+    const yearMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
+    const { allExpenses } = get();
+    return allExpenses
+      .filter(e => e.yearMonth === yearMonth)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   },
 
   getTotalForMonth: () => {

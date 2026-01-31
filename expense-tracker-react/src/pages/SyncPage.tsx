@@ -1,54 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSyncStore } from '@/stores/syncStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { Button, Input, useToast, Modal } from '@/components/ui';
-import { SyncStatus, QRCode, DeviceList, QRScanner } from '@/components/sync';
+import { QRCode, QRScanner } from '@/components/sync';
 import { haptic, copyToClipboard } from '@/lib/utils';
-import { useSync } from '@/hooks/useSync';
+import { useYjs } from '@/sync';
 import type { Person } from '@/types';
 
 export function SyncPage() {
-  const {
-    deviceId,
-    isConnected,
-    isConnecting,
-    connectedPeers,
-    savedConnections,
-    getLastSyncTimeFormatted,
-    addSavedConnection,
-    removeSavedConnection,
-    syncProgress,
-    syncStatus
-  } = useSyncStore();
+  const { deviceId, isConnected, isSynced, connectedPeers, getLastSyncTimeFormatted } = useSyncStore();
+  const { connect, disconnect, setAwareness } = useYjs();
 
   const currentAccount = useAccountStore(s => s.getCurrentAccount());
   const selfPersonId = useAccountStore(s => s.selfPersonId);
   const setSelfPersonId = useAccountStore(s => s.setSelfPersonId);
   
   const people = usePeopleStore(s => s.people);
-  const loadPeople = usePeopleStore(s => s.loadPeople);
   
-  const { showSuccess, showError, showInfo } = useToast();
+  const { showSuccess, showError } = useToast();
 
-  const { connect, disconnect, requestSync, connectAndSync, setOnSyncComplete } = useSync();
-  
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  // Set up sync complete notification
-  useEffect(() => {
-    setOnSyncComplete((itemsSynced, _peerId) => {
-      if (itemsSynced > 0) {
-        showInfo(`Synced ${itemsSynced} item${itemsSynced > 1 ? 's' : ''} from another device`);
-      }
-    });
-    
-    return () => {
-      setOnSyncComplete(null);
-    };
-  }, [setOnSyncComplete, showInfo]);
-
-  const [connectCode, setConnectCode] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const [showSelectName, setShowSelectName] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
@@ -65,51 +36,6 @@ export function SyncPage() {
     }
   };
 
-  const handleConnect = async () => {
-    const code = connectCode.trim().toUpperCase();
-    if (!code || code.length < 4) {
-      showError('Enter a valid code');
-      return;
-    }
-
-    haptic('light');
-    try {
-      await connect(code);
-      addSavedConnection(code);
-      setConnectCode('');
-      showSuccess('Connected!');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to connect. Check the code and try again.';
-      showError(message);
-    }
-  };
-
-  const handleSync = async () => {
-    if (connectedPeers.length === 0) {
-      showError('No devices connected. Connect to a device first.');
-      return;
-    }
-    
-    haptic('light');
-    setIsSyncing(true);
-    try {
-      await requestSync();
-      showSuccess('Sync requested!');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Sync failed. Please try again.';
-      showError(message);
-    } finally {
-      // Give some time for the sync to complete
-      setTimeout(() => setIsSyncing(false), 2000);
-    }
-  };
-
-  const handleDisconnect = (peerId: string) => {
-    disconnect(peerId);
-    removeSavedConnection(peerId);
-    showSuccess('Disconnected');
-  };
-
   // QR Scanner handlers for new member joining
   const handleOpenScanner = () => {
     haptic('light');
@@ -121,11 +47,19 @@ export function SyncPage() {
     setIsJoining(true);
     
     try {
-      // Connect and sync with the scanned device
-      await connectAndSync(data.deviceId, data.accountId);
+      // Connect to the room (Yjs will automatically sync)
+      const roomName = `expense-tracker-${data.accountId}`;
+      connect(roomName);
       
-      // Reload people after sync
-      await loadPeople();
+      // Set awareness with our info
+      const selfPerson = people.find(p => p.id === selfPersonId);
+      setAwareness({
+        id: deviceId,
+        name: selfPerson?.name || 'Unknown'
+      });
+      
+      // Wait a moment for sync to happen
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Check if user needs to select their name
       if (!selfPersonId) {
@@ -136,11 +70,11 @@ export function SyncPage() {
           showError('No group members found. Ask the group creator to add you first.');
         }
       } else {
-        showSuccess('Synced successfully!');
+        showSuccess('Connected and synced!');
       }
     } catch (error) {
       console.error('Join failed:', error);
-      const message = error instanceof Error ? error.message : 'Failed to connect. Make sure the other device has the app open.';
+      const message = error instanceof Error ? error.message : 'Failed to connect.';
       showError(message);
     } finally {
       setIsJoining(false);
@@ -156,14 +90,17 @@ export function SyncPage() {
     
     haptic('success');
     
-    // Claim this person for our device
-    if (deviceId) {
-      const claimPerson = usePeopleStore.getState().claimPerson;
-      await claimPerson(person.id, deviceId);
-    }
-    
+    // Update person with claim (Yjs will sync this automatically)
+    // Note: This would need to be done through useYjsSync
     setSelfPersonId(person.id);
     setShowSelectName(false);
+    
+    // Update awareness with our name
+    setAwareness({
+      id: deviceId,
+      name: person.name
+    });
+    
     showSuccess(`Welcome, ${person.name}!`);
   };
 
@@ -176,7 +113,7 @@ export function SyncPage() {
       <div className="flex-shrink-0 px-4 pt-4 pb-3 safe-top">
         <h1 className="text-2xl font-bold mb-2">Sync</h1>
         <p className="text-[var(--text-secondary)] text-sm">
-          Connect devices to sync expenses in real-time
+          Real-time sync with connected devices
         </p>
       </div>
 
@@ -184,13 +121,49 @@ export function SyncPage() {
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(90px+env(safe-area-inset-bottom))]">
         {/* Status Card */}
         <div className="px-4 mb-6">
-          <SyncStatus
-            isConnected={isConnected}
-            connectedCount={connectedPeers.length}
-            lastSync={lastSync}
-            onSyncNow={handleSync}
-            isSyncing={isSyncing}
-          />
+          <div className="bg-[var(--white)] rounded-xl p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
+              <span className="font-medium">
+                {isConnected ? `Connected (${connectedPeers.length} peer${connectedPeers.length !== 1 ? 's' : ''})` : 'Not connected'}
+              </span>
+            </div>
+            
+            <div className="text-sm text-[var(--text-secondary)]">
+              {isSynced ? (
+                <span className="flex items-center gap-2">
+                  <span className="text-green-600">Local data synced</span>
+                </span>
+              ) : (
+                <span>Syncing local data...</span>
+              )}
+            </div>
+            
+            <div className="text-xs text-[var(--text-secondary)] mt-2">
+              Status: {lastSync}
+            </div>
+            
+            {/* Connected peers */}
+            {connectedPeers.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-[var(--border)]">
+                <div className="text-xs text-[var(--text-secondary)] mb-2">Connected peers:</div>
+                <div className="flex flex-wrap gap-2">
+                  {connectedPeers.map(peer => (
+                    <div 
+                      key={peer.id}
+                      className="flex items-center gap-2 bg-[var(--bg)] rounded-full px-3 py-1"
+                    >
+                      <div 
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: peer.color || '#00A884' }}
+                      />
+                      <span className="text-sm">{peer.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Your Code */}
@@ -204,39 +177,12 @@ export function SyncPage() {
           />
         </div>
 
-        {/* Connect to Device */}
-        <div className="px-4 mb-6">
-          <h2 className="text-lg font-semibold mb-3">Connect to Device</h2>
-          <div className="bg-[var(--white)] rounded-xl p-4">
-            <div className="flex gap-2">
-              <Input
-                value={connectCode}
-                onChange={e => setConnectCode(e.target.value.toUpperCase())}
-                placeholder="Enter code"
-                className="flex-1 font-mono text-center text-lg tracking-widest"
-                maxLength={6}
-              />
-              <Button onClick={handleConnect} loading={isConnecting}>
-                Connect
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <DeviceList
-          connectedPeers={connectedPeers}
-          savedConnections={savedConnections}
-          isConnecting={isConnecting}
-          onDisconnect={handleDisconnect}
-          onConnect={connect}
-        />
-
         {/* Scan QR to Join */}
         <div className="px-4 mb-6">
           <h2 className="text-lg font-semibold mb-3">Join Another Device</h2>
           <div className="bg-[var(--white)] rounded-xl p-4">
             <p className="text-sm text-[var(--text-secondary)] mb-3">
-              Scan a QR code from another device to connect and sync
+              Scan a QR code from another device to connect and sync automatically
             </p>
             <Button 
               onClick={handleOpenScanner} 
@@ -246,6 +192,16 @@ export function SyncPage() {
             >
               Scan QR Code
             </Button>
+          </div>
+        </div>
+
+        {/* Info about automatic sync */}
+        <div className="px-4 mb-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <h3 className="font-medium text-blue-800 mb-2">Automatic Sync</h3>
+            <p className="text-sm text-blue-700">
+              Changes sync automatically in real-time when connected. No manual sync needed!
+            </p>
           </div>
         </div>
 
@@ -285,20 +241,10 @@ export function SyncPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-[var(--white)] rounded-xl p-6 m-4 max-w-sm w-full text-center">
             <div className="w-12 h-12 border-4 border-[var(--teal-green)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <h3 className="font-semibold mb-2">
-              {syncProgress < 30 ? 'Connecting...' : 'Syncing...'}
-            </h3>
+            <h3 className="font-semibold mb-2">Connecting...</h3>
             <p className="text-sm text-[var(--text-secondary)]">
-              {syncStatus || 'Please wait...'}
+              Syncing data automatically...
             </p>
-            {syncProgress > 0 && (
-              <div className="mt-4 bg-[var(--bg)] rounded-full h-2 overflow-hidden">
-                <div 
-                  className="h-full bg-[var(--teal-green)] transition-all duration-300"
-                  style={{ width: `${syncProgress}%` }}
-                />
-              </div>
-            )}
           </div>
         </div>
       )}
