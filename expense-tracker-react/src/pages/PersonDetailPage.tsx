@@ -9,6 +9,7 @@ import { useSyncStore } from '@/stores/syncStore';
 import { Button, useToast } from '@/components/ui';
 import { Modal } from '@/components/ui/Modal';
 import { computeBalances } from '@/lib/settlements';
+import { canManagePeople } from '@/lib/policies';
 import { formatDate } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +27,8 @@ export function PersonDetailPage() {
   const setSelfPersonId = useAccountStore(s => s.setSelfPersonId);
   const deviceId = useSyncStore(s => s.deviceId);
   const formatAmount = useSettingsStore(s => s.formatAmount);
+  const currentAccount = useAccountStore(s => s.getCurrentAccount());
+  const canManage = canManagePeople(currentAccount, deviceId);
 
   const person = id ? people.find(p => p.id === id) : null;
 
@@ -229,13 +232,20 @@ export function PersonDetailPage() {
               This is me
             </Button>
           )}
-          <button
-            type="button"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="w-full py-3 bg-[var(--danger)]/10 text-[var(--danger)] rounded-xl font-medium active:bg-[var(--danger)]/20"
-          >
-            Delete person
-          </button>
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full py-3 bg-[var(--danger)]/10 text-[var(--danger)] rounded-xl font-medium active:bg-[var(--danger)]/20"
+            >
+              Delete person
+            </button>
+          )}
+          {!canManage && isSharedMode && (
+            <p className="text-[13px] text-[var(--text-secondary)] text-center py-2">
+              Only the group creator can remove people.
+            </p>
+          )}
         </div>
       </div>
 

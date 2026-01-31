@@ -6,6 +6,7 @@ import { useSyncStore } from '@/stores/syncStore';
 import { Button, Input, Sheet, useToast } from '@/components/ui';
 import { PeopleList } from '@/components/people';
 import { haptic } from '@/lib/utils';
+import { canManagePeople } from '@/lib/policies';
 import type { Person } from '@/types';
 
 export function PeoplePage() {
@@ -15,6 +16,8 @@ export function PeoplePage() {
   const selfPersonId = useAccountStore(s => s.selfPersonId);
   const setSelfPersonId = useAccountStore(s => s.setSelfPersonId);
   const deviceId = useSyncStore(s => s.deviceId);
+  const currentAccount = useAccountStore(s => s.getCurrentAccount());
+  const canManage = canManagePeople(currentAccount, deviceId);
   const { showSuccess, showError } = useToast();
   
   const [showAddModal, setShowAddModal] = useState(false);
@@ -106,15 +109,19 @@ export function PeoplePage() {
       <div className="flex-shrink-0 px-4 pt-4 pb-3 safe-top">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">People</h1>
-          <Button
-            size="sm"
-            onClick={() => { setNewName(''); setShowAddModal(true); }}
-          >
-            + Add
-          </Button>
+          {canManage && (
+            <Button
+              size="sm"
+              onClick={() => { setNewName(''); setShowAddModal(true); }}
+            >
+              + Add
+            </Button>
+          )}
         </div>
         <p className="text-[var(--text-secondary)] text-sm">
-          Manage people in your shared expense group
+          {canManage
+            ? 'Manage people in your shared expense group'
+            : 'Only the group creator can add or remove people'}
         </p>
       </div>
 
@@ -128,6 +135,7 @@ export function PeoplePage() {
           isSharedMode={isSharedMode}
           selfPersonId={selfPersonId}
           onSetAsMe={isSharedMode ? handleSetAsMe : undefined}
+          canManagePeople={canManage}
         />
       </div>
 

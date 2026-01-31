@@ -11,9 +11,11 @@ interface PersonItemProps {
   isSharedMode?: boolean;
   isSelf?: boolean;
   onSetAsMe?: (person: Person) => void;
+  /** Only group creator can delete people; when false, hide delete */
+  canDelete?: boolean;
 }
 
-export function PersonItem({ person, onEdit, onDelete, onTap, isSharedMode, isSelf, onSetAsMe }: PersonItemProps) {
+export function PersonItem({ person, onEdit, onDelete, onTap, isSharedMode, isSelf, onSetAsMe, canDelete = true }: PersonItemProps) {
   return (
     <div className="flex items-center gap-3 p-4 bg-[var(--white)] rounded-xl">
       <button
@@ -55,14 +57,16 @@ export function PersonItem({ person, onEdit, onDelete, onTap, isSharedMode, isSe
       >
         ✏️
       </button>
-      <button
-        type="button"
-        onClick={() => onDelete(person.id, person.name)}
-        className="p-2 text-[var(--danger)]"
-        aria-label="Delete"
-      >
-        🗑️
-      </button>
+      {canDelete && (
+        <button
+          type="button"
+          onClick={() => onDelete(person.id, person.name)}
+          className="p-2 text-[var(--danger)]"
+          aria-label="Delete"
+        >
+          🗑️
+        </button>
+      )}
     </div>
   );
 }

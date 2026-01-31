@@ -4,9 +4,11 @@ import type { Expense } from '@/types';
 import { ExpenseItem } from './ExpenseItem';
 import { ExpenseListSkeleton } from '@/components/ui';
 import { useExpenseStore } from '@/stores/expenseStore';
+import { useAccountStore } from '@/stores/accountStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { useToast } from '@/components/ui';
+import { canDeleteExpense } from '@/lib/policies';
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -25,6 +27,9 @@ export function ExpenseList({ expenses, loading, newExpenseId, isFilteredEmpty, 
   const duplicateExpense = useExpenseStore(s => s.duplicateExpense);
   const formatAmount = useSettingsStore(s => s.formatAmount);
   const isConnected = useSyncStore(s => s.isConnected);
+  const currentAccount = useAccountStore(s => s.getCurrentAccount());
+  const deviceId = useSyncStore(s => s.deviceId);
+  const canDelete = canDeleteExpense(currentAccount, deviceId);
 
   // Group expenses by date category
   const groupedExpenses = useMemo(() => {
@@ -184,6 +189,7 @@ export function ExpenseList({ expenses, loading, newExpenseId, isFilteredEmpty, 
               onLongPress={() => {/* Show context menu */}}
               onDelete={() => handleDelete(expense.id)}
               onDuplicate={() => handleDuplicate(expense.id)}
+              canDelete={canDelete}
             />
           ))}
         </div>

@@ -36,6 +36,7 @@ export function PeopleList({ people, onEdit, onDelete, onTap, isSharedMode, self
           isSharedMode={isSharedMode}
           isSelf={selfPersonId === person.id}
           onSetAsMe={onSetAsMe}
+          canDelete={canManagePeople !== false}
         />
       ))}
     </div>

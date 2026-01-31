@@ -17,6 +17,8 @@ interface ExpenseItemProps {
   onDelete: () => void;
   onDuplicate: () => void;
   isNew?: boolean;
+  /** Only group creator can delete in shared groups; when false, hide delete action */
+  canDelete?: boolean;
 }
 
 export function ExpenseItem({ 
@@ -26,7 +28,8 @@ export function ExpenseItem({
   onLongPress,
   onDelete,
   onDuplicate,
-  isNew 
+  isNew,
+  canDelete = true
 }: ExpenseItemProps) {
   const formatAmount = useSettingsStore(s => s.formatAmount);
   const getPersonName = usePeopleStore(s => s.getPersonName);
@@ -117,9 +120,10 @@ export function ExpenseItem({
       isHorizontal.current = Math.abs(diffX) > Math.abs(diffY);
     }
     
-    // Only handle horizontal swipes
+    // Only handle horizontal swipes (max = one or two 75px buttons)
+    const maxSwipe = canDelete ? -150 : -75;
     if (isHorizontal.current && diffX < 0) {
-      setTranslateX(Math.max(diffX * 0.8, -150));
+      setTranslateX(Math.max(diffX * 0.8, maxSwipe));
     }
   };
 
@@ -129,8 +133,9 @@ export function ExpenseItem({
     if (!isDragging.current) return;
     isDragging.current = false;
     
+    const maxSwipe = canDelete ? -150 : -75;
     if (isHorizontal.current && translateX < -60) {
-      setTranslateX(-150);
+      setTranslateX(maxSwipe);
       setSwiped(true);
       haptic('light');
     } else {
@@ -170,7 +175,7 @@ export function ExpenseItem({
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       onTap();
-    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+    } else if (canDelete && (e.key === 'Delete' || e.key === 'Backspace')) {
       e.preventDefault();
       onDelete();
     } else if (e.key === 'd' && (e.metaKey || e.ctrlKey)) {
@@ -210,14 +215,16 @@ export function ExpenseItem({
           <span className="text-[22px]" aria-hidden="true">📋</span>
           <span>Copy</span>
         </button>
-        <button
-          onClick={() => { onDelete(); setSwiped(false); setTranslateX(0); }}
-          aria-label={`Delete expense: ${expense.description}`}
-          className="w-[75px] flex flex-col items-center justify-center gap-1 bg-[var(--danger)] text-white text-[11px] font-medium active:opacity-85 min-h-[44px]"
-        >
-          <span className="text-[22px]" aria-hidden="true">🗑️</span>
-          <span>Delete</span>
-        </button>
+        {canDelete && (
+          <button
+            onClick={() => { onDelete(); setSwiped(false); setTranslateX(0); }}
+            aria-label={`Delete expense: ${expense.description}`}
+            className="w-[75px] flex flex-col items-center justify-center gap-1 bg-[var(--danger)] text-white text-[11px] font-medium active:opacity-85 min-h-[44px]"
+          >
+            <span className="text-[22px]" aria-hidden="true">🗑️</span>
+            <span>Delete</span>
+          </button>
+        )}
       </div>
       
       {/* Main content */}

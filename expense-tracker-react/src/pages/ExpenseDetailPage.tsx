@@ -11,6 +11,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { useYjs } from '@/sync';
 import { haptic } from '@/lib/utils';
+import { canDeleteExpense } from '@/lib/policies';
 import * as db from '@/db/operations';
 
 export function ExpenseDetailPage() {
@@ -26,6 +27,9 @@ export function ExpenseDetailPage() {
   const isSynced = useSyncStore(s => s.isSynced);
   const isConnected = useSyncStore(s => s.isConnected);
   const requestImage = useYjs().requestImage;
+  const currentAccount = useAccountStore(s => s.getCurrentAccount());
+  const deviceId = useSyncStore(s => s.deviceId);
+  const canDelete = canDeleteExpense(currentAccount, deviceId);
   
   // Prefer store (Yjs source of truth); fallback to DB for legacy or before sync
   const expenseFromStore = id ? allExpenses.find(e => e.id === id) ?? null : null;
@@ -266,14 +270,20 @@ export function ExpenseDetailPage() {
           )}
         </div>
 
-        {/* Delete Button */}
+        {/* Delete Button (only group creator in shared groups) */}
         <div className="px-4 py-6">
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="w-full py-3 bg-[var(--danger)]/10 text-[var(--danger)] rounded-xl font-medium active:bg-[var(--danger)]/20"
-          >
-            Delete Expense
-          </button>
+          {canDelete ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full py-3 bg-[var(--danger)]/10 text-[var(--danger)] rounded-xl font-medium active:bg-[var(--danger)]/20"
+            >
+              Delete Expense
+            </button>
+          ) : (
+            <p className="text-[13px] text-[var(--text-secondary)] text-center py-2">
+              Only the group creator can delete expenses.
+            </p>
+          )}
         </div>
       </div>
 
