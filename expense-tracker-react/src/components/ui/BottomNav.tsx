@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { cn, haptic } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useAccountStore } from '@/stores/accountStore';
 
 const navItems = [
@@ -33,7 +33,6 @@ export function BottomNav() {
           <NavLink
             key={item.path}
             to={item.path}
-            onClick={() => haptic('light')}
             aria-label={item.label}
             className={({ isActive }) => cn(
               'flex-1 flex flex-col items-center gap-0.5 py-1.5 px-1 min-h-[50px]',

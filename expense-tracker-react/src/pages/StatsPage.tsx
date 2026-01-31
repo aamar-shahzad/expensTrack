@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { PageLoading } from '@/components/ui';
@@ -11,6 +12,7 @@ function roundCurrency(amount: number): number {
 }
 
 export function StatsPage() {
+  const navigate = useNavigate();
   const { expenses, allExpenses, loadAllExpenses, loading } = useExpenseStore();
   const formatAmount = useSettingsStore(s => s.formatAmount);
   const monthlyBudget = useSettingsStore(s => s.monthlyBudget);
@@ -130,6 +132,22 @@ export function StatsPage() {
       
       {/* Scrollable Content */}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(90px+env(safe-area-inset-bottom))]">
+
+      {/* Hint when no budget set */}
+      {monthlyBudget <= 0 && (
+        <div className="px-4 mb-6">
+          <button
+            type="button"
+            onClick={() => navigate('/settings')}
+            className="w-full text-left bg-[var(--teal-green)]/10 border border-[var(--teal-green)]/20 rounded-xl p-4 active:bg-[var(--teal-green)]/15"
+          >
+            <p className="text-[14px] text-[var(--text)]">
+              Set a monthly budget in Settings to track spending progress.
+            </p>
+            <span className="text-[13px] font-medium text-[var(--teal-green)] mt-1 inline-block">Go to Settings →</span>
+          </button>
+        </div>
+      )}
 
       {/* This month vs budget */}
       {monthlyBudget > 0 && (

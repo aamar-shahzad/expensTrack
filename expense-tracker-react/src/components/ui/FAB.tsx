@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { cn, haptic } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 export function FAB() {
   const navigate = useNavigate();
@@ -8,10 +8,7 @@ export function FAB() {
   // Only show on home page
   if (location.pathname !== '/') return null;
 
-  const handleClick = () => {
-    haptic('light');
-    navigate('/add');
-  };
+  const handleClick = () => navigate('/add');
 
   return (
     <button
