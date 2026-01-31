@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Expense } from '@/types';
-import { getCategoryIcon, generateId, getYearMonth } from '@/types';
+import { getCategoryKey, generateId, getYearMonth } from '@/types';
 
 interface ExpenseState {
   expenses: Expense[];
@@ -218,7 +218,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     
     // Apply category filter
     if (categoryFilter !== 'all') {
-      filtered = filtered.filter(e => getCategoryIcon(e.description ?? '') === categoryFilter);
+      filtered = filtered.filter(e => getCategoryKey(e.description ?? '') === categoryFilter);
     }
     
     // Apply search filter

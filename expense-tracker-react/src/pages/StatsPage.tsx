@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { PageLoading } from '@/components/ui';
-import { getCategoryIcon, getCategoryLabel } from '@/types';
+import { getCategoryKey, getCategoryLabel } from '@/types';
 
 export function StatsPage() {
   const { expenses, loadAllExpenses, loading } = useExpenseStore();
@@ -21,14 +21,14 @@ export function StatsPage() {
     let totalAmount = 0;
 
     expenses.forEach(exp => {
-      const icon = getCategoryIcon(exp.description);
-      categoryTotals[icon] = (categoryTotals[icon] || 0) + exp.amount;
+      const key = getCategoryKey(exp.description);
+      categoryTotals[key] = (categoryTotals[key] || 0) + exp.amount;
       totalAmount += exp.amount;
     });
 
     const categoryBreakdown = Object.entries(categoryTotals)
-      .map(([icon, amount]) => ({
-        icon,
+      .map(([key, amount]) => ({
+        key,
         amount,
         percent: (amount / totalAmount) * 100
       }))
@@ -118,9 +118,9 @@ export function StatsPage() {
         <h2 className="text-lg font-semibold mb-3">By Category</h2>
         <div className="bg-[var(--white)] rounded-xl p-4 space-y-3">
           {stats.categoryBreakdown.map(cat => (
-            <div key={cat.icon}>
+            <div key={cat.key}>
               <div className="flex items-center justify-between mb-1">
-                <span className="font-medium">{getCategoryLabel(cat.icon)}</span>
+                <span className="font-medium">{getCategoryLabel(cat.key)}</span>
                 <span className="text-sm font-medium">{formatAmount(cat.amount)}</span>
               </div>
               <div className="h-2 bg-[var(--bg)] rounded-full overflow-hidden">

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ExpenseList } from '@/components/expenses';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -8,20 +9,21 @@ import { useSyncActions } from '@/contexts/SyncActionsContext';
 import { cn } from '@/lib/utils';
 
 const CATEGORIES = [
-  { icon: 'all', label: 'All' },
-  { icon: '🍔', label: 'Food' },
-  { icon: '☕', label: 'Coffee' },
-  { icon: '🛒', label: 'Shop' },
-  { icon: '🚗', label: 'Travel' },
-  { icon: '🏠', label: 'Home' },
-  { icon: '🎬', label: 'Fun' },
-  { icon: '💵', label: 'Other' },
+  { key: 'all', label: 'All' },
+  { key: 'food', label: 'Food' },
+  { key: 'coffee', label: 'Coffee' },
+  { key: 'shop', label: 'Shop' },
+  { key: 'travel', label: 'Travel' },
+  { key: 'home', label: 'Home' },
+  { key: 'fun', label: 'Fun' },
+  { key: 'other', label: 'Other' },
 ];
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 
   'July', 'August', 'September', 'October', 'November', 'December'];
 
 export function HomePage() {
+  const navigate = useNavigate();
   const {
     loading,
     currentMonth,
@@ -151,20 +153,31 @@ export function HomePage() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search expenses..."
-            className="flex-1 bg-transparent border-none outline-none text-[16px]"
+            className="flex-1 bg-transparent border-none outline-none text-[16px] min-w-0"
+            aria-label="Search expenses"
           />
+          {searchQuery.trim() && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--border)]/50 active:opacity-80"
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
         </div>
 
         {/* Category Filter */}
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
           {CATEGORIES.map(cat => (
             <button
-              key={cat.icon}
-              onClick={() => setCategoryFilter(cat.icon)}
+              key={cat.key}
+              onClick={() => setCategoryFilter(cat.key)}
               className={cn(
                 'flex-shrink-0 px-3.5 py-2 rounded-full text-[14px] font-medium transition-all',
                 'shadow-sm',
-                categoryFilter === cat.icon
+                categoryFilter === cat.key
                   ? 'bg-[var(--teal-green)] text-white'
                   : 'bg-[var(--white)] text-[var(--text)]'
               )}
@@ -177,10 +190,13 @@ export function HomePage() {
 
       {/* Scrollable Content */}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(80px+env(safe-area-inset-bottom))]">
-        <ExpenseList 
-          expenses={expenses} 
+        <ExpenseList
+          expenses={expenses}
           loading={loading}
           newExpenseId={newExpenseId}
+          isFilteredEmpty={expenses.length === 0 && (searchQuery.trim() !== '' || categoryFilter !== 'all')}
+          onClearFilters={() => { setSearchQuery(''); setCategoryFilter('all'); }}
+          onAddExpense={() => navigate('/add')}
         />
       </div>
     </div>

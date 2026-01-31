@@ -759,11 +759,14 @@ export function OnboardingPage() {
           <h1 className="text-2xl font-bold mb-2">
             {isConnected ? 'Syncing...' : 'Connecting...'}
           </h1>
-          <p className="text-[var(--text-secondary)] mb-4">
+          <p className="text-[var(--text-secondary)] mb-2">
             {`Joining ${joinAccountName}`}
           </p>
+          <p className="text-[13px] text-[var(--text-secondary)] opacity-80 max-w-xs">
+            {isConnected ? 'Almost there…' : 'This may take 10–30 seconds. Keep the other device open.'}
+          </p>
           {isConnected && (
-            <div className="text-sm text-[var(--teal-green)]">
+            <div className="text-sm text-[var(--teal-green)] mt-4">
               Connected! Syncing data...
             </div>
           )}

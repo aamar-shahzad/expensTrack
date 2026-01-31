@@ -143,40 +143,46 @@ export interface Settlement {
   amount: number;
 }
 
-// Category Icons
-export const CATEGORY_ICONS: Record<string, string[]> = {
-  '☕': ['coffee', 'cafe', 'starbucks', 'tim hortons', 'latte', 'espresso', 'tea'],
-  '🍔': ['food', 'lunch', 'dinner', 'breakfast', 'meal', 'restaurant', 'pizza', 'burger', 'snack', 'eat', 'bar', 'pub'],
-  '🍺': ['drink', 'drinks', 'beer', 'wine', 'alcohol', 'cocktail'],
-  '🛒': ['grocery', 'groceries', 'supermarket', 'market', 'shopping', 'store', 'walmart', 'costco', 'target'],
-  '🚗': ['gas', 'fuel', 'petrol', 'uber', 'lyft', 'taxi', 'car', 'parking', 'toll', 'transport', 'bus', 'train', 'metro', 'subway'],
-  '✈️': ['flight', 'airline', 'airport', 'travel', 'trip', 'hotel', 'airbnb', 'booking', 'vacation'],
-  '🏠': ['rent', 'mortgage', 'utilities', 'electric', 'electricity', 'water', 'internet', 'wifi', 'cable', 'home'],
-  '📱': ['phone', 'mobile', 'cell', 'data', 'subscription', 'netflix', 'spotify', 'apple', 'google'],
-  '🏥': ['doctor', 'hospital', 'medical', 'medicine', 'pharmacy', 'health', 'dental', 'dentist', 'insurance'],
-  '🎬': ['movie', 'cinema', 'theater', 'concert', 'show', 'ticket', 'entertainment', 'game', 'sport'],
-  '👕': ['clothes', 'clothing', 'shoes', 'fashion', 'dress', 'shirt', 'pants', 'jacket'],
-  '🎁': ['gift', 'present', 'birthday', 'christmas', 'holiday'],
-  '📚': ['book', 'books', 'education', 'course', 'class', 'school', 'tuition'],
-  '💇': ['haircut', 'salon', 'spa', 'beauty', 'grooming'],
-  '🐕': ['pet', 'dog', 'cat', 'vet', 'veterinary'],
-  '💡': ['bill', 'bills', 'utility', 'payment']
+// Category keys and keyword matching (no icons – labels only in UI)
+export const CATEGORY_KEYS = ['all', 'food', 'coffee', 'shop', 'travel', 'home', 'fun', 'other'] as const;
+export type CategoryKey = (typeof CATEGORY_KEYS)[number];
+
+/** Keywords per category key for matching expense description */
+export const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  coffee: ['coffee', 'cafe', 'starbucks', 'tim hortons', 'latte', 'espresso', 'tea'],
+  food: ['food', 'lunch', 'dinner', 'breakfast', 'meal', 'restaurant', 'pizza', 'burger', 'snack', 'eat', 'bar', 'pub', 'drink', 'drinks', 'beer', 'wine', 'alcohol', 'cocktail'],
+  shop: ['grocery', 'groceries', 'supermarket', 'market', 'shopping', 'store', 'walmart', 'costco', 'target'],
+  travel: ['gas', 'fuel', 'petrol', 'uber', 'lyft', 'taxi', 'car', 'parking', 'toll', 'transport', 'bus', 'train', 'metro', 'subway', 'flight', 'airline', 'airport', 'travel', 'trip', 'hotel', 'airbnb', 'booking', 'vacation'],
+  home: ['rent', 'mortgage', 'utilities', 'electric', 'electricity', 'water', 'internet', 'wifi', 'cable', 'home', 'phone', 'mobile', 'cell', 'data', 'subscription', 'netflix', 'spotify', 'bill', 'bills', 'utility', 'payment'],
+  fun: ['movie', 'cinema', 'theater', 'concert', 'show', 'ticket', 'entertainment', 'game', 'sport', 'gift', 'present', 'birthday', 'christmas', 'holiday', 'haircut', 'salon', 'spa', 'beauty', 'grooming', 'pet', 'dog', 'cat', 'vet', 'veterinary', 'book', 'books', 'education', 'course', 'class', 'school', 'tuition', 'clothes', 'clothing', 'shoes', 'fashion', 'doctor', 'hospital', 'medical', 'medicine', 'pharmacy', 'health', 'dental', 'dentist', 'insurance']
 };
 
-/** Label for category filter display (icons are not shown in UI) */
 export const CATEGORY_LABELS: Record<string, string> = {
   all: 'All',
-  '🍔': 'Food',
-  '☕': 'Coffee',
-  '🛒': 'Shop',
-  '🚗': 'Travel',
-  '🏠': 'Home',
-  '🎬': 'Fun',
-  '💵': 'Other'
+  food: 'Food',
+  coffee: 'Coffee',
+  shop: 'Shop',
+  travel: 'Travel',
+  home: 'Home',
+  fun: 'Fun',
+  other: 'Other'
 };
 
-export function getCategoryLabel(icon: string): string {
-  return CATEGORY_LABELS[icon] ?? 'Other';
+export function getCategoryKey(description: string): string {
+  const desc = description.toLowerCase();
+  for (const [key, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (keywords.some(keyword => desc.includes(keyword))) return key;
+  }
+  return 'other';
+}
+
+export function getCategoryLabel(key: string): string {
+  return CATEGORY_LABELS[key] ?? 'Other';
+}
+
+/** @deprecated Use getCategoryKey instead; kept for compatibility during migration */
+export function getCategoryIcon(description: string): string {
+  return getCategoryKey(description);
 }
 
 // Currency Options
@@ -190,17 +196,6 @@ export const CURRENCIES = [
   { symbol: 'A$', name: 'Australian Dollar', code: 'AUD' },
   { symbol: '₿', name: 'Bitcoin', code: 'BTC' },
 ];
-
-// Helper function to get category icon
-export function getCategoryIcon(description: string): string {
-  const desc = description.toLowerCase();
-  for (const [icon, keywords] of Object.entries(CATEGORY_ICONS)) {
-    if (keywords.some(keyword => desc.includes(keyword))) {
-      return icon;
-    }
-  }
-  return '💵'; // Default
-}
 
 // Helper to format amount
 export function formatAmount(amount: number, currency: string = '$'): string {

@@ -313,6 +313,21 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             {currency}{formatDisplayAmount(amount)}
           </div>
         )}
+        {/* Quick amount chips */}
+        {!expense && (
+          <div className="flex flex-wrap justify-center gap-2 mt-4 px-2">
+            {[5, 10, 20, 50, 100, 200].map(n => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => { haptic('light'); setAmount(prev => (parseFloat(prev || '0') + n).toString()); }}
+                className="px-3 py-1.5 rounded-full text-[13px] font-medium bg-white/20 text-white active:bg-white/30"
+              >
+                +{n}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Existing receipt (edit mode) */}
