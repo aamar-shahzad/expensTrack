@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAccountStore } from '@/stores/accountStore';
+import { useExpenseStore } from '@/stores/expenseStore';
+import { usePeopleStore } from '@/stores/peopleStore';
+import { usePaymentStore } from '@/stores/paymentStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { Button, Input, Sheet, useToast } from '@/components/ui';
-import { CURRENCIES } from '@/types';
+import { CURRENCIES, getCategoryKey } from '@/types';
 import { haptic, downloadFile, cn } from '@/lib/utils';
-import * as db from '@/db/operations';
 import { clearAllData } from '@/db/schema';
 
 export function SettingsPage() {
@@ -137,15 +139,26 @@ export function SettingsPage() {
     }
   };
 
-  const handleExportCSV = async () => {
+  const handleExportCSV = () => {
     try {
-      const data = await db.exportAllData();
-      
-      let csv = 'Date,Description,Amount,Payer,Tags,Notes\n';
-      data.expenses.forEach(exp => {
-        csv += `"${exp.date}","${exp.description}",${exp.amount},"${exp.payerId || ''}","${exp.tags || ''}","${exp.notes || ''}"\n`;
+      const expenses = useExpenseStore.getState().allExpenses;
+      const getPersonName = usePeopleStore.getState().getPersonName;
+      const roundCurrency = (n: number) => Math.round(n * 100) / 100;
+      const escapeCsv = (s: string) => `"${(s ?? '').replace(/"/g, '""')}"`;
+
+      const header = 'Date,Description,Amount,Payer,Category,Tags,Notes\n';
+      const rows = expenses.map(exp => {
+        const date = exp.date ?? '';
+        const desc = escapeCsv(exp.description ?? '');
+        const amount = roundCurrency(exp.amount);
+        const payer = escapeCsv(exp.payerId ? getPersonName(exp.payerId) : '');
+        const category = escapeCsv(getCategoryKey(exp.description ?? ''));
+        const tags = escapeCsv(exp.tags ?? '');
+        const notes = escapeCsv(exp.notes ?? '');
+        return `${date},${desc},${amount},${payer},${category},${tags},${notes}`;
       });
-      
+      const csv = header + rows.join('\n');
+
       downloadFile(csv, `expenses-${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
       haptic('success');
       showSuccess('Exported to CSV');
@@ -154,10 +167,27 @@ export function SettingsPage() {
     }
   };
 
-  const handleExportJSON = async () => {
+  const handleExportJSON = () => {
     try {
-      const data = await db.exportAllData();
-      downloadFile(JSON.stringify(data, null, 2), `expenses-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+      const currentAccount = useAccountStore.getState().getCurrentAccount();
+      const expenses = useExpenseStore.getState().allExpenses;
+      const people = usePeopleStore.getState().people;
+      const payments = usePaymentStore.getState().payments;
+      const { currency, monthlyBudget } = useSettingsStore.getState();
+
+      const backup = {
+        account: currentAccount ?? null,
+        expenses,
+        people,
+        payments,
+        settings: { currency, monthlyBudget },
+        exportedAt: new Date().toISOString(),
+      };
+      downloadFile(
+        JSON.stringify(backup, null, 2),
+        `expenses-backup-${new Date().toISOString().split('T')[0]}.json`,
+        'application/json'
+      );
       haptic('success');
       showSuccess('Backup exported');
     } catch {

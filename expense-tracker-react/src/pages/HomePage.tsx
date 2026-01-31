@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExpenseList } from '@/components/expenses';
 import { useExpenseStore } from '@/stores/expenseStore';
@@ -7,6 +7,9 @@ import { useSyncStore } from '@/stores/syncStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { useSyncActions } from '@/contexts/SyncActionsContext';
 import { cn } from '@/lib/utils';
+
+const PULL_THRESHOLD = 56;
+const MAX_PULL_DISPLAY = 80;
 
 const CATEGORIES = [
   { key: 'all', label: 'All' },
@@ -62,6 +65,38 @@ export function HomePage() {
   const monthTotal = getTotalForMonth();
   const todayTotal = getTodayTotal();
   const budgetStatus = getBudgetStatus(monthTotal);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [pullDelta, setPullDelta] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const startYRef = useRef(0);
+  const pullingRef = useRef(false);
+
+  const doRefresh = useCallback(() => {
+    setRefreshing(true);
+    syncActions?.refreshStores();
+    loadExpenses();
+    window.setTimeout(() => setRefreshing(false), 400);
+  }, [syncActions, loadExpenses]);
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (scrollRef.current?.scrollTop === 0) {
+      startYRef.current = e.touches[0].clientY;
+      pullingRef.current = true;
+    }
+  }, []);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!pullingRef.current || scrollRef.current?.scrollTop !== 0) return;
+    const delta = e.touches[0].clientY - startYRef.current;
+    if (delta > 0) setPullDelta(Math.min(delta, MAX_PULL_DISPLAY));
+  }, []);
+
+  const onTouchEnd = useCallback(() => {
+    if (pullDelta >= PULL_THRESHOLD) doRefresh();
+    pullingRef.current = false;
+    setPullDelta(0);
+  }, [pullDelta, doRefresh]);
 
   return (
     <div className="flex flex-col h-full">
@@ -188,8 +223,29 @@ export function HomePage() {
         </div>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(80px+env(safe-area-inset-bottom))]">
+      {/* Scrollable Content with pull-to-refresh */}
+      <div
+        ref={scrollRef}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(80px+env(safe-area-inset-bottom))]"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        <div
+          className="flex items-center justify-center shrink-0 transition-[height] duration-150 ease-out bg-[var(--bg)]"
+          style={{ height: refreshing ? 52 : Math.min(pullDelta * 0.6, 52) }}
+        >
+          {refreshing ? (
+            <span className="text-[13px] text-[var(--text-secondary)] flex items-center gap-2">
+              <span className="w-5 h-5 border-2 border-[var(--teal-green)] border-t-transparent rounded-full animate-spin" />
+              Refreshing…
+            </span>
+          ) : pullDelta > 0 ? (
+            <span className="text-[13px] text-[var(--text-secondary)]">
+              {pullDelta >= PULL_THRESHOLD ? 'Release to refresh' : 'Pull to refresh'}
+            </span>
+          ) : null}
+        </div>
         <ExpenseList
           expenses={expenses}
           loading={loading}

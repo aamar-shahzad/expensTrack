@@ -2,70 +2,98 @@ import { useEffect, useMemo } from 'react';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { PageLoading } from '@/components/ui';
+import { cn } from '@/lib/utils';
 import { getCategoryKey, getCategoryLabel } from '@/types';
 
+/** Round to 2 decimal places for currency to avoid float drift */
+function roundCurrency(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
 export function StatsPage() {
-  const { expenses, loadAllExpenses, loading } = useExpenseStore();
+  const { expenses, allExpenses, loadAllExpenses, loading } = useExpenseStore();
   const formatAmount = useSettingsStore(s => s.formatAmount);
+  const monthlyBudget = useSettingsStore(s => s.monthlyBudget);
+  const getBudgetStatus = useSettingsStore(s => s.getBudgetStatus);
 
   useEffect(() => {
     loadAllExpenses();
   }, [loadAllExpenses]);
 
-  // Calculate stats
+  // Current calendar month (YYYY-MM) for budget comparison
+  const currentYearMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  // This month's total for budget: sum only expenses in current calendar month, rounded
+  const thisMonthSpent = useMemo(() => {
+    const sum = allExpenses
+      .filter(e => (e.date && e.date.length >= 7) && e.date.substring(0, 7) === currentYearMonth)
+      .reduce((acc, e) => acc + e.amount, 0);
+    return roundCurrency(sum);
+  }, [allExpenses, currentYearMonth]);
+
+  const budgetStatus = monthlyBudget > 0 ? getBudgetStatus(thisMonthSpent) : null;
+
+  // Calculate stats (use all expenses for overview; category/monthly use full set)
   const stats = useMemo(() => {
-    if (expenses.length === 0) return null;
+    if (expenses.length === 0 && allExpenses.length === 0) return null;
+    const source = allExpenses.length > 0 ? allExpenses : expenses;
 
     // Category breakdown
     const categoryTotals: Record<string, number> = {};
     let totalAmount = 0;
 
-    expenses.forEach(exp => {
-      const key = getCategoryKey(exp.description);
-      categoryTotals[key] = (categoryTotals[key] || 0) + exp.amount;
-      totalAmount += exp.amount;
+    source.forEach(exp => {
+      const key = getCategoryKey(exp.description ?? '');
+      const amt = roundCurrency(exp.amount);
+      categoryTotals[key] = roundCurrency((categoryTotals[key] || 0) + amt);
+      totalAmount = roundCurrency(totalAmount + amt);
     });
 
     const categoryBreakdown = Object.entries(categoryTotals)
       .map(([key, amount]) => ({
         key,
         amount,
-        percent: (amount / totalAmount) * 100
+        percent: totalAmount > 0 ? roundCurrency((amount / totalAmount) * 100) : 0
       }))
       .sort((a, b) => b.amount - a.amount);
 
     // Monthly trend
     const monthlyTotals: Record<string, number> = {};
-    expenses.forEach(exp => {
-      const month = exp.date.substring(0, 7);
-      monthlyTotals[month] = (monthlyTotals[month] || 0) + exp.amount;
+    source.forEach(exp => {
+      const month = (exp.date ?? '').substring(0, 7);
+      if (month.length === 7) {
+        monthlyTotals[month] = roundCurrency((monthlyTotals[month] || 0) + exp.amount);
+      }
     });
 
     const months = Object.entries(monthlyTotals)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .slice(-6);
 
-    const maxMonthly = Math.max(...months.map(m => m[1]));
+    const maxMonthly = months.length > 0 ? Math.max(...months.map(m => m[1])) : 0;
 
     // Average per day (guard against no valid dates)
-    const dates = new Set(expenses.map(e => e.date).filter(Boolean));
-    const avgPerDay = dates.size > 0 ? totalAmount / dates.size : 0;
+    const dates = new Set(source.map(e => e.date).filter(Boolean));
+    const avgPerDay = dates.size > 0 ? roundCurrency(totalAmount / dates.size) : 0;
 
     // Top expenses
-    const topExpenses = [...expenses]
+    const topExpenses = [...source]
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
 
     return {
       totalAmount,
-      expenseCount: expenses.length,
+      expenseCount: source.length,
       categoryBreakdown,
       months,
       maxMonthly,
       avgPerDay,
       topExpenses
     };
-  }, [expenses]);
+  }, [expenses, allExpenses]);
 
   if (loading) {
     return <PageLoading message="Loading statistics..." />;
@@ -88,6 +116,8 @@ export function StatsPage() {
     );
   }
 
+  const budgetPercent = monthlyBudget > 0 ? Math.min(100, roundCurrency((thisMonthSpent / monthlyBudget) * 100)) : 0;
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg)]">
       {/* Header */}
@@ -100,6 +130,35 @@ export function StatsPage() {
       
       {/* Scrollable Content */}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(90px+env(safe-area-inset-bottom))]">
+
+      {/* This month vs budget */}
+      {monthlyBudget > 0 && (
+        <div className="px-4 mb-6">
+          <h2 className="text-lg font-semibold mb-3">This month vs budget</h2>
+          <div className="bg-[var(--white)] rounded-xl p-4">
+            <div className="flex justify-between items-baseline mb-2">
+              <span className="text-[var(--text-secondary)] text-sm">Spent</span>
+              <span className="font-semibold">{formatAmount(thisMonthSpent)} of {formatAmount(monthlyBudget)}</span>
+            </div>
+            <div className="h-2.5 bg-[var(--bg)] rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all',
+                  budgetStatus?.status === 'over' && 'bg-[var(--danger)]',
+                  budgetStatus?.status === 'warning' && 'bg-orange-400',
+                  (budgetStatus?.status === 'ok' || !budgetStatus) && 'bg-[var(--teal-green)]'
+                )}
+                style={{ width: `${budgetPercent}%` }}
+              />
+            </div>
+            <div className="text-[13px] text-[var(--text-secondary)] mt-1.5">
+              {budgetStatus?.status === 'over'
+                ? `Over by ${formatAmount(roundCurrency(thisMonthSpent - monthlyBudget))}`
+                : budgetStatus ? `${formatAmount(roundCurrency(monthlyBudget - thisMonthSpent))} left` : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Overview Cards */}
       <div className="px-4 grid grid-cols-2 gap-3 mb-6">
