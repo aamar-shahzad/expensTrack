@@ -21,6 +21,7 @@ type Step =
   | 'invite'
   | 'scan'
   | 'connecting'
+  | 'connectionFailed'
   | 'selectName';
 
 export function OnboardingPage() {
@@ -65,6 +66,8 @@ export function OnboardingPage() {
   const [joinAccountName, setJoinAccountName] = useState('');
   const [joinError, setJoinError] = useState<string | null>(null);
   const [syncedPeople, setSyncedPeople] = useState<Person[]>([]);
+  const [lastScannedData, setLastScannedData] = useState<{ accountId: string; deviceId: string; accountName: string } | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Load people when we reach selectName step
   useEffect(() => {
@@ -194,8 +197,13 @@ export function OnboardingPage() {
 
   const handleQRScanned = async (data: { accountId: string; deviceId: string; accountName: string }) => {
     haptic('success');
+    setLastScannedData(data);
     setJoinAccountName(data.accountName);
     setJoinError(null);
+    await attemptConnection(data);
+  };
+
+  const attemptConnection = async (data: { accountId: string; deviceId: string; accountName: string }) => {
     setStep('connecting');
     
     try {
@@ -218,16 +226,37 @@ export function OnboardingPage() {
       
       if (syncedPeopleList.length === 0) {
         setJoinError('No group members found. Ask the group creator to add you first.');
-        setStep('scan');
+        setStep('connectionFailed');
         return;
       }
       
+      // Reset retry count on success
+      setRetryCount(0);
       setStep('selectName');
     } catch (error) {
       console.error('Join failed:', error);
       setJoinError(error instanceof Error ? error.message : 'Failed to connect');
-      setStep('scan');
+      setRetryCount(prev => prev + 1);
+      setStep('connectionFailed');
     }
+  };
+
+  const handleRetry = async () => {
+    if (!lastScannedData) {
+      setStep('scan');
+      return;
+    }
+    haptic('light');
+    setJoinError(null);
+    await attemptConnection(lastScannedData);
+  };
+
+  const handleScanAgain = () => {
+    haptic('light');
+    setLastScannedData(null);
+    setJoinError(null);
+    setRetryCount(0);
+    setStep('scan');
   };
 
   const handleQRError = (error: string) => {
@@ -545,6 +574,52 @@ export function OnboardingPage() {
                 style={{ width: `${syncProgress}%` }}
               />
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Connection Failed Step */}
+      {step === 'connectionFailed' && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="text-6xl mb-6">😕</div>
+          <h1 className="text-2xl font-bold mb-2">Connection Failed</h1>
+          <p className="text-[var(--text-secondary)] mb-2 max-w-xs">
+            {joinError || 'Could not connect to the other device.'}
+          </p>
+          <p className="text-sm text-[var(--text-secondary)] mb-8 max-w-xs">
+            Make sure the other device has the app open and is showing the QR code.
+          </p>
+          
+          <div className="w-full max-w-xs space-y-3">
+            {lastScannedData && retryCount < 3 && (
+              <Button onClick={handleRetry} className="w-full">
+                Try Again
+              </Button>
+            )}
+            <Button 
+              variant={lastScannedData && retryCount < 3 ? 'secondary' : 'primary'}
+              onClick={handleScanAgain} 
+              className="w-full"
+            >
+              Scan QR Code Again
+            </Button>
+            <button
+              onClick={() => {
+                setLastScannedData(null);
+                setJoinError(null);
+                setRetryCount(0);
+                setStep('welcome');
+              }}
+              className="text-[var(--text-secondary)] text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+          
+          {retryCount >= 3 && (
+            <p className="text-sm text-[var(--text-secondary)] mt-6 max-w-xs">
+              Multiple connection attempts failed. Try scanning a new QR code or check your internet connection.
+            </p>
           )}
         </div>
       )}

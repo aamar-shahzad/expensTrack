@@ -4,10 +4,13 @@ import type { Settings } from '@/types';
 import { CURRENCIES } from '@/types';
 
 interface SettingsState extends Settings {
+  debugMode: boolean;
+  
   // Actions
   setCurrency: (currency: string) => void;
   setMonthlyBudget: (budget: number) => void;
   setDarkMode: (enabled: boolean) => void;
+  setDebugMode: (enabled: boolean) => void;
   setCategoryBudget: (category: string, amount: number) => void;
   removeCategoryBudget: (category: string) => void;
   formatAmount: (amount: number) => string;
@@ -21,6 +24,7 @@ export const useSettingsStore = create<SettingsState>()(
       currency: '$',
       monthlyBudget: 0,
       darkMode: false,
+      debugMode: false,
       categoryBudgets: {},
 
       setCurrency: (currency) => {
@@ -38,6 +42,13 @@ export const useSettingsStore = create<SettingsState>()(
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
+        }
+      },
+
+      setDebugMode: (debugMode) => {
+        set({ debugMode });
+        if (debugMode) {
+          console.log('[Sync] Debug mode enabled - sync events will be logged');
         }
       },
 

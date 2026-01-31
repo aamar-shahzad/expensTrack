@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSyncStore } from '@/stores/syncStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { usePeopleStore } from '@/stores/peopleStore';
@@ -29,9 +29,24 @@ export function SyncPage() {
   const people = usePeopleStore(s => s.people);
   const loadPeople = usePeopleStore(s => s.loadPeople);
   
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showInfo } = useToast();
 
-  const { connect, disconnect, requestSync, connectAndSync } = useSync();
+  const { connect, disconnect, requestSync, connectAndSync, setOnSyncComplete } = useSync();
+  
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Set up sync complete notification
+  useEffect(() => {
+    setOnSyncComplete((itemsSynced, _peerId) => {
+      if (itemsSynced > 0) {
+        showInfo(`Synced ${itemsSynced} item${itemsSynced > 1 ? 's' : ''} from another device`);
+      }
+    });
+    
+    return () => {
+      setOnSyncComplete(null);
+    };
+  }, [setOnSyncComplete, showInfo]);
 
   const [connectCode, setConnectCode] = useState('');
   const [showScanner, setShowScanner] = useState(false);
@@ -68,10 +83,23 @@ export function SyncPage() {
     }
   };
 
-  const handleSync = () => {
+  const handleSync = async () => {
+    if (connectedPeers.length === 0) {
+      showError('No devices connected. Connect to a device first.');
+      return;
+    }
+    
     haptic('light');
-    requestSync();
-    showSuccess('Syncing...');
+    setIsSyncing(true);
+    try {
+      await requestSync();
+      showSuccess('Sync requested!');
+    } catch (error) {
+      showError('Sync failed. Please try again.');
+    } finally {
+      // Give some time for the sync to complete
+      setTimeout(() => setIsSyncing(false), 2000);
+    }
   };
 
   const handleDisconnect = (peerId: string) => {
@@ -145,6 +173,7 @@ export function SyncPage() {
             connectedCount={connectedPeers.length}
             lastSync={lastSync}
             onSyncNow={handleSync}
+            isSyncing={isSyncing}
           />
         </div>
 

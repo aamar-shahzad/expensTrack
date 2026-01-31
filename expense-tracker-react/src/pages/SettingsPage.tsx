@@ -21,7 +21,7 @@ export function SettingsPage() {
   const setCurrentAccount = useAccountStore(s => s.setCurrentAccount);
   const setOnboarded = useAccountStore(s => s.setOnboarded);
   
-  const { currency, monthlyBudget, darkMode, setCurrency, setMonthlyBudget, setDarkMode } = useSettingsStore();
+  const { currency, monthlyBudget, darkMode, debugMode, setCurrency, setMonthlyBudget, setDarkMode, setDebugMode } = useSettingsStore();
   const deviceId = useSyncStore(s => s.deviceId);
   
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
@@ -59,6 +59,14 @@ export function SettingsPage() {
   const handleDarkModeToggle = () => {
     setDarkMode(!darkMode);
     haptic('light');
+  };
+
+  const handleDebugModeToggle = () => {
+    setDebugMode(!debugMode);
+    haptic('light');
+    if (!debugMode) {
+      showSuccess('Debug mode enabled - check console for sync logs');
+    }
   };
 
   const handleSwitchAccount = async (id: string) => {
@@ -241,6 +249,19 @@ export function SettingsPage() {
               className={`w-12 h-7 rounded-full transition-colors ${darkMode ? 'bg-[var(--teal-green)]' : 'bg-[var(--border)]'}`}
             >
               <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform mx-1 ${darkMode ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
+          
+          <div className="flex items-center justify-between p-4">
+            <div>
+              <span>Debug Mode</span>
+              <div className="text-xs text-[var(--text-secondary)]">Log sync events to console</div>
+            </div>
+            <button
+              onClick={handleDebugModeToggle}
+              className={`w-12 h-7 rounded-full transition-colors ${debugMode ? 'bg-[var(--teal-green)]' : 'bg-[var(--border)]'}`}
+            >
+              <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform mx-1 ${debugMode ? 'translate-x-5' : ''}`} />
             </button>
           </div>
         </div>

@@ -11,6 +11,7 @@ interface ToastContextType {
   showToast: (message: string, type?: Toast['type']) => void;
   showSuccess: (message: string) => void;
   showError: (message: string) => void;
+  showInfo: (message: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | null>(null);
@@ -30,9 +31,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const showSuccess = (message: string) => showToast(message, 'success');
   const showError = (message: string) => showToast(message, 'error');
+  const showInfo = (message: string) => showToast(message, 'info');
 
   return (
-    <ToastContext.Provider value={{ showToast, showSuccess, showError }}>
+    <ToastContext.Provider value={{ showToast, showSuccess, showError, showInfo }}>
       {children}
       <ToastContainer toasts={toasts} />
     </ToastContext.Provider>
