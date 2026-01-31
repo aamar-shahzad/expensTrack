@@ -138,9 +138,19 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
     currentRoomRef.current = roomName;
     console.log('[Yjs] Connecting to room:', roomName);
     
+    // Multiple signaling servers for resilience - if one fails (e.g. signaling.yjs.dev down),
+    // others may work. Override via VITE_YJS_SIGNALING (comma-separated wss URLs).
+    const envSignaling = import.meta.env.VITE_YJS_SIGNALING as string | undefined;
+    const signalingServers = envSignaling
+      ? envSignaling.split(',').map(s => s.trim()).filter(Boolean)
+      : [
+          'wss://signaling.yjs.dev',
+          'wss://y-webrtc-signaling-eu.herokuapp.com',
+          'wss://y-webrtc-signaling-us.herokuapp.com'
+        ];
+
     const provider = new WebrtcProvider(roomName, ydoc, {
-      // Use single signaling server so both peers definitely meet (multi-server can split peers)
-      signaling: ['wss://signaling.yjs.dev'],
+      signaling: signalingServers,
       // Encrypt communication if password provided
       password: password || undefined,
       // Max connections (with random factor to prevent clusters)
