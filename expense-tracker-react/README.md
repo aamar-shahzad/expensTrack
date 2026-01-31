@@ -30,6 +30,18 @@ Works on GitHub Pages with no backend. Creator shows QR/link with their device i
 
 **Add / remove / edit on one peer:** Changes go into the local Yjs doc and are sent to all connected peers. The other peer’s Yjs doc is updated, its observers run, and the Zustand store and list update automatically—no manual refresh needed. If the list ever feels stale (e.g. after reconnecting), use the **↻** refresh button next to the month on the home screen (shared mode) to re-read from the Yjs doc into the store.
 
+### Policy for adding or removing items
+
+**Current policy (default):**
+
+- **Add:** Any connected peer can add an expense. No approval step; the item is added to the shared Yjs doc and synced to all peers.
+- **Edit:** Any peer can edit any expense (description, amount, date, payer, etc.).
+- **Remove:** Any peer can delete any expense. Deletion is applied in Yjs and synced to all peers.
+- **Concurrent edits:** Yjs (CRDT) merges simultaneous changes; there is no “lock” or “last writer wins” conflict—all peers converge to the same state.
+- **Offline:** Add/edit/delete work offline; changes are stored locally and synced when a peer reconnects (full state is sent on connect).
+
+So the rule is: **anyone in the shared account can add, edit, or delete any expense.** There is no “only host can delete” or “only payer can edit” check. If you want a stricter policy (e.g. only the host can delete, or only the payer can edit an expense), that would require extra checks in the UI and/or in the store before calling add/update/delete.
+
 ## Verification (existing data)
 
 - **Build**: `npm run build` — TypeScript and Vite build succeed.
