@@ -24,7 +24,7 @@ export function JoinFromLinkHandler() {
     if (parsed) {
       createAccountWithId(parsed.accountId, parsed.accountName, 'shared', '$');
       setCurrentAccount(parsed.accountId).then(async () => {
-        await new Promise(resolve => setTimeout(resolve, 400)); // Wait for Yjs doc
+        await new Promise(resolve => setTimeout(resolve, 500)); // Wait for Yjs doc to switch
         navigate('/sync', { replace: true, state: { joinData: parsed } });
       });
     } else {

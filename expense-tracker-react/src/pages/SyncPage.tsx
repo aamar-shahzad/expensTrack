@@ -31,7 +31,9 @@ export function SyncPage() {
     const joinData = (location.state as { joinData?: InviteData })?.joinData;
     if (joinData) {
       navigate(location.pathname, { replace: true, state: {} }); // Clear state
-      handleJoinWithInviteData(joinData);
+      // Brief delay so SyncPage is mounted with correct Yjs context (account was just switched)
+      const t = setTimeout(() => handleJoinWithInviteData(joinData), 100);
+      return () => clearTimeout(t);
     }
   }, []);
   const selfPersonId = useAccountStore(s => s.selfPersonId);
