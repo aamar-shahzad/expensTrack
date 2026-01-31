@@ -254,16 +254,18 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           tags: tags.trim() || undefined,
           imageId
         });
-        
+
         if (payerId) {
           setLastPayer(payerId);
         }
-        
+
         showSuccess(isConnected ? 'Saved · synced' : 'Saved!');
       }
-      
+
       haptic('success');
       onSuccess?.();
+      // Let store/observer updates flush before navigating so home shows the new expense
+      await new Promise(r => setTimeout(r, 0));
       navigate('/');
     } catch (error) {
       console.error('Failed to save:', error);

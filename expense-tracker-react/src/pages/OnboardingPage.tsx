@@ -272,10 +272,11 @@ export function OnboardingPage() {
         data.deviceId
       );
       await setCurrentAccount(data.accountId);
-      
-      // Wait for YjsProvider to switch to the new account's doc before connecting
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
+
+      // Yield to React so YjsProvider can run its effect and create the new ydoc, then wait before connecting
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
       const roomName = `expense-tracker-${data.accountId}`;
       connectRef.current(roomName, { deviceId: deviceId ?? '', hostDeviceId: data.deviceId });
       

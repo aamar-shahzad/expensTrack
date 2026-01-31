@@ -101,7 +101,15 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   addExpense: async (expense) => {
     if (yjsOperations.addExpense) {
       const newExpense = yjsOperations.addExpense(expense);
-      set({ newExpenseId: newExpense.id });
+      // Optimistically update store so new expense shows immediately (observer may run after)
+      set(state => {
+        const newAll = [newExpense, ...state.allExpenses];
+        const yearMonth = `${state.currentYear}-${String(state.currentMonth + 1).padStart(2, '0')}`;
+        const monthExpenses = newAll
+          .filter(e => e.yearMonth === yearMonth)
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return { allExpenses: newAll, expenses: monthExpenses, newExpenseId: newExpense.id };
+      });
       return newExpense;
     }
     // Fallback: create locally
