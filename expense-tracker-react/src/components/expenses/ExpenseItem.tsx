@@ -37,6 +37,7 @@ export function ExpenseItem({
   const [swiped, setSwiped] = useState(false);
   const [translateX, setTranslateX] = useState(0);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [thumbnailLoading, setThumbnailLoading] = useState(false);
   const itemRef = useRef<HTMLDivElement>(null);
   const startX = useRef(0);
   const startY = useRef(0);
@@ -56,6 +57,7 @@ export function ExpenseItem({
     try {
       let image = await db.getImage(imageId);
       if (!image?.thumbnail && isSharedMode && isConnected) {
+        setThumbnailLoading(true);
         await requestImage(imageId);
         image = await db.getImage(imageId);
       }
@@ -67,6 +69,8 @@ export function ExpenseItem({
       }
     } catch (e) {
       console.error('Failed to load thumbnail:', e);
+    } finally {
+      setThumbnailLoading(false);
     }
   }, [expense.imageId, isSharedMode, isConnected, requestImage]);
 
@@ -236,7 +240,11 @@ export function ExpenseItem({
         onKeyDown={handleKeyDown}
       >
         {/* Icon / Thumbnail */}
-        {thumbnailUrl ? (
+        {thumbnailLoading ? (
+          <div className="w-11 h-11 rounded-xl bg-[var(--bg)] flex items-center justify-center flex-shrink-0">
+            <div className="w-5 h-5 border-2 border-[var(--teal-green)] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : thumbnailUrl ? (
           <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
             <img 
               src={thumbnailUrl} 

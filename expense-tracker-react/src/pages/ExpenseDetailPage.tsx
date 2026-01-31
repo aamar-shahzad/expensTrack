@@ -34,6 +34,7 @@ export function ExpenseDetailPage() {
   const effectiveExpense = expenseFromStore ?? expenseFromDb;
   
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageLoading, setImageLoading] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
@@ -69,6 +70,7 @@ export function ExpenseDetailPage() {
       const url = URL.createObjectURL(image.data);
       imageUrlRef.current = url;
       setImageUrl(url);
+      setImageLoading(false);
     };
 
     void db.getImage(imageId).then((image) => {
@@ -78,17 +80,24 @@ export function ExpenseDetailPage() {
         return;
       }
       if (isSharedMode && isConnected) {
+        setImageLoading(true);
         void requestImage(imageId)
           .then(() => db.getImage(imageId))
           .then((image2) => {
             if (!revoked) setUrlFromImage(image2);
           })
-          .catch(() => {});
+          .catch(() => {
+            if (!revoked) setImageLoading(false);
+          })
+          .finally(() => {
+            if (!revoked) setImageLoading((prev) => (prev ? false : prev));
+          });
       }
     });
 
     return () => {
       revoked = true;
+      setImageLoading(false);
       if (imageUrlRef.current) {
         URL.revokeObjectURL(imageUrlRef.current);
         imageUrlRef.current = null;
@@ -179,17 +188,26 @@ export function ExpenseDetailPage() {
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-safe">
         {/* Image Preview */}
-        {imageUrl && (
-          <button 
-            onClick={() => setShowFullImage(true)}
-            className="w-full aspect-video bg-black flex items-center justify-center"
-          >
-            <img 
-              src={imageUrl} 
-              alt="Receipt" 
-              className="max-w-full max-h-full object-contain"
-            />
-          </button>
+        {effectiveExpense.imageId && (
+          <div className="w-full aspect-video bg-[var(--border)] flex items-center justify-center">
+            {imageLoading ? (
+              <div className="flex flex-col items-center gap-2 text-[var(--text-secondary)]">
+                <div className="w-10 h-10 border-2 border-[var(--teal-green)] border-t-transparent rounded-full animate-spin" />
+                <span className="text-[13px]">Loading receipt…</span>
+              </div>
+            ) : imageUrl ? (
+              <button
+                onClick={() => setShowFullImage(true)}
+                className="w-full h-full flex items-center justify-center"
+              >
+                <img
+                  src={imageUrl}
+                  alt="Receipt"
+                  className="max-w-full max-h-full object-contain"
+                />
+              </button>
+            ) : null}
+          </div>
         )}
 
         {/* Amount Hero */}
