@@ -7,15 +7,19 @@ import { initDB, closeDB } from '@/db/schema';
 interface AccountState {
   accounts: Account[];
   currentAccountId: string | null;
+  selfPersonId: string | null; // Which person in the people list is "me" on this device
   isOnboarded: boolean;
   
   // Actions
   createAccount: (name: string, mode: 'single' | 'shared', currency: string) => Account;
+  createAccountWithId: (id: string, name: string, mode: 'single' | 'shared', currency: string) => Account;
   deleteAccount: (id: string) => void;
   setCurrentAccount: (id: string) => Promise<void>;
   getCurrentAccount: () => Account | undefined;
   isSharedMode: () => boolean;
   setOnboarded: (value: boolean) => void;
+  setSelfPersonId: (personId: string | null) => void;
+  getSelfPersonId: () => string | null;
 }
 
 export const useAccountStore = create<AccountState>()(
@@ -23,6 +27,7 @@ export const useAccountStore = create<AccountState>()(
     (set, get) => ({
       accounts: [],
       currentAccountId: null,
+      selfPersonId: null,
       isOnboarded: false,
 
       createAccount: (name, mode, currency) => {
@@ -41,12 +46,36 @@ export const useAccountStore = create<AccountState>()(
         return account;
       },
 
+      // Create account with a specific ID (used when joining an existing group)
+      createAccountWithId: (id, name, mode, currency) => {
+        // Check if account with this ID already exists
+        const existing = get().accounts.find(a => a.id === id);
+        if (existing) {
+          return existing;
+        }
+        
+        const account: Account = {
+          id,
+          name,
+          mode,
+          currency,
+          createdAt: Date.now()
+        };
+        
+        set(state => ({
+          accounts: [...state.accounts, account]
+        }));
+        
+        return account;
+      },
+
       deleteAccount: (id) => {
         set(state => ({
           accounts: state.accounts.filter(a => a.id !== id),
           currentAccountId: state.currentAccountId === id 
             ? state.accounts.find(a => a.id !== id)?.id || null 
-            : state.currentAccountId
+            : state.currentAccountId,
+          selfPersonId: state.currentAccountId === id ? null : state.selfPersonId
         }));
       },
 
@@ -71,6 +100,14 @@ export const useAccountStore = create<AccountState>()(
 
       setOnboarded: (value) => {
         set({ isOnboarded: value });
+      },
+
+      setSelfPersonId: (personId) => {
+        set({ selfPersonId: personId });
+      },
+
+      getSelfPersonId: () => {
+        return get().selfPersonId;
       }
     }),
     {

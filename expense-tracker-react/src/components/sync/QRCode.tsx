@@ -4,12 +4,21 @@ import { Button } from '@/components/ui';
 
 interface QRCodeProps {
   deviceId: string;
-  syncUrl: string;
+  accountId: string;
+  accountName: string;
   onCopyCode: () => void;
+  showQRByDefault?: boolean;
 }
 
-export function QRCode({ deviceId, syncUrl, onCopyCode }: QRCodeProps) {
-  const [showQR, setShowQR] = useState(false);
+// Generate QR data in format: et:{accountId}:{deviceId}:{accountName}
+function generateQRData(accountId: string, deviceId: string, accountName: string): string {
+  return `et:${accountId}:${deviceId}:${accountName}`;
+}
+
+export function QRCode({ deviceId, accountId, accountName, onCopyCode, showQRByDefault = false }: QRCodeProps) {
+  const [showQR, setShowQR] = useState(showQRByDefault);
+  
+  const qrData = generateQRData(accountId, deviceId, accountName);
 
   return (
     <div className="bg-[var(--white)] rounded-xl p-4">
@@ -31,7 +40,7 @@ export function QRCode({ deviceId, syncUrl, onCopyCode }: QRCodeProps) {
 
       {showQR && (
         <div className="mt-4 flex justify-center p-4 bg-white rounded-xl">
-          <QRCodeSVG value={syncUrl} size={200} />
+          <QRCodeSVG value={qrData} size={200} />
         </div>
       )}
     </div>

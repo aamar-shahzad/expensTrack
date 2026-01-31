@@ -390,6 +390,103 @@ export function useSync() {
     });
   }, []);
 
+  // Connect and sync - used for join flow
+  // Returns a promise that resolves when sync is complete
+  const connectAndSync = useCallback(async (
+    targetDeviceId: string,
+    accountId: string
+  ): Promise<void> => {
+    setSyncProgress(0, 'Connecting...');
+    
+    // Initialize peer if not already
+    if (!peerRef.current || peerRef.current.destroyed) {
+      const currentDeviceId = deviceIdRef.current;
+      if (!currentDeviceId) {
+        throw new Error('Device ID not set');
+      }
+      
+      const peerId = `et-${accountId}-${currentDeviceId}`;
+      const peer = new Peer(peerId, PEER_CONFIG);
+      peerRef.current = peer;
+      
+      // Wait for peer to open
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Peer initialization timeout'));
+        }, 10000);
+        
+        peer.on('open', () => {
+          clearTimeout(timeout);
+          setConnected(true);
+          resolve();
+        });
+        
+        peer.on('error', (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        });
+      });
+    }
+    
+    setSyncProgress(10, 'Connecting to device...');
+    
+    // Connect to target peer
+    const targetPeerId = `et-${accountId}-${targetDeviceId}`;
+    const conn = peerRef.current!.connect(targetPeerId);
+    
+    // Wait for connection and sync response
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Connection timeout. Make sure the other device has the app open.'));
+      }, 15000);
+      
+      conn.on('open', async () => {
+        setSyncProgress(30, 'Connected! Requesting data...');
+        connectionsRef.current.set(conn.peer, conn);
+        addConnectedPeer(conn.peer);
+        
+        // Set up one-time handler for sync response
+        const handleSyncResponse = async (data: unknown) => {
+          const message = data as SyncMessage;
+          if (message.type === 'sync_response' && message.data) {
+            clearTimeout(timeout);
+            setSyncProgress(50, 'Syncing data...');
+            
+            try {
+              await mergeData(message.data);
+              setLastSyncTime();
+              loadExpenses();
+              loadAllExpenses();
+              loadPeople();
+              setSyncProgress(100, 'Complete!');
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          } else if (message.type === 'sync_rejected') {
+            clearTimeout(timeout);
+            reject(new Error(message.reason || 'Sync rejected'));
+          }
+        };
+        
+        conn.on('data', handleSyncResponse);
+        
+        // Send sync request
+        conn.send({
+          type: 'sync_request',
+          accountId: accountId,
+          accountName: ''
+        });
+      });
+      
+      conn.on('error', (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setConnected, addConnectedPeer, setLastSyncTime, setSyncProgress, loadExpenses, loadAllExpenses, loadPeople]);
+
   // Initialize on mount
   useEffect(() => {
     if (currentAccount?.mode === 'shared') {
@@ -423,6 +520,8 @@ export function useSync() {
     connect,
     disconnect,
     requestSync,
-    broadcast
+    broadcast,
+    connectAndSync,
+    initPeer
   };
 }
