@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSyncStore } from '@/stores/syncStore';
 import { useAccountStore } from '@/stores/accountStore';
@@ -17,6 +17,10 @@ export function SyncPage() {
   const navigate = useNavigate();
   const { deviceId, isConnected, isSynced, connectedPeers, getLastSyncTimeFormatted } = useSyncStore();
   const { connect, setAwareness, people: yjsPeople } = useYjs();
+  const connectRef = useRef(connect);
+  const yjsPeopleRef = useRef(yjsPeople);
+  connectRef.current = connect;
+  yjsPeopleRef.current = yjsPeople;
   const createAccountWithId = useAccountStore(s => s.createAccountWithId);
   const setCurrentAccount = useAccountStore(s => s.setCurrentAccount);
 
@@ -76,13 +80,13 @@ export function SyncPage() {
         await new Promise(resolve => setTimeout(resolve, 400));
       }
       const roomName = `expense-tracker-${data.accountId}`;
-      connect(roomName);
+      connectRef.current(roomName);
       setAwareness({ id: deviceId, name: people.find(p => p.id === selfPersonId)?.name || 'Unknown' });
       let attempts = 0;
       while (attempts < 60) {
         await new Promise(resolve => setTimeout(resolve, 500));
         attempts++;
-        const currentPeople = yjsPeople.toArray();
+        const currentPeople = yjsPeopleRef.current.toArray();
         if (currentPeople.length > 0) {
           usePeopleStore.getState().setPeople(currentPeople);
           if (!selfPersonId) setShowSelectName(true);

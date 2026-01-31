@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button, Input, useToast } from '@/components/ui';
@@ -47,8 +47,12 @@ export function OnboardingPage() {
   // Sync store
   const deviceId = useSyncStore(s => s.deviceId);
   
-  // Yjs hook
+  // Yjs hook - use refs so async attemptConnection uses latest values after account switch
   const { connect, setAwareness, isConnected, people: yjsPeople } = useYjs();
+  const connectRef = useRef(connect);
+  const yjsPeopleRef = useRef(yjsPeople);
+  connectRef.current = connect;
+  yjsPeopleRef.current = yjsPeople;
   
   // Form state
   const [step, setStep] = useState<Step>('welcome');
@@ -272,8 +276,9 @@ export function OnboardingPage() {
       await new Promise(resolve => setTimeout(resolve, 400));
       
       // Connect to Yjs room (sync happens automatically)
+      // Use ref to get latest connect - it's bound to the NEW ydoc after account switch
       const roomName = `expense-tracker-${data.accountId}`;
-      connect(roomName);
+      connectRef.current(roomName);
       
       // Set awareness
       setAwareness({
@@ -282,6 +287,7 @@ export function OnboardingPage() {
       });
       
       // Wait for WebRTC connection and CRDT sync - poll for people data
+      // Use ref to read from the correct (new) document's people array
       let attempts = 0;
       const maxAttempts = 60; // ~30 seconds max (WebRTC can be slow on mobile/cross-network)
       
@@ -290,7 +296,7 @@ export function OnboardingPage() {
         attempts++;
         
         // Check if we have people data from Yjs (synced from creator)
-        const currentPeople = yjsPeople.toArray();
+        const currentPeople = yjsPeopleRef.current.toArray();
         if (currentPeople.length > 0) {
           setSyncedPeople(currentPeople);
           setRetryCount(0);
