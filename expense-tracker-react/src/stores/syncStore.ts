@@ -2,13 +2,23 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AwarenessUser } from '@/sync/YjsProvider';
 
+export interface LastConnectParams {
+  roomName: string;
+  deviceId: string;
+  hostDeviceId?: string;
+}
+
 interface SyncState {
   deviceId: string;
   isConnected: boolean;
   isSynced: boolean; // IndexedDB sync status
   connectedPeers: AwarenessUser[];
   roomName: string | null;
-  
+  /** User-facing connection error (PeerJS error). Cleared when connection opens. */
+  connectionError: string | null;
+  /** Last connect params used for retry. */
+  lastConnectParams: LastConnectParams | null;
+
   // Actions
   setDeviceId: (id: string) => void;
   setConnected: (connected: boolean) => void;
@@ -17,6 +27,8 @@ interface SyncState {
   addConnectedPeer: (peerId: string) => void;
   removeConnectedPeer: (peerId: string) => void;
   setRoomName: (roomName: string | null) => void;
+  setConnectionError: (error: string | null) => void;
+  setLastConnectParams: (params: LastConnectParams | null) => void;
   getLastSyncTimeFormatted: () => string;
   resetSync: () => void;
 }
@@ -40,6 +52,8 @@ export const useSyncStore = create<SyncState>()(
       isSynced: false,
       connectedPeers: [],
       roomName: null,
+      connectionError: null,
+      lastConnectParams: null,
 
       setDeviceId: (id) => {
         set({ deviceId: id });
@@ -79,6 +93,14 @@ export const useSyncStore = create<SyncState>()(
         set({ roomName });
       },
 
+      setConnectionError: (connectionError) => {
+        set({ connectionError });
+      },
+
+      setLastConnectParams: (lastConnectParams) => {
+        set({ lastConnectParams });
+      },
+
       getLastSyncTimeFormatted: () => {
         // With Yjs, sync is continuous - just return connection status
         const { isConnected, isSynced } = get();
@@ -92,7 +114,9 @@ export const useSyncStore = create<SyncState>()(
           isConnected: false,
           isSynced: false,
           connectedPeers: [],
-          roomName: null
+          roomName: null,
+          connectionError: null,
+          lastConnectParams: null
         });
       }
     }),

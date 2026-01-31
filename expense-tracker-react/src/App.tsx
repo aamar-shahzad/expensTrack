@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ToastProvider, BottomNav, FAB } from '@/components/ui';
+import { ToastProvider, BottomNav, FAB, ErrorBoundary } from '@/components/ui';
 import { useAccountStore } from '@/stores/accountStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useExpenseStore, setYjsExpenseOperations } from '@/stores/expenseStore';
@@ -26,6 +26,7 @@ import {
 } from '@/pages';
 import { CameraCapture } from '@/components/camera/CameraCapture';
 import { SyncActionsProvider } from '@/contexts/SyncActionsContext';
+import { ConnectionErrorBanner } from '@/components/sync/ConnectionErrorBanner';
 
 // Component to sync Yjs data with Zustand stores
 function YjsStoreSync() {
@@ -41,6 +42,7 @@ function YjsStoreSync() {
   const setConnected = useSyncStore(s => s.setConnected);
   const setSynced = useSyncStore(s => s.setSynced);
   const setConnectedPeers = useSyncStore(s => s.setConnectedPeers);
+  const setLastConnectParams = useSyncStore(s => s.setLastConnectParams);
   
   // Set up Yjs operations for stores
   useEffect(() => {
@@ -228,6 +230,7 @@ function YjsStoreSync() {
     if (currentAccount?.mode === 'shared' && currentAccount.id) {
       const roomName = `expense-tracker-${currentAccount.id}`;
       const hostDeviceId = currentAccount.hostDeviceId ?? deviceId;
+      setLastConnectParams({ roomName, deviceId, hostDeviceId });
       connect(roomName, { deviceId, hostDeviceId });
       const selfPerson = people.find(p => p.id === selfPersonId);
       setAwareness({
@@ -235,7 +238,7 @@ function YjsStoreSync() {
         name: selfPerson?.name || 'Unknown'
       });
     }
-  }, [currentAccount?.mode, currentAccount?.id, currentAccount?.hostDeviceId, connect, deviceId, selfPersonId, people, setAwareness]);
+  }, [currentAccount?.mode, currentAccount?.id, currentAccount?.hostDeviceId, connect, deviceId, selfPersonId, people, setAwareness, setLastConnectParams]);
   
   return null;
 }
@@ -309,6 +312,7 @@ function AppContent() {
   return (
     <YjsProvider dbName={dbName}>
       <SyncActionsProvider>
+        <ConnectionErrorBanner />
         <AppRoutes />
       </SyncActionsProvider>
     </YjsProvider>
@@ -333,18 +337,20 @@ function App() {
   const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/'
 
   return (
-    <BrowserRouter basename={basename}>
-      <ToastProvider>
-        <div className="h-full flex flex-col bg-[var(--bg)]">
-          {isOffline && (
-            <div className="bg-amber-500 text-white text-center py-2 text-sm font-medium safe-top">
-              Offline
-            </div>
-          )}
-          <AppContent />
-        </div>
-      </ToastProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter basename={basename}>
+        <ToastProvider>
+          <div className="h-full flex flex-col bg-[var(--bg)]">
+            {isOffline && (
+              <div className="bg-amber-500 text-white text-center py-2 text-sm font-medium safe-top">
+                Offline
+              </div>
+            )}
+            <AppContent />
+          </div>
+        </ToastProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

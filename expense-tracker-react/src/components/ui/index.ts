@@ -13,3 +13,4 @@ export {
   PersonItemSkeleton,
   StatsCardSkeleton
 } from './Skeleton';
+export { ErrorBoundary } from './ErrorBoundary';

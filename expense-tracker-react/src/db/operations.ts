@@ -180,6 +180,19 @@ export async function getImage(id: string): Promise<ImageRecord | undefined> {
   return db.images.get(id);
 }
 
+/** Put image with given id (e.g. when receiving from peer). Use same blob for thumbnail if not provided. */
+export async function putImage(id: string, data: Blob, thumbnail?: Blob): Promise<void> {
+  const db = getDB();
+  const record: ImageRecord = {
+    id,
+    data,
+    thumbnail: thumbnail ?? data,
+    syncId: generateId(),
+    createdAt: Date.now()
+  };
+  await db.images.put(record);
+}
+
 export async function deleteImage(id: string): Promise<void> {
   const db = getDB();
   const image = await db.images.get(id);

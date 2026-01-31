@@ -5,6 +5,8 @@ import { cn, haptic } from '@/lib/utils';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { useAccountStore } from '@/stores/accountStore';
+import { useSyncStore } from '@/stores/syncStore';
+import { useYjs } from '@/sync';
 import * as db from '@/db/operations';
 
 interface ExpenseItemProps {
@@ -29,6 +31,8 @@ export function ExpenseItem({
   const formatAmount = useSettingsStore(s => s.formatAmount);
   const getPersonName = usePeopleStore(s => s.getPersonName);
   const isSharedMode = useAccountStore(s => s.isSharedMode());
+  const isConnected = useSyncStore(s => s.isConnected);
+  const requestImage = useYjs().requestImage;
   
   const [swiped, setSwiped] = useState(false);
   const [translateX, setTranslateX] = useState(0);
@@ -45,17 +49,18 @@ export function ExpenseItem({
   const icon = getCategoryIcon(expense.description);
   const payerName = isSharedMode && expense.payerId ? getPersonName(expense.payerId) : '';
 
-  // Load thumbnail for expenses with images
+  // Load thumbnail for expenses with images; if missing and shared+connected, request from peers
   const loadThumbnail = useCallback(async () => {
     if (!expense.imageId) return;
-    
+    const imageId = expense.imageId;
     try {
-      const image = await db.getImage(expense.imageId);
+      let image = await db.getImage(imageId);
+      if (!image?.thumbnail && isSharedMode && isConnected) {
+        await requestImage(imageId);
+        image = await db.getImage(imageId);
+      }
       if (image?.thumbnail) {
-        // Revoke old URL
-        if (thumbnailUrlRef.current) {
-          URL.revokeObjectURL(thumbnailUrlRef.current);
-        }
+        if (thumbnailUrlRef.current) URL.revokeObjectURL(thumbnailUrlRef.current);
         const url = URL.createObjectURL(image.thumbnail);
         thumbnailUrlRef.current = url;
         setThumbnailUrl(url);
@@ -63,7 +68,7 @@ export function ExpenseItem({
     } catch (e) {
       console.error('Failed to load thumbnail:', e);
     }
-  }, [expense.imageId]);
+  }, [expense.imageId, isSharedMode, isConnected, requestImage]);
 
   useEffect(() => {
     loadThumbnail();

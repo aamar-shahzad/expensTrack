@@ -42,6 +42,24 @@ Works on GitHub Pages with no backend. Creator shows QR/link with their device i
 
 So the rule is: **anyone in the shared account can add, edit, or delete any expense.** There is no “only host can delete” or “only payer can edit” check. If you want a stricter policy (e.g. only the host can delete, or only the payer can edit an expense), that would require extra checks in the UI and/or in the store before calling add/update/delete.
 
+## What's missing / optional
+
+Things that are not implemented or are local-only; useful when deciding what to add next.
+
+| Area | Status | Notes |
+|------|--------|--------|
+| **Receipt images** | Synced on demand | `imageId` syncs via Yjs; the actual image is requested from peers when missing. When you open an expense with a receipt you don't have locally (shared account, connected), the app requests it from a peer over the DataChannel; the peer sends the image as base64 and it is stored locally. |
+| **Settings (shared)** | Per device | Currency, budget, dark mode come from `settingsStore` (persist). They are not in the Yjs doc, so each device can have different settings. Optional: sync currency (and maybe budget) for shared accounts. |
+| **Recurring / templates / category budgets** | Local only | Stored in IndexedDB only; not in Yjs. Expenses, people, and payments sync; recurring expenses, templates, and category budgets do not. |
+| **Awareness / presence** | No-op | `setAwareness` exists but does nothing (no awareness protocol over the simple Yjs sync). "Who's online" would require sending awareness updates over the same DataChannel. |
+| **Reconnection** | Manual | On PeerJS disconnect, the app updates "Not connected" but does not auto-reconnect. User can refresh or re-open the invite flow. Optional: auto-reconnect with backoff. |
+| **Connection errors** | User-facing + retry | A "Connection failed" banner appears when PeerJS errors; a "Retry" button reconnects using the last connect params. |
+| **Tests** | None | No test script or test files (no Vitest/Jest). Adding `vitest` and a few unit tests for stores/sync would help. |
+| **Error boundary** | Root boundary | A root `ErrorBoundary` catches uncaught errors and shows "Something went wrong" with a "Reload" button. |
+| **Validation** | Minimal | Forms submit without strict validation (e.g. required amount/description). Optional: explicit validation and inline errors. |
+| **Accessibility** | Partial | Some buttons/labels; no full audit. Optional: ARIA labels, keyboard nav, focus management. |
+| **i18n** | English only | All copy is hardcoded in English. |
+
 ## Verification (existing data)
 
 - **Build**: `npm run build` — TypeScript and Vite build succeed.

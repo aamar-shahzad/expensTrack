@@ -131,3 +131,16 @@ export function groupBy<T>(array: T[], keyFn: (item: T) => string): Record<strin
     return groups;
   }, {} as Record<string, T[]>);
 }
+
+export function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '');
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+export function base64ToBlob(base64: string, mimeType = 'image/jpeg'): Promise<Blob> {
+  return fetch(`data:${mimeType};base64,${base64}`).then((r) => r.blob());
+}

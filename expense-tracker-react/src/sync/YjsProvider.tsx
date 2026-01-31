@@ -3,6 +3,9 @@ import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
 import Peer, { type DataConnection } from 'peerjs';
 import type { Expense, Person, Payment } from '@/types';
+import { useSyncStore } from '@/stores/syncStore';
+import * as db from '@/db/operations';
+import { blobToBase64, base64ToBlob } from '@/lib/utils';
 
 // Awareness state for each user (peer id only when using simple sync)
 export interface AwarenessUser {
@@ -17,6 +20,10 @@ export interface ConnectOptions {
   hostDeviceId?: string;
 }
 
+// Image sync message types (JSON over DataConnection)
+type ReqImgMsg = { t: 'reqImg'; id: string };
+type ImgMsg = { t: 'img'; id: string; b: string };
+
 // Context value type
 interface YjsContextValue {
   ydoc: Y.Doc;
@@ -30,6 +37,8 @@ interface YjsContextValue {
   connect: (roomName: string, options: ConnectOptions) => void;
   disconnect: () => void;
   setAwareness: (user: AwarenessUser) => void;
+  /** Request receipt image from peers (shared accounts). Resolves when received or after timeout. */
+  requestImage: (imageId: string) => Promise<void>;
 }
 
 const YjsContext = createContext<YjsContextValue | null>(null);
@@ -60,10 +69,18 @@ function setupYjsSync(
   conn: DataConnection,
   connectionsRef: MutableRefObject<Set<DataConnection>>,
   setConnectedPeers: (peers: AwarenessUser[]) => void,
-  setIsConnected: (v: boolean) => void
+  setIsConnected: (v: boolean) => void,
+  setConnectionError: (error: string | null) => void,
+  onRequestImage: (conn: DataConnection, imageId: string) => void,
+  onImageReceived: (imageId: string, base64: string) => void
 ): () => void {
   const connections = connectionsRef.current;
   connections.add(conn);
+  setConnectionError(null);
+
+  conn.on('error', (err) => {
+    setConnectionError(err?.message ?? 'Connection failed');
+  });
 
   // 1. Send local state to new peer
   const state = Y.encodeStateAsUpdate(ydoc);
@@ -75,8 +92,18 @@ function setupYjsSync(
     }
   }
 
-  // 2. Receive updates from peer (origin = conn so we don't re-broadcast to sender)
+  // 2. Receive updates from peer (origin = conn so we don't re-broadcast to sender). Also handle image sync (JSON).
   const onData = (data: unknown) => {
+    if (typeof data === 'string') {
+      try {
+        const msg = JSON.parse(data) as ReqImgMsg | ImgMsg;
+        if (msg.t === 'reqImg' && msg.id) onRequestImage(conn, msg.id);
+        else if (msg.t === 'img' && msg.id && msg.b) onImageReceived(msg.id, msg.b);
+      } catch {
+        // ignore invalid JSON
+      }
+      return;
+    }
     try {
       const buf = data instanceof ArrayBuffer
         ? new Uint8Array(data)
@@ -142,6 +169,68 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
   const [connectedPeers, setConnectedPeers] = useState<AwarenessUser[]>([]);
+  const setConnectionError = useSyncStore((s) => s.setConnectionError);
+  const pendingRequestsRef = useRef<Map<string, { resolve: () => void; reject: (e: Error) => void }>>(new Map());
+
+  const onRequestImage = useCallback(async (conn: DataConnection, imageId: string) => {
+    try {
+      const img = await db.getImage(imageId);
+      if (img?.data) {
+        const b64 = await blobToBase64(img.data);
+        conn.send(JSON.stringify({ t: 'img', id: imageId, b: b64 } as ImgMsg));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+  const onImageReceived = useCallback(async (imageId: string, base64: string) => {
+    try {
+      const blob = await base64ToBlob(base64);
+      await db.putImage(imageId, blob);
+    } catch (e) {
+      console.error('[Yjs] putImage error', e);
+    }
+    const p = pendingRequestsRef.current.get(imageId);
+    if (p) {
+      p.resolve();
+      pendingRequestsRef.current.delete(imageId);
+    }
+  }, []);
+  const onRequestImageRef = useRef(onRequestImage);
+  const onImageReceivedRef = useRef(onImageReceived);
+  onRequestImageRef.current = onRequestImage;
+  onImageReceivedRef.current = onImageReceived;
+
+  const requestImage = useCallback((imageId: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      void db.getImage(imageId).then((img) => {
+        if (img) {
+          resolve();
+          return;
+        }
+        const conns = connectionsRef.current;
+        if (conns.size === 0) {
+          resolve();
+          return;
+        }
+        pendingRequestsRef.current.set(imageId, { resolve, reject });
+        const msg = JSON.stringify({ t: 'reqImg', id: imageId } as ReqImgMsg);
+        for (const c of conns) {
+          try {
+            c.send(msg);
+          } catch {
+            // ignore
+          }
+        }
+        setTimeout(() => {
+          if (pendingRequestsRef.current.has(imageId)) {
+            pendingRequestsRef.current.get(imageId)?.reject(new Error('Timeout'));
+            pendingRequestsRef.current.delete(imageId);
+          }
+        }, 8000);
+      });
+    });
+  }, []);
 
   // Recreate Yjs document when dbName changes
   useEffect(() => {
@@ -184,6 +273,7 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
 
   const connect = useCallback(
     (roomName: string, options: ConnectOptions) => {
+      setConnectionError(null);
       const { deviceId, hostDeviceId } = options;
       const isHost = !hostDeviceId || hostDeviceId === deviceId;
 
@@ -221,7 +311,10 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
               conn,
               connectionsRef,
               setConnectedPeers,
-              setIsConnected
+              setIsConnected,
+              setConnectionError,
+              onRequestImageRef.current,
+              onImageReceivedRef.current
             );
             cleanupFnsRef.current.push(cleanup);
           });
@@ -243,20 +336,23 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
               conn,
               connectionsRef,
               setConnectedPeers,
-              setIsConnected
+              setIsConnected,
+              setConnectionError,
+              onRequestImageRef.current,
+              onImageReceivedRef.current
             );
             cleanupFnsRef.current.push(cleanup);
           });
-          conn.on('error', (err) => console.error('[Yjs] PeerJS conn error', err));
+          conn.on('error', (err) => setConnectionError(err?.message ?? 'Connection failed'));
         });
       }
 
-      peerRef.current.on('error', (err) => console.error('[Yjs] PeerJS error', err));
+      peerRef.current.on('error', (err) => setConnectionError(err?.message ?? 'Connection failed'));
       peerRef.current.on('disconnected', () => {
         setIsConnected(connectionsRef.current.size > 0);
       });
     },
-    [ydoc]
+    [ydoc, setConnectionError]
   );
 
   const disconnect = useCallback(() => {
@@ -271,7 +367,8 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
     currentRoomRef.current = null;
     setIsConnected(false);
     setConnectedPeers([]);
-  }, []);
+    setConnectionError(null);
+  }, [setConnectionError]);
 
   const setAwareness = useCallback((_user: AwarenessUser) => {
     // No awareness protocol with simple sync; no-op so callers don't break
@@ -296,7 +393,8 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
     connectedPeers,
     connect,
     disconnect,
-    setAwareness
+    setAwareness,
+    requestImage
   };
 
   return (

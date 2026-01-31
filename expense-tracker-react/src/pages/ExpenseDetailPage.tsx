@@ -9,6 +9,7 @@ import { usePeopleStore } from '@/stores/peopleStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSyncStore } from '@/stores/syncStore';
+import { useYjs } from '@/sync';
 import { haptic } from '@/lib/utils';
 import * as db from '@/db/operations';
 
@@ -24,6 +25,7 @@ export function ExpenseDetailPage() {
   const formatAmount = useSettingsStore(s => s.formatAmount);
   const isSynced = useSyncStore(s => s.isSynced);
   const isConnected = useSyncStore(s => s.isConnected);
+  const requestImage = useYjs().requestImage;
   
   // Prefer store (Yjs source of truth); fallback to DB for legacy or before sync
   const expenseFromStore = id ? allExpenses.find(e => e.id === id) ?? null : null;
@@ -55,19 +57,36 @@ export function ExpenseDetailPage() {
     loadFromDb();
   }, [id]);
 
-  // Load image from IndexedDB when we have an expense with imageId
+  // Load image from IndexedDB; if missing and shared+connected, request from peers
   useEffect(() => {
     if (!effectiveExpense?.imageId) return;
-    
+    const imageId = effectiveExpense.imageId;
     let revoked = false;
-    db.getImage(effectiveExpense.imageId).then((image) => {
+
+    const setUrlFromImage = (image: Awaited<ReturnType<typeof db.getImage>>) => {
       if (revoked || !image?.data) return;
       if (imageUrlRef.current) URL.revokeObjectURL(imageUrlRef.current);
       const url = URL.createObjectURL(image.data);
       imageUrlRef.current = url;
       setImageUrl(url);
+    };
+
+    void db.getImage(imageId).then((image) => {
+      if (revoked) return;
+      if (image?.data) {
+        setUrlFromImage(image);
+        return;
+      }
+      if (isSharedMode && isConnected) {
+        void requestImage(imageId)
+          .then(() => db.getImage(imageId))
+          .then((image2) => {
+            if (!revoked) setUrlFromImage(image2);
+          })
+          .catch(() => {});
+      }
     });
-    
+
     return () => {
       revoked = true;
       if (imageUrlRef.current) {
@@ -75,7 +94,7 @@ export function ExpenseDetailPage() {
         imageUrlRef.current = null;
       }
     };
-  }, [effectiveExpense?.imageId]);
+  }, [effectiveExpense?.imageId, isSharedMode, isConnected, requestImage]);
 
   // Loading: wait for either expense to appear (store or DB) or for sync + DB result
   const loading = Boolean(
