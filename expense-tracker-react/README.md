@@ -28,6 +28,8 @@ The app uses **PeerJS** for signaling and WebRTC DataChannels, and **Yjs** for s
 
 Works on GitHub Pages with no backend. Creator shows QR/link with their device id; joiners connect to that peer.
 
+**Add / remove / edit on one peer:** Changes go into the local Yjs doc and are sent to all connected peers. The other peer’s Yjs doc is updated, its observers run, and the Zustand store and list update automatically—no manual refresh needed. If the list ever feels stale (e.g. after reconnecting), use the **↻** refresh button next to the month on the home screen (shared mode) to re-read from the Yjs doc into the store.
+
 ## Verification (existing data)
 
 - **Build**: `npm run build` — TypeScript and Vite build succeed.

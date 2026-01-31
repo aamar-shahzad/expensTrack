@@ -23,6 +23,7 @@ export function ExpenseDetailPage() {
   const isSharedMode = useAccountStore(s => s.isSharedMode());
   const formatAmount = useSettingsStore(s => s.formatAmount);
   const isSynced = useSyncStore(s => s.isSynced);
+  const isConnected = useSyncStore(s => s.isConnected);
   
   // Prefer store (Yjs source of truth); fallback to DB for legacy or before sync
   const expenseFromStore = id ? allExpenses.find(e => e.id === id) ?? null : null;
@@ -87,7 +88,7 @@ export function ExpenseDetailPage() {
     try {
       await deleteExpense(effectiveExpense.id);
       haptic('success');
-      showSuccess('Expense deleted');
+      showSuccess(isConnected ? 'Expense deleted · synced' : 'Expense deleted');
       navigate('/');
     } catch (e) {
       console.error('Failed to delete:', e);

@@ -5,6 +5,7 @@ import { ExpenseItem } from './ExpenseItem';
 import { ExpenseListSkeleton } from '@/components/ui';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSyncStore } from '@/stores/syncStore';
 import { useToast } from '@/components/ui';
 
 interface ExpenseListProps {
@@ -19,6 +20,7 @@ export function ExpenseList({ expenses, loading, newExpenseId }: ExpenseListProp
   const deleteExpense = useExpenseStore(s => s.deleteExpense);
   const duplicateExpense = useExpenseStore(s => s.duplicateExpense);
   const formatAmount = useSettingsStore(s => s.formatAmount);
+  const isConnected = useSyncStore(s => s.isConnected);
 
   // Group expenses by date category
   const groupedExpenses = useMemo(() => {
@@ -86,7 +88,7 @@ export function ExpenseList({ expenses, loading, newExpenseId }: ExpenseListProp
   const handleDelete = async (id: string) => {
     try {
       await deleteExpense(id);
-      showSuccess('Deleted');
+      showSuccess(isConnected ? 'Deleted · synced' : 'Deleted');
     } catch {
       showError('Failed to delete');
     }
@@ -95,7 +97,7 @@ export function ExpenseList({ expenses, loading, newExpenseId }: ExpenseListProp
   const handleDuplicate = async (id: string) => {
     try {
       await duplicateExpense(id);
-      showSuccess('Duplicated');
+      showSuccess(isConnected ? 'Duplicated · synced' : 'Duplicated');
     } catch {
       showError('Failed to duplicate');
     }

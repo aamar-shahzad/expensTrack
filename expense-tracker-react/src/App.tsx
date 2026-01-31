@@ -25,6 +25,7 @@ import {
   JoinFromLinkHandler
 } from '@/pages';
 import { CameraCapture } from '@/components/camera/CameraCapture';
+import { SyncActionsProvider } from '@/contexts/SyncActionsContext';
 
 // Component to sync Yjs data with Zustand stores
 function YjsStoreSync() {
@@ -307,7 +308,9 @@ function AppContent() {
   
   return (
     <YjsProvider dbName={dbName}>
-      <AppRoutes />
+      <SyncActionsProvider>
+        <AppRoutes />
+      </SyncActionsProvider>
     </YjsProvider>
   );
 }

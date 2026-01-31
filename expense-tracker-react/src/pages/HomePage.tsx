@@ -2,6 +2,9 @@ import { useEffect } from 'react';
 import { ExpenseList } from '@/components/expenses';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSyncStore } from '@/stores/syncStore';
+import { useAccountStore } from '@/stores/accountStore';
+import { useSyncActions } from '@/contexts/SyncActionsContext';
 import { cn } from '@/lib/utils';
 
 const CATEGORIES = [
@@ -38,6 +41,9 @@ export function HomePage() {
   
   const formatAmount = useSettingsStore(s => s.formatAmount);
   const getBudgetStatus = useSettingsStore(s => s.getBudgetStatus);
+  const isConnected = useSyncStore(s => s.isConnected);
+  const isSharedMode = useAccountStore(s => s.isSharedMode());
+  const syncActions = useSyncActions();
 
   useEffect(() => {
     loadExpenses();
@@ -70,6 +76,25 @@ export function HomePage() {
           <span className="font-semibold text-[15px] min-w-[140px] text-center">
             {MONTHS[currentMonth]} {currentYear}
           </span>
+          {isSharedMode && (
+            <span className="flex items-center gap-2">
+              {isConnected && (
+                <span className="flex items-center gap-1.5 text-[11px] text-[var(--teal-green)] font-medium">
+                  <span className="w-2 h-2 rounded-full bg-[var(--teal-green)] animate-pulse" />
+                  Live
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => syncActions?.refreshStores()}
+                className="w-8 h-8 rounded-full bg-[var(--white)] flex items-center justify-center text-[var(--teal-green)] text-sm shadow-sm active:scale-90 transition-transform"
+                title="Refresh list from sync"
+                aria-label="Refresh list"
+              >
+                ↻
+              </button>
+            </span>
+          )}
           <button
             onClick={() => navigateMonth(1)}
             className="w-9 h-9 rounded-full bg-[var(--white)] flex items-center justify-center text-[var(--teal-green)] text-lg shadow-sm active:scale-90 transition-transform"

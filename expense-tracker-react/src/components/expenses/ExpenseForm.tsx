@@ -8,6 +8,7 @@ import { useExpenseStore } from '@/stores/expenseStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSyncStore } from '@/stores/syncStore';
 import { useCamera } from '@/hooks/useCamera';
 import { haptic, cn } from '@/lib/utils';
 import * as db from '@/db/operations';
@@ -27,6 +28,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const setLastPayer = usePeopleStore(s => s.setLastPayer);
   const isSharedMode = useAccountStore(s => s.isSharedMode());
   const currency = useSettingsStore(s => s.currency);
+  const isConnected = useSyncStore(s => s.isConnected);
   const { processOCR, saveImage, isProcessing, ocrProgress } = useCamera();
 
   const [description, setDescription] = useState(expense?.description || '');
@@ -229,7 +231,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           tags: tags.trim() || undefined,
           imageId: imageId || expense.imageId
         });
-        showSuccess('Updated!');
+        showSuccess(isConnected ? 'Updated · synced' : 'Updated!');
       } else {
         await addExpense({
           description: description.trim(),
@@ -246,7 +248,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           setLastPayer(payerId);
         }
         
-        showSuccess('Saved!');
+        showSuccess(isConnected ? 'Saved · synced' : 'Saved!');
       }
       
       haptic('success');
