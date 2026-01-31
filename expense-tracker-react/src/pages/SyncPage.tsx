@@ -62,7 +62,7 @@ export function SyncPage() {
   };
 
   const inviteUrl = currentAccount
-    ? generateInviteUrl(currentAccount.id, currentAccount.name)
+    ? generateInviteUrl(currentAccount.id, currentAccount.name, currentAccount.hostDeviceId ?? deviceId ?? undefined)
     : '';
 
   const handleCopyInviteLink = async () => {
@@ -81,7 +81,7 @@ export function SyncPage() {
   const handleRegenerateInviteLink = async () => {
     if (!currentAccount) return;
     try {
-      const url = generateInviteUrl(currentAccount.id, currentAccount.name);
+      const url = generateInviteUrl(currentAccount.id, currentAccount.name, currentAccount.hostDeviceId ?? deviceId ?? undefined);
       const success = await copyToClipboard(url);
       if (success) {
         haptic('success');
@@ -101,12 +101,13 @@ export function SyncPage() {
     try {
       const isSameAccount = currentAccount?.id === data.accountId;
       if (!isSameAccount) {
-        createAccountWithId(data.accountId, data.accountName, 'shared', '$');
+        createAccountWithId(data.accountId, data.accountName, 'shared', '$', data.deviceId);
         await setCurrentAccount(data.accountId);
         await new Promise(resolve => setTimeout(resolve, 400));
       }
       const roomName = `expense-tracker-${data.accountId}`;
-      connectRef.current(roomName);
+      const hostDeviceId = data.deviceId || currentAccount?.hostDeviceId || deviceId;
+      connectRef.current(roomName, { deviceId: deviceId ?? '', hostDeviceId });
       setAwareness({ id: deviceId, name: people.find(p => p.id === selfPersonId)?.name || 'Unknown' });
       let attempts = 0;
       while (attempts < 60) {

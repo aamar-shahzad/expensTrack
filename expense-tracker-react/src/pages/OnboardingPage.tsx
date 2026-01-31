@@ -129,22 +129,22 @@ export function OnboardingPage() {
       // For shared mode, go to add people step
       setLoading(true);
       try {
-        // Create account first
+        // Create account first (we are host; hostDeviceId = our deviceId)
         const account = createAccount(
           accountName.trim(),
           'shared',
-          selectedCurrency
+          selectedCurrency,
+          deviceId ?? undefined
         );
         setCurrency(selectedCurrency);
         await setCurrentAccount(account.id);
         
         // Wait for React to re-render and YjsProvider to create the account-specific document
-        // (dbName changes from 'default' to expense-tracker-yjs-{accountId})
         await new Promise(resolve => setTimeout(resolve, 400));
         
-        // Now connect to Yjs room - must happen AFTER document is recreated for this account
         const roomName = `expense-tracker-${account.id}`;
-        connect(roomName);
+        const hostDeviceId = account.hostDeviceId ?? deviceId;
+        connect(roomName, { deviceId: deviceId ?? '', hostDeviceId });
         
         // Set awareness with our info
         setAwareness({
@@ -263,22 +263,20 @@ export function OnboardingPage() {
     setStep('connecting');
     
     try {
-      // Create account with the same ID as the group
-      const account = createAccountWithId(
+      // Create account with the same ID as the group (hostDeviceId = creator so we connect to them)
+      createAccountWithId(
         data.accountId,
         data.accountName,
         'shared',
-        '$' // Will be updated from synced data
+        '$',
+        data.deviceId
       );
-      await setCurrentAccount(account.id);
+      await setCurrentAccount(data.accountId);
       
-      // Wait for YjsProvider to create the account-specific document
       await new Promise(resolve => setTimeout(resolve, 400));
       
-      // Connect to Yjs room (sync happens automatically)
-      // Use ref to get latest connect - it's bound to the NEW ydoc after account switch
       const roomName = `expense-tracker-${data.accountId}`;
-      connectRef.current(roomName);
+      connectRef.current(roomName, { deviceId: deviceId ?? '', hostDeviceId: data.deviceId });
       
       // Set awareness
       setAwareness({
@@ -610,7 +608,7 @@ export function OnboardingPage() {
               </p>
               <Input
                 readOnly
-                value={generateInviteUrl(currentAccount.id, currentAccount.name)}
+                value={generateInviteUrl(currentAccount.id, currentAccount.name, currentAccount.hostDeviceId ?? deviceId ?? undefined)}
                 className="text-sm font-mono"
                 aria-label="Invite URL for this account"
               />
@@ -620,7 +618,7 @@ export function OnboardingPage() {
                   variant="secondary"
                   className="flex-1"
                   onClick={async () => {
-                    const url = generateInviteUrl(currentAccount.id, currentAccount.name);
+                    const url = generateInviteUrl(currentAccount.id, currentAccount.name, currentAccount.hostDeviceId ?? deviceId ?? undefined);
                     const success = await copyToClipboard(url);
                     if (success) {
                       haptic('success');
@@ -638,7 +636,7 @@ export function OnboardingPage() {
                   className="flex-1"
                   onClick={async () => {
                     try {
-                      const url = generateInviteUrl(currentAccount.id, currentAccount.name);
+                      const url = generateInviteUrl(currentAccount.id, currentAccount.name, currentAccount.hostDeviceId ?? deviceId ?? undefined);
                       const success = await copyToClipboard(url);
                       if (success) {
                         haptic('success');

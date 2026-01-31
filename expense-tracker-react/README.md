@@ -18,15 +18,15 @@ VITE_BASE_PATH='/expensTrack/' npm run build
 npm run preview
 ```
 
-## WebRTC Sync (GitHub Pages only)
+## Sync (PeerJS + Yjs, no backend)
 
-The app uses **y-webrtc** for peer-to-peer sync. With **only GitHub Pages** (no other hosting), the app uses the built-in **public signaling servers** so peers can find each other:
+The app uses **PeerJS** for signaling and WebRTC DataChannels, and **Yjs** for shared state. No y-webrtc and no custom signaling servers.
 
-- `wss://signaling.yjs.dev`
-- `wss://y-webrtc-signaling-eu.herokuapp.com`
-- `wss://y-webrtc-signaling-us.herokuapp.com`
+- **PeerJS**: peer discovery and WebRTC connection (uses PeerJS cloud: `0.peerjs.com`).
+- **Yjs**: CRDT sync over the DataChannel (encodeStateAsUpdate on connect, applyUpdate on data, ydoc.on('update') to broadcast).
+- **IndexedDB**: local persistence via y-indexeddb.
 
-If you see **"WebSocket connection to 'wss://signaling.yjs.dev/' failed"**, the public servers may be down or blocked by your network; try another network or again later. Sync works when at least one of these servers is reachable.
+Works on GitHub Pages with no backend. Creator shows QR/link with their device id; joiners connect to that peer.
 
 ## Verification (existing data)
 

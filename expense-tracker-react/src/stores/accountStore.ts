@@ -11,8 +11,8 @@ interface AccountState {
   isOnboarded: boolean;
   
   // Actions
-  createAccount: (name: string, mode: 'single' | 'shared', currency: string) => Account;
-  createAccountWithId: (id: string, name: string, mode: 'single' | 'shared', currency: string) => Account;
+  createAccount: (name: string, mode: 'single' | 'shared', currency: string, hostDeviceId?: string) => Account;
+  createAccountWithId: (id: string, name: string, mode: 'single' | 'shared', currency: string, hostDeviceId?: string) => Account;
   deleteAccount: (id: string) => void;
   setCurrentAccount: (id: string) => Promise<void>;
   getCurrentAccount: () => Account | undefined;
@@ -30,42 +30,50 @@ export const useAccountStore = create<AccountState>()(
       selfPersonId: null,
       isOnboarded: false,
 
-      createAccount: (name, mode, currency) => {
+      createAccount: (name, mode, currency, hostDeviceId) => {
         const account: Account = {
           id: generateId(),
           name,
           mode,
           currency,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          ...(mode === 'shared' && hostDeviceId != null && { hostDeviceId })
         };
-        
+
         set(state => ({
           accounts: [...state.accounts, account]
         }));
-        
+
         return account;
       },
 
       // Create account with a specific ID (used when joining an existing group)
-      createAccountWithId: (id, name, mode, currency) => {
-        // Check if account with this ID already exists
+      createAccountWithId: (id, name, mode, currency, hostDeviceId) => {
         const existing = get().accounts.find(a => a.id === id);
         if (existing) {
+          if (hostDeviceId != null) {
+            set(state => ({
+              accounts: state.accounts.map(a =>
+                a.id === id ? { ...a, hostDeviceId } : a
+              )
+            }));
+          }
           return existing;
         }
-        
+
         const account: Account = {
           id,
           name,
           mode,
           currency,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          ...(hostDeviceId != null && { hostDeviceId })
         };
-        
+
         set(state => ({
           accounts: [...state.accounts, account]
         }));
-        
+
         return account;
       },
 

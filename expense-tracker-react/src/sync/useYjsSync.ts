@@ -35,13 +35,13 @@ export function useYjsSync() {
     });
   }, [connectedPeers, addConnectedPeer]);
   
-  // Connect to room when account is shared
+  // Connect to room when account is shared (PeerJS: host = creator, joiners connect to host)
   useEffect(() => {
     if (currentAccount?.mode === 'shared' && currentAccount.id) {
       const roomName = `expense-tracker-${currentAccount.id}`;
-      connect(roomName);
+      const hostDeviceId = currentAccount.hostDeviceId ?? deviceId;
+      connect(roomName, { deviceId, hostDeviceId });
       
-      // Set awareness with user info
       const selfPerson = people.find(p => p.id === selfPersonId);
       setAwareness({
         id: deviceId,
@@ -49,11 +49,7 @@ export function useYjsSync() {
         color: getRandomColor(deviceId)
       });
     }
-    
-    return () => {
-      // Don't disconnect on cleanup - let provider handle it
-    };
-  }, [currentAccount?.mode, currentAccount?.id, connect, deviceId, selfPersonId, people, setAwareness]);
+  }, [currentAccount?.mode, currentAccount?.id, currentAccount?.hostDeviceId, connect, deviceId, selfPersonId, people, setAwareness]);
   
   // ============ EXPENSE OPERATIONS ============
   
@@ -184,9 +180,13 @@ export function useYjsSync() {
   
   // ============ SYNC OPERATIONS ============
   
-  const connectToRoom = useCallback((roomName: string, password?: string) => {
-    connect(roomName, password);
-  }, [connect]);
+  const connectToRoom = useCallback((roomName: string, options?: { deviceId: string; hostDeviceId?: string }) => {
+    const opts = options ?? {
+      deviceId,
+      hostDeviceId: currentAccount?.hostDeviceId ?? deviceId
+    };
+    connect(roomName, opts);
+  }, [connect, deviceId, currentAccount?.hostDeviceId]);
   
   const disconnectFromRoom = useCallback(() => {
     disconnect();

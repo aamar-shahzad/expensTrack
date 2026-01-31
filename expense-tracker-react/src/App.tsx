@@ -222,18 +222,19 @@ function YjsStoreSync() {
     }
   }, [ydoc]);
   
-  // Auto-connect to Yjs room for shared accounts (keeps creator discoverable for joiners)
+  // Auto-connect via PeerJS for shared accounts (host = creator, joiners connect to host)
   useEffect(() => {
     if (currentAccount?.mode === 'shared' && currentAccount.id) {
       const roomName = `expense-tracker-${currentAccount.id}`;
-      connect(roomName);
+      const hostDeviceId = currentAccount.hostDeviceId ?? deviceId;
+      connect(roomName, { deviceId, hostDeviceId });
       const selfPerson = people.find(p => p.id === selfPersonId);
       setAwareness({
         id: deviceId,
         name: selfPerson?.name || 'Unknown'
       });
     }
-  }, [currentAccount?.mode, currentAccount?.id, connect, deviceId, selfPersonId, people, setAwareness]);
+  }, [currentAccount?.mode, currentAccount?.id, currentAccount?.hostDeviceId, connect, deviceId, selfPersonId, people, setAwareness]);
   
   return null;
 }

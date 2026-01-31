@@ -66,13 +66,19 @@ export function generateInviteCode(
 }
 
 /**
- * Generate shareable URL (for Copy invite link)
+ * Generate shareable URL (for Copy invite link).
+ * deviceId = host peer id so joiners can connect via PeerJS.
  */
 export function generateInviteUrl(
   accountId: string,
   accountName: string,
+  deviceId?: string,
   baseUrl: string = typeof window !== 'undefined' ? window.location.origin + (import.meta.env.BASE_URL || '/') : ''
 ): string {
   const path = baseUrl.replace(/\/$/, '') + '/join';
-  return `${path}?account=${encodeURIComponent(accountId)}&name=${encodeURIComponent(accountName)}`;
+  const params = new URLSearchParams();
+  params.set('account', accountId);
+  params.set('name', accountName);
+  if (deviceId) params.set('device', deviceId);
+  return `${path}?${params.toString()}`;
 }

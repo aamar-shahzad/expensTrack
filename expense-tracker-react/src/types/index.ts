@@ -36,6 +36,8 @@ export interface Account {
   mode: 'single' | 'shared';
   currency: string;
   createdAt: number;
+  /** For shared: deviceId of the peer others connect to (creator). Set when creating or when joining from QR/link. */
+  hostDeviceId?: string;
 }
 
 // Image Types

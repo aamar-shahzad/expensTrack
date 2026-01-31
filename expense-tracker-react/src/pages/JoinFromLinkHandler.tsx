@@ -16,13 +16,15 @@ export function JoinFromLinkHandler() {
   useEffect(() => {
     const account = searchParams.get('account');
     const name = searchParams.get('name');
+    const device = searchParams.get('device');
     if (!account) {
       navigate('/', { replace: true });
       return;
     }
-    const parsed = parseInviteInput(`?account=${account}&name=${name || 'Shared Group'}`);
+    const query = `?account=${account}&name=${name || 'Shared Group'}${device ? `&device=${encodeURIComponent(device)}` : ''}`;
+    const parsed = parseInviteInput(query);
     if (parsed) {
-      createAccountWithId(parsed.accountId, parsed.accountName, 'shared', '$');
+      createAccountWithId(parsed.accountId, parsed.accountName, 'shared', '$', parsed.deviceId || undefined);
       setCurrentAccount(parsed.accountId).then(async () => {
         await new Promise(resolve => setTimeout(resolve, 500)); // Wait for Yjs doc to switch
         navigate('/sync', { replace: true, state: { joinData: parsed } });
