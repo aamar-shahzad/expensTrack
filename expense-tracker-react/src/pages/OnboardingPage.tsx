@@ -616,6 +616,7 @@ export function OnboardingPage() {
               />
               <div className="flex gap-2">
                 <Button
+                  type="button"
                   variant="secondary"
                   className="flex-1"
                   onClick={async () => {
@@ -625,21 +626,30 @@ export function OnboardingPage() {
                       haptic('success');
                       showSuccess('Invite link copied! Share it via message or email.');
                     } else {
-                      showError('Could not copy. Try copying the QR code instead.');
+                      showError('Could not copy. Try selecting and copying the link above.');
                     }
                   }}
                 >
                   Copy link
                 </Button>
                 <Button
+                  type="button"
                   variant="secondary"
                   className="flex-1"
                   onClick={async () => {
-                    const url = generateInviteUrl(currentAccount.id, currentAccount.name);
-                    const success = await copyToClipboard(url);
-                    if (success) {
-                      haptic('success');
-                      showSuccess('Link regenerated and copied. Share the new link.');
+                    try {
+                      const url = generateInviteUrl(currentAccount.id, currentAccount.name);
+                      const success = await copyToClipboard(url);
+                      if (success) {
+                        haptic('success');
+                        showSuccess('Link regenerated and copied. Share the new link.');
+                      } else {
+                        haptic('error');
+                        showError('Could not copy. Try selecting and copying the link above.');
+                      }
+                    } catch {
+                      haptic('error');
+                      showError('Could not copy link.');
                     }
                   }}
                 >

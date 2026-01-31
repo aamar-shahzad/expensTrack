@@ -69,11 +69,28 @@ export function formatRelativeTime(date: Date | string): string {
   return then.toLocaleDateString();
 }
 
-// Copy to clipboard
+// Copy to clipboard (Clipboard API with execCommand fallback)
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
-    await navigator.clipboard.writeText(text);
-    return true;
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through to fallback
+  }
+  // Fallback for HTTP, older browsers, or when clipboard is denied
+  try {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.setAttribute('readonly', '');
+    el.style.position = 'absolute';
+    el.style.left = '-9999px';
+    document.body.appendChild(el);
+    el.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(el);
+    return ok;
   } catch {
     return false;
   }

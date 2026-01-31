@@ -71,17 +71,28 @@ export function SyncPage() {
       if (success) {
         haptic('success');
         showSuccess('Invite link copied! Share via message or email.');
+      } else {
+        haptic('error');
+        showError('Could not copy. Try selecting and copying the link above.');
       }
     }
   };
 
   const handleRegenerateInviteLink = async () => {
     if (!currentAccount) return;
-    const url = generateInviteUrl(currentAccount.id, currentAccount.name);
-    const success = await copyToClipboard(url);
-    if (success) {
-      haptic('success');
-      showSuccess('Link regenerated and copied. Share the new link.');
+    try {
+      const url = generateInviteUrl(currentAccount.id, currentAccount.name);
+      const success = await copyToClipboard(url);
+      if (success) {
+        haptic('success');
+        showSuccess('Link regenerated and copied. Share the new link.');
+      } else {
+        haptic('error');
+        showError('Could not copy. Try selecting and copying the link above.');
+      }
+    } catch {
+      haptic('error');
+      showError('Could not copy link.');
     }
   };
 
@@ -246,6 +257,7 @@ export function SyncPage() {
               />
               <div className="flex gap-2">
                 <Button
+                  type="button"
                   variant="secondary"
                   className="flex-1"
                   onClick={handleCopyInviteLink}
@@ -253,6 +265,7 @@ export function SyncPage() {
                   Copy link
                 </Button>
                 <Button
+                  type="button"
                   variant="secondary"
                   className="flex-1"
                   onClick={handleRegenerateInviteLink}
