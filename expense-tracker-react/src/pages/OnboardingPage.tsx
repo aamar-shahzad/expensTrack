@@ -602,24 +602,51 @@ export function OnboardingPage() {
             </div>
           </div>
 
-          {/* Copy invite link */}
+          {/* Invite link for this account */}
           {currentAccount && (
-            <Button
-              variant="secondary"
-              className="w-full mb-6"
-              onClick={async () => {
-                const url = generateInviteUrl(currentAccount.id, currentAccount.name);
-                const success = await copyToClipboard(url);
-                if (success) {
-                  haptic('success');
-                  showSuccess('Invite link copied! Share it via message or email.');
-                } else {
-                  showError('Could not copy. Try copying the QR code instead.');
-                }
-              }}
-            >
-              Copy invite link
-            </Button>
+            <div className="mb-6 space-y-2">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Invite link for <strong>{currentAccount.name}</strong>
+              </p>
+              <Input
+                readOnly
+                value={generateInviteUrl(currentAccount.id, currentAccount.name)}
+                className="text-sm font-mono"
+                aria-label="Invite URL for this account"
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={async () => {
+                    const url = generateInviteUrl(currentAccount.id, currentAccount.name);
+                    const success = await copyToClipboard(url);
+                    if (success) {
+                      haptic('success');
+                      showSuccess('Invite link copied! Share it via message or email.');
+                    } else {
+                      showError('Could not copy. Try copying the QR code instead.');
+                    }
+                  }}
+                >
+                  Copy link
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={async () => {
+                    const url = generateInviteUrl(currentAccount.id, currentAccount.name);
+                    const success = await copyToClipboard(url);
+                    if (success) {
+                      haptic('success');
+                      showSuccess('Link regenerated and copied. Share the new link.');
+                    }
+                  }}
+                >
+                  Regenerate link
+                </Button>
+              </div>
+            </div>
           )}
           
           <div className="bg-[var(--teal-green)]/10 rounded-xl p-4 mb-6">

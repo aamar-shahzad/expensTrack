@@ -61,14 +61,27 @@ export function SyncPage() {
     }
   };
 
+  const inviteUrl = currentAccount
+    ? generateInviteUrl(currentAccount.id, currentAccount.name)
+    : '';
+
   const handleCopyInviteLink = async () => {
-    if (currentAccount) {
-      const url = generateInviteUrl(currentAccount.id, currentAccount.name);
-      const success = await copyToClipboard(url);
+    if (inviteUrl) {
+      const success = await copyToClipboard(inviteUrl);
       if (success) {
         haptic('success');
         showSuccess('Invite link copied! Share via message or email.');
       }
+    }
+  };
+
+  const handleRegenerateInviteLink = async () => {
+    if (!currentAccount) return;
+    const url = generateInviteUrl(currentAccount.id, currentAccount.name);
+    const success = await copyToClipboard(url);
+    if (success) {
+      haptic('success');
+      showSuccess('Link regenerated and copied. Share the new link.');
     }
   };
 
@@ -221,13 +234,33 @@ export function SyncPage() {
             onCopyCode={handleCopyCode}
           />
           {currentAccount?.mode === 'shared' && (
-            <Button
-              variant="secondary"
-              className="w-full mt-3"
-              onClick={handleCopyInviteLink}
-            >
-              Copy invite link
-            </Button>
+            <div className="mt-3 space-y-2">
+              <p className="text-sm text-[var(--text-secondary)]">
+                Invite link for <strong>{currentAccount.name}</strong>
+              </p>
+              <Input
+                readOnly
+                value={inviteUrl}
+                className="text-sm font-mono"
+                aria-label="Invite URL for this account"
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={handleCopyInviteLink}
+                >
+                  Copy link
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={handleRegenerateInviteLink}
+                >
+                  Regenerate link
+                </Button>
+              </div>
+            </div>
           )}
         </div>
 
