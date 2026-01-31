@@ -25,6 +25,8 @@ export interface Person {
   name: string;
   syncId: string;
   createdAt: number;
+  updatedAt?: number;
+  claimedBy?: string; // deviceId that claimed this person as their identity
 }
 
 // Account Types

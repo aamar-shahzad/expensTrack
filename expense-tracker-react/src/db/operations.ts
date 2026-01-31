@@ -101,7 +101,13 @@ export async function addPerson(person: Omit<Person, 'id' | 'syncId' | 'createdA
 
 export async function updatePerson(id: string, updates: Partial<Person>): Promise<void> {
   const db = getDB();
-  await db.people.update(id, updates);
+  await db.people.update(id, { ...updates, updatedAt: Date.now() });
+}
+
+// Claim a person as the current device's identity
+export async function claimPerson(id: string, deviceId: string): Promise<void> {
+  const db = getDB();
+  await db.people.update(id, { claimedBy: deviceId, updatedAt: Date.now() });
 }
 
 export async function deletePerson(id: string): Promise<void> {
@@ -115,6 +121,31 @@ export async function deletePerson(id: string): Promise<void> {
     });
     await db.people.delete(id);
   }
+}
+
+// Check if a person is referenced by any expenses or payments
+export async function isPersonReferenced(id: string): Promise<{ referenced: boolean; expenseCount: number; paymentCount: number }> {
+  const db = getDB();
+  
+  // Check expenses where person is payer or in splitWith
+  const expenses = await db.expenses.toArray();
+  const expenseCount = expenses.filter(e => 
+    e.payerId === id || 
+    (e.splitWith && e.splitWith.includes(id)) ||
+    (e.splitDetails && id in e.splitDetails)
+  ).length;
+  
+  // Check payments where person is sender or receiver
+  const payments = await db.payments.toArray();
+  const paymentCount = payments.filter(p => 
+    p.fromId === id || p.toId === id
+  ).length;
+  
+  return {
+    referenced: expenseCount > 0 || paymentCount > 0,
+    expenseCount,
+    paymentCount
+  };
 }
 
 export async function getPerson(id: string): Promise<Person | undefined> {
@@ -257,6 +288,12 @@ export async function deletePayment(id: string): Promise<void> {
     });
     await db.payments.delete(id);
   }
+}
+
+// Put payment as-is (for sync merge - preserves id, syncId from remote)
+export async function putPayment(payment: Payment): Promise<void> {
+  const db = getDB();
+  await db.payments.put(payment);
 }
 
 // ============ TEMPLATE OPERATIONS ============

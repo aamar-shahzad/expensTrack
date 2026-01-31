@@ -156,6 +156,20 @@ export function ExpenseItem({
     }
   };
 
+  // Keyboard support for swipe actions
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onTap();
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      onDelete();
+    } else if (e.key === 'd' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      onDuplicate();
+    }
+  };
+
   // Close swipe when clicking elsewhere
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -178,36 +192,43 @@ export function ExpenseItem({
       )}
     >
       {/* Swipe actions */}
-      <div className="absolute right-0 top-0 bottom-0 flex">
+      <div className="absolute right-0 top-0 bottom-0 flex" role="group" aria-label="Expense actions">
         <button
           onClick={() => { onDuplicate(); setSwiped(false); setTranslateX(0); }}
-          className="w-[75px] flex flex-col items-center justify-center gap-1 bg-[var(--teal-green)] text-white text-[11px] font-medium active:opacity-85"
+          aria-label={`Duplicate expense: ${expense.description}`}
+          className="w-[75px] flex flex-col items-center justify-center gap-1 bg-[var(--teal-green)] text-white text-[11px] font-medium active:opacity-85 min-h-[44px]"
         >
-          <span className="text-[22px]">📋</span>
+          <span className="text-[22px]" aria-hidden="true">📋</span>
           <span>Copy</span>
         </button>
         <button
           onClick={() => { onDelete(); setSwiped(false); setTranslateX(0); }}
-          className="w-[75px] flex flex-col items-center justify-center gap-1 bg-[var(--danger)] text-white text-[11px] font-medium active:opacity-85"
+          aria-label={`Delete expense: ${expense.description}`}
+          className="w-[75px] flex flex-col items-center justify-center gap-1 bg-[var(--danger)] text-white text-[11px] font-medium active:opacity-85 min-h-[44px]"
         >
-          <span className="text-[22px]">🗑️</span>
+          <span className="text-[22px]" aria-hidden="true">🗑️</span>
           <span>Delete</span>
         </button>
       </div>
       
       {/* Main content */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label={`${expense.description}, ${formatAmount(expense.amount)}, ${formatDate(expense.date)}${payerName ? `, paid by ${payerName}` : ''}`}
         className={cn(
           'flex items-center gap-3 p-3 px-4 min-h-[72px] bg-[var(--white)]',
           'border-b border-[var(--border)]/50',
           'transition-transform duration-200 ease-out',
-          'select-none touch-pan-y'
+          'select-none touch-pan-y',
+          'focus:outline-none focus:ring-2 focus:ring-[var(--teal-green)] focus:ring-inset'
         )}
         style={{ transform: `translateX(${translateX}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
       >
         {/* Icon / Thumbnail */}
         {thumbnailUrl ? (

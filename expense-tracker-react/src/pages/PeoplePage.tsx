@@ -65,8 +65,10 @@ export function PeoplePage() {
       await deletePerson(id);
       haptic('success');
       showSuccess('Deleted');
-    } catch {
-      showError('Failed to delete');
+    } catch (error) {
+      // Show the specific error message if available
+      const message = error instanceof Error ? error.message : 'Failed to delete';
+      showError(message);
     }
   };
 

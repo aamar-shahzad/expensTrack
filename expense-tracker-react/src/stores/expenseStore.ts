@@ -67,6 +67,7 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     const saved = await db.addExpense(expense);
     set(state => ({
       expenses: [saved, ...state.expenses],
+      allExpenses: [saved, ...state.allExpenses],
       newExpenseId: saved.id
     }));
     return saved;
@@ -74,9 +75,13 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
 
   updateExpense: async (id, updates) => {
     await db.updateExpense(id, updates);
+    const updatedExpense = { ...updates, updatedAt: Date.now() };
     set(state => ({
       expenses: state.expenses.map(e => 
-        e.id === id ? { ...e, ...updates } : e
+        e.id === id ? { ...e, ...updatedExpense } : e
+      ),
+      allExpenses: state.allExpenses.map(e => 
+        e.id === id ? { ...e, ...updatedExpense } : e
       )
     }));
   },
@@ -84,12 +89,13 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
   deleteExpense: async (id) => {
     await db.deleteExpense(id);
     set(state => ({
-      expenses: state.expenses.filter(e => e.id !== id)
+      expenses: state.expenses.filter(e => e.id !== id),
+      allExpenses: state.allExpenses.filter(e => e.id !== id)
     }));
   },
 
   duplicateExpense: async (id) => {
-    const expense = get().expenses.find(e => e.id === id);
+    const expense = get().expenses.find(e => e.id === id) || get().allExpenses.find(e => e.id === id);
     if (!expense) return null;
     
     const { id: _, syncId: __, syncStatus: ___, createdAt: ____, ...rest } = expense;
@@ -99,7 +105,8 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     });
     
     set(state => ({
-      expenses: [newExpense, ...state.expenses]
+      expenses: [newExpense, ...state.expenses],
+      allExpenses: [newExpense, ...state.allExpenses]
     }));
     
     return newExpense;

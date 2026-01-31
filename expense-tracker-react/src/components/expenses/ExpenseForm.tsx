@@ -188,7 +188,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     
     // Validation
     if (!amountNum || amountNum <= 0) {
-      showError('Enter a valid amount');
+      showError('Enter a valid amount greater than 0');
       haptic('error');
       return;
     }
@@ -199,6 +199,12 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     }
     if (isSharedMode && !payerId) {
       showError('Select who paid');
+      haptic('error');
+      return;
+    }
+    // Validate payerId exists in people list
+    if (isSharedMode && payerId && !people.find(p => p.id === payerId)) {
+      showError('Selected payer no longer exists');
       haptic('error');
       return;
     }
@@ -248,7 +254,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       navigate('/');
     } catch (error) {
       console.error('Failed to save:', error);
-      showError('Failed to save');
+      const message = error instanceof Error ? error.message : 'Failed to save expense';
+      showError(message);
       haptic('error');
     } finally {
       setLoading(false);

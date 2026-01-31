@@ -78,8 +78,9 @@ export function SyncPage() {
       addSavedConnection(code);
       setConnectCode('');
       showSuccess('Connected!');
-    } catch {
-      showError('Failed to connect');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to connect. Check the code and try again.';
+      showError(message);
     }
   };
 
@@ -95,7 +96,8 @@ export function SyncPage() {
       await requestSync();
       showSuccess('Sync requested!');
     } catch (error) {
-      showError('Sync failed. Please try again.');
+      const message = error instanceof Error ? error.message : 'Sync failed. Please try again.';
+      showError(message);
     } finally {
       // Give some time for the sync to complete
       setTimeout(() => setIsSyncing(false), 2000);
@@ -138,14 +140,28 @@ export function SyncPage() {
       }
     } catch (error) {
       console.error('Join failed:', error);
-      showError('Failed to connect. Make sure the other device has the app open.');
+      const message = error instanceof Error ? error.message : 'Failed to connect. Make sure the other device has the app open.';
+      showError(message);
     } finally {
       setIsJoining(false);
     }
   };
 
-  const handleSelectName = (person: Person) => {
+  const handleSelectName = async (person: Person) => {
+    // Check if person is already claimed by someone else
+    if (person.claimedBy && person.claimedBy !== deviceId) {
+      showError('This name is already taken by another device');
+      return;
+    }
+    
     haptic('success');
+    
+    // Claim this person for our device
+    if (deviceId) {
+      const claimPerson = usePeopleStore.getState().claimPerson;
+      await claimPerson(person.id, deviceId);
+    }
+    
     setSelfPersonId(person.id);
     setShowSelectName(false);
     showSuccess(`Welcome, ${person.name}!`);
@@ -298,18 +314,37 @@ export function SyncPage() {
             Which person are you in this group?
           </p>
           <div className="space-y-2">
-            {people.map(person => (
-              <button
-                key={person.id}
-                onClick={() => handleSelectName(person)}
-                className="w-full flex items-center gap-3 p-3 bg-[var(--bg)] rounded-xl active:scale-[0.98] transition-transform"
-              >
-                <div className="w-10 h-10 rounded-full bg-[var(--teal-green)]/10 text-[var(--teal-green)] flex items-center justify-center font-bold">
-                  {person.name.charAt(0).toUpperCase()}
-                </div>
-                <span className="font-medium">{person.name}</span>
-              </button>
-            ))}
+            {people.map(person => {
+              const isClaimed = !!(person.claimedBy && person.claimedBy !== deviceId);
+              return (
+                <button
+                  key={person.id}
+                  onClick={() => !isClaimed && handleSelectName(person)}
+                  disabled={isClaimed}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-transform ${
+                    isClaimed 
+                      ? 'bg-gray-100 opacity-60 cursor-not-allowed'
+                      : 'bg-[var(--bg)] active:scale-[0.98]'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                    isClaimed 
+                      ? 'bg-gray-200 text-gray-400'
+                      : 'bg-[var(--teal-green)]/10 text-[var(--teal-green)]'
+                  }`}>
+                    {person.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <span className={`font-medium ${isClaimed ? 'text-gray-400' : ''}`}>
+                      {person.name}
+                    </span>
+                    {isClaimed && (
+                      <div className="text-xs text-gray-400">Already taken</div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
           {people.length === 0 && (
             <p className="text-center text-[var(--text-secondary)] py-4">

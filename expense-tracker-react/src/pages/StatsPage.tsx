@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { PageLoading } from '@/components/ui';
 import { getCategoryIcon } from '@/types';
 
 export function StatsPage() {
@@ -67,11 +68,7 @@ export function StatsPage() {
   }, [expenses]);
 
   if (loading) {
-    return (
-      <div className="h-full bg-[var(--bg)] safe-top flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[var(--teal-green)] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <PageLoading message="Loading statistics..." />;
   }
 
   if (!stats) {

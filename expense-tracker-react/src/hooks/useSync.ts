@@ -20,11 +20,27 @@ const TIMEOUTS = {
   }
 };
 
+// PeerJS configuration using the official PeerServer Cloud
+// See: https://peerjs.com/
 const PEER_CONFIG = {
+  // Use PeerJS Cloud server (free, official)
+  // If you want to run your own server, see: https://github.com/peers/peerjs-server
   host: '0.peerjs.com',
   port: 443,
   secure: true,
-  debug: 1
+  // Debug levels: 0 = none, 1 = errors, 2 = warnings, 3 = all
+  debug: 1,
+  // Ping interval to keep connection alive (ms)
+  pingInterval: 5000,
+  // Configuration for ICE servers (STUN/TURN)
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
+    ],
+    sdpSemantics: 'unified-plan' as const
+  }
 };
 
 // Debug logging helper
@@ -179,8 +195,8 @@ export function useSync() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Initialize peer
-  const initPeer = useCallback(() => {
+  // Initialize peer with retry logic for "ID taken" errors
+  const initPeer = useCallback((retryCount = 0) => {
     if (peerRef.current && !peerRef.current.destroyed) return;
     
     const currentDeviceId = deviceIdRef.current;
@@ -191,7 +207,9 @@ export function useSync() {
       return;
     }
 
-    const peerId = `et-${account?.id || 'default'}-${currentDeviceId}`;
+    // Add retry suffix if this is a retry attempt (handles "Peer ID is taken" errors)
+    const suffix = retryCount > 0 ? `-${retryCount}` : '';
+    const peerId = `et-${account?.id || 'default'}-${currentDeviceId}${suffix}`;
     debugLog('Initializing peer with ID:', peerId);
     
     const peer = new Peer(peerId, PEER_CONFIG);
@@ -222,7 +240,7 @@ export function useSync() {
     peer.on('disconnected', () => {
       debugLog('Peer disconnected, attempting reconnect...');
       setConnected(false);
-      // Try to reconnect
+      // PeerJS best practice: use reconnect() to reconnect to the signaling server
       setTimeout(() => {
         if (peerRef.current && !peerRef.current.destroyed) {
           peerRef.current.reconnect();
@@ -233,6 +251,23 @@ export function useSync() {
     peer.on('error', (err) => {
       debugLog('Peer error:', err);
       setConnected(false);
+      
+      // Handle "Peer ID is taken" error by retrying with a different ID
+      // This can happen if the browser was closed without proper cleanup
+      if (err.type === 'unavailable-id' && retryCount < 3) {
+        debugLog('Peer ID taken, retrying with new ID...');
+        peerRef.current?.destroy();
+        peerRef.current = null;
+        setTimeout(() => initPeer(retryCount + 1), 1000);
+      }
+    });
+    
+    // Handle peer close event (when peer.destroy() is called or connection is lost permanently)
+    peer.on('close', () => {
+      debugLog('Peer connection closed');
+      setConnected(false);
+      // Clear all connections since the peer is closed
+      connectionsRef.current.clear();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setConnected, setPeerStatus, reconnectWithBackoff]);
@@ -439,7 +474,7 @@ export function useSync() {
       setSyncProgress((progress / total) * 100, 'Syncing expenses...');
     }
 
-    // Merge people
+    // Merge people (now with updatedAt and claimedBy support)
     for (const person of data.people) {
       if (deletedSyncIds.has(person.syncId)) {
         progress++;
@@ -452,14 +487,29 @@ export function useSync() {
         await db.putPerson(person);
         itemsMerged++;
         debugLog('Added new person:', person.name);
+      } else {
+        // Check if remote is newer using updatedAt
+        const remoteTime = person.updatedAt || person.createdAt;
+        const localTime = existing.updatedAt || existing.createdAt;
+        
+        if (remoteTime > localTime) {
+          // Remote is newer - update
+          await db.putPerson(person);
+          itemsMerged++;
+          debugLog('Updated person:', person.name);
+        } else if (remoteTime === localTime && person.claimedBy && !existing.claimedBy) {
+          // Same time but remote has claimedBy and local doesn't - merge claimedBy
+          await db.putPerson({ ...existing, claimedBy: person.claimedBy });
+          itemsMerged++;
+          debugLog('Updated person claimedBy:', person.name);
+        }
       }
-      // People don't have updatedAt, so we keep the first one
       
       progress++;
       setSyncProgress((progress / total) * 100, 'Syncing people...');
     }
 
-    // Merge payments
+    // Merge payments (using putPayment to preserve syncId)
     if (data.payments && data.payments.length > 0) {
       for (const payment of data.payments) {
         if (deletedSyncIds.has(payment.syncId)) {
@@ -469,18 +519,13 @@ export function useSync() {
         
         const existing = paymentsBySyncId.get(payment.syncId);
         if (!existing) {
-          // New payment - add it
+          // New payment - add it using putPayment to preserve syncId
           try {
-            await db.addPayment({
-              fromId: payment.fromId,
-              toId: payment.toId,
-              amount: payment.amount,
-              date: payment.date
-            });
+            await db.putPayment(payment);
             itemsMerged++;
             debugLog('Added new payment');
           } catch {
-            // If addPayment fails (e.g., duplicate), ignore
+            // If putPayment fails, ignore
           }
         }
         
@@ -529,7 +574,11 @@ export function useSync() {
     }
     
     setPeerStatus(targetId, 'connecting');
-    const conn = peerRef.current.connect(peerId);
+    // Use reliable: true for ordered, guaranteed delivery (important for sync data)
+    const conn = peerRef.current.connect(peerId, {
+      reliable: true,
+      serialization: 'json'
+    });
     
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -665,7 +714,11 @@ export function useSync() {
     debugLog('Connecting to target peer:', targetPeerId);
     
     setPeerStatus(targetDeviceId, 'connecting');
-    const conn = peerRef.current!.connect(targetPeerId);
+    // Use reliable: true for ordered, guaranteed delivery (important for sync data)
+    const conn = peerRef.current!.connect(targetPeerId, {
+      reliable: true,
+      serialization: 'json'
+    });
     
     // Wait for connection and sync response
     return new Promise<void>((resolve, reject) => {
@@ -686,6 +739,8 @@ export function useSync() {
           const message = data as SyncMessage;
           if (message.type === 'sync_response' && message.data) {
             clearTimeout(timeout);
+            // Remove this handler to prevent memory leak
+            conn.off('data', handleSyncResponse);
             debugLog('Received sync response');
             setSyncProgress(50, 'Syncing data...');
             
@@ -706,15 +761,21 @@ export function useSync() {
               addSavedConnection(targetDeviceId);
               addSyncHistoryEntry(targetDeviceId, itemsMerged);
               
+              // Set up regular connection handlers for future messages
+              setupConnectionHandlers(conn);
+              
               setSyncProgress(100, 'Complete!');
               debugLog('Sync complete, items merged:', itemsMerged);
               resolve();
             } catch (err) {
               debugLog('Error during merge:', err);
+              conn.off('data', handleSyncResponse);
               reject(err);
             }
           } else if (message.type === 'sync_rejected') {
             clearTimeout(timeout);
+            // Remove this handler to prevent memory leak
+            conn.off('data', handleSyncResponse);
             debugLog('Sync rejected:', message.reason);
             reject(new Error(getReadableError(message.reason || 'Sync rejected')));
           }
@@ -735,11 +796,20 @@ export function useSync() {
         clearTimeout(timeout);
         debugLog('Connection error:', err);
         setPeerStatus(targetDeviceId, 'offline');
+        // Clean up the connection on error
+        connectionsRef.current.delete(conn.peer);
         reject(new Error(getReadableError(err)));
+      });
+      
+      conn.on('close', () => {
+        clearTimeout(timeout);
+        debugLog('Connection closed during sync');
+        connectionsRef.current.delete(conn.peer);
+        setPeerStatus(targetDeviceId, 'offline');
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setConnected, addConnectedPeer, setLastSyncTime, setSyncProgress, setPeerStatus, addSavedConnection, addSyncHistoryEntry, loadExpenses, loadAllExpenses, loadPeople]);
+  }, [setConnected, addConnectedPeer, setLastSyncTime, setSyncProgress, setPeerStatus, addSavedConnection, addSyncHistoryEntry, loadExpenses, loadAllExpenses, loadPeople, setupConnectionHandlers]);
 
   // Set callback for sync complete notification
   const setOnSyncComplete = useCallback((callback: ((itemsSynced: number, peerId: string) => void) | null) => {

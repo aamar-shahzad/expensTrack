@@ -16,6 +16,7 @@ export function FAB() {
   return (
     <button
       onClick={handleClick}
+      aria-label="Add new expense"
       className={cn(
         'fixed bottom-[calc(76px+env(safe-area-inset-bottom))] right-4 z-[99]',
         'w-14 h-14 rounded-2xl bg-[var(--teal-green)] text-white',
@@ -25,7 +26,7 @@ export function FAB() {
         'animate-pop'
       )}
     >
-      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
         <line x1="12" y1="5" x2="12" y2="19" />
         <line x1="5" y1="12" x2="19" y2="12" />
       </svg>

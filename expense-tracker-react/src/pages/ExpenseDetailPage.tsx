@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Expense } from '@/types';
 import { formatDate, getCategoryIcon } from '@/types';
-import { Button, useToast } from '@/components/ui';
+import { Button, useToast, LoadingSpinner } from '@/components/ui';
 import { Modal } from '@/components/ui/Modal';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { usePeopleStore } from '@/stores/peopleStore';
@@ -94,7 +94,7 @@ export function ExpenseDetailPage() {
           <div className="w-[60px]" />
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[var(--teal-green)] border-t-transparent rounded-full animate-spin" />
+          <LoadingSpinner />
         </div>
       </div>
     );

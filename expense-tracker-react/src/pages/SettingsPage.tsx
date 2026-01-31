@@ -78,8 +78,9 @@ export function SettingsPage() {
       setShowAccountsModal(false);
       showSuccess('Switched account');
       navigate('/');
-    } catch {
-      showError('Failed to switch');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to switch account';
+      showError(message);
     }
   };
 
@@ -105,8 +106,9 @@ export function SettingsPage() {
       haptic('success');
       showSuccess('Account created');
       navigate('/');
-    } catch {
-      showError('Failed to create account');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create account';
+      showError(message);
     } finally {
       setCreatingAccount(false);
     }

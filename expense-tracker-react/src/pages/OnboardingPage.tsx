@@ -38,6 +38,7 @@ export function OnboardingPage() {
   // People store
   const addPerson = usePeopleStore(s => s.addPerson);
   const loadPeople = usePeopleStore(s => s.loadPeople);
+  const claimPerson = usePeopleStore(s => s.claimPerson);
   
   // Settings store
   const setCurrency = useSettingsStore(s => s.setCurrency);
@@ -113,8 +114,8 @@ export function OnboardingPage() {
         setCurrency(selectedCurrency);
         await setCurrentAccount(account.id);
         
-        // Add self as first person
-        const selfPerson = await addPerson(userName.trim());
+        // Add self as first person and claim it with our deviceId
+        const selfPerson = await addPerson(userName.trim(), deviceId ?? undefined);
         setSelfPersonId(selfPerson.id);
         setAddedPeople([userName.trim()]);
         
@@ -263,8 +264,20 @@ export function OnboardingPage() {
     setJoinError(error);
   };
 
-  const handleSelectName = (person: Person) => {
+  const handleSelectName = async (person: Person) => {
+    // Check if person is already claimed by someone else
+    if (person.claimedBy && person.claimedBy !== deviceId) {
+      showError('This name is already taken by another device');
+      return;
+    }
+    
     haptic('success');
+    
+    // Claim this person for our device
+    if (deviceId) {
+      await claimPerson(person.id, deviceId);
+    }
+    
     setSelfPersonId(person.id);
     setOnboarded(true);
     showSuccess(`Welcome, ${person.name}!`);
@@ -642,19 +655,40 @@ export function OnboardingPage() {
                 </p>
               </div>
               <div className="space-y-3">
-                {syncedPeople.map(person => (
-                  <button
-                    key={person.id}
-                    onClick={() => handleSelectName(person)}
-                    className="w-full flex items-center gap-3 p-4 bg-[var(--white)] rounded-xl active:scale-[0.98] transition-transform border-2 border-transparent hover:border-[var(--teal-green)]"
-                  >
-                    <div className="w-12 h-12 rounded-full bg-[var(--teal-green)]/10 text-[var(--teal-green)] flex items-center justify-center font-bold text-lg">
-                      {person.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="font-medium text-lg">{person.name}</span>
-                    <span className="ml-auto text-[var(--teal-green)]">Tap to select</span>
-                  </button>
-                ))}
+                {syncedPeople.map(person => {
+                  const isClaimed = !!(person.claimedBy && person.claimedBy !== deviceId);
+                  return (
+                    <button
+                      key={person.id}
+                      onClick={() => !isClaimed && handleSelectName(person)}
+                      disabled={isClaimed}
+                      className={`w-full flex items-center gap-3 p-4 rounded-xl transition-transform border-2 ${
+                        isClaimed 
+                          ? 'bg-gray-100 border-transparent opacity-60 cursor-not-allowed'
+                          : 'bg-[var(--white)] border-transparent hover:border-[var(--teal-green)] active:scale-[0.98]'
+                      }`}
+                    >
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
+                        isClaimed 
+                          ? 'bg-gray-200 text-gray-400'
+                          : 'bg-[var(--teal-green)]/10 text-[var(--teal-green)]'
+                      }`}>
+                        {person.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <span className={`font-medium text-lg ${isClaimed ? 'text-gray-400' : ''}`}>
+                          {person.name}
+                        </span>
+                        {isClaimed && (
+                          <div className="text-xs text-gray-400">Already taken</div>
+                        )}
+                      </div>
+                      {!isClaimed && (
+                        <span className="text-[var(--teal-green)]">Tap to select</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </>
           ) : (

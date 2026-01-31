@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ExpenseForm } from '@/components/expenses';
+import { LoadingSpinner } from '@/components/ui';
 import type { Expense } from '@/types';
 import * as db from '@/db/operations';
 
@@ -43,7 +44,7 @@ export function AddExpensePage() {
           <div className="w-[60px]" />
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[var(--teal-green)] border-t-transparent rounded-full animate-spin" />
+          <LoadingSpinner />
         </div>
       </div>
     );
