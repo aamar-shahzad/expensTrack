@@ -39,21 +39,24 @@ export function AddExpensePage() {
     loadFromDb();
   }, [id]);
 
-  // Loading: wait for either expense (store or DB) or for sync + DB result
-  const loading = Boolean(
-    id && effectiveExpense === undefined && (!dbFetched || !isSynced)
-  );
+  // Loading: wait for expense from store or DB when editing
+  const loading = Boolean(id && effectiveExpense === undefined && !dbFetched);
+  // Not found: editing but expense doesn't exist (store + DB both done)
+  const notFound = Boolean(id && dbFetched && effectiveExpense === undefined);
 
   if (loading) {
     return (
       <div className="flex flex-col h-full bg-[var(--bg)]">
-        <div className="flex-shrink-0 bg-[var(--bg)] safe-top px-4 py-3 flex items-center justify-between border-b border-[var(--border)]">
-          <button onClick={() => navigate(-1)} className="text-[var(--teal-green)] text-[17px] font-medium">
+        <header className="flex-shrink-0 safe-top px-4 py-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg)]">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-[var(--teal-green)] text-[17px] font-medium min-h-[44px] flex items-center -ml-2 pl-2 rounded-lg active:bg-[var(--teal-green)]/10"
+          >
             Cancel
           </button>
           <span className="text-[17px] font-semibold">Edit Expense</span>
-          <div className="w-[60px]" />
-        </div>
+          <div className="w-14" aria-hidden />
+        </header>
         <div className="flex-1 flex items-center justify-center">
           <LoadingSpinner />
         </div>
@@ -61,22 +64,46 @@ export function AddExpensePage() {
     );
   }
 
+  if (notFound) {
+    return (
+      <div className="flex flex-col h-full bg-[var(--bg)]">
+        <header className="flex-shrink-0 safe-top px-4 py-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg)]">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-[var(--teal-green)] text-[17px] font-medium min-h-[44px] flex items-center -ml-2 pl-2 rounded-lg active:bg-[var(--teal-green)]/10"
+          >
+            Back
+          </button>
+          <span className="text-[17px] font-semibold">Edit Expense</span>
+          <div className="w-14" aria-hidden />
+        </header>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <p className="text-[var(--text-secondary)] mb-4">This expense could not be found. It may have been deleted.</p>
+          <button
+            onClick={() => navigate('/')}
+            className="text-[var(--teal-green)] font-medium text-[17px] py-2 px-4 rounded-xl active:bg-[var(--teal-green)]/10"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg)]">
-      {/* Header */}
-      <div className="flex-shrink-0 bg-[var(--bg)] safe-top px-4 py-3 flex items-center justify-between border-b border-[var(--border)]">
+      <header className="flex-shrink-0 safe-top px-4 py-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg)]">
         <button
           onClick={() => navigate(-1)}
-          className="text-[var(--teal-green)] text-[17px] font-medium px-2 py-1 -mx-2 rounded-lg active:bg-[var(--teal-green)]/10"
+          className="text-[var(--teal-green)] text-[17px] font-medium min-h-[44px] flex items-center -ml-2 pl-2 rounded-lg active:bg-[var(--teal-green)]/10"
         >
           Cancel
         </button>
         <span className="text-[17px] font-semibold">{isEditing ? 'Edit Expense' : 'Add Expense'}</span>
-        <div className="w-[60px]" />
-      </div>
+        <div className="w-14" aria-hidden />
+      </header>
 
-      {/* Form - Scrollable */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+      <div className="flex-1 min-h-0 flex flex-col">
         <ExpenseForm expense={effectiveExpense} />
       </div>
     </div>

@@ -77,17 +77,28 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     };
   }, []);
 
-  // Set default payer
+  // Sync form state when expense prop changes (e.g. async load for edit)
   useEffect(() => {
-    if (isSharedMode && !payerId && people.length > 0) {
+    if (!expense) return;
+    setDescription(expense.description || '');
+    setAmount(expense.amount?.toString() || '');
+    setDate(expense.date || getToday());
+    setPayerId(expense.payerId || lastPayerId || '');
+    setNotes(expense.notes || '');
+    setTags(expense.tags || '');
+  }, [expense?.id, expense?.description, expense?.amount, expense?.date, expense?.payerId, expense?.notes, expense?.tags, lastPayerId]);
+
+  // Set default payer when adding in shared mode
+  useEffect(() => {
+    if (isSharedMode && !expense && !payerId && people.length > 0) {
       setPayerId(lastPayerId || people[0].id);
     }
-  }, [isSharedMode, people, payerId, lastPayerId]);
+  }, [isSharedMode, expense, people, payerId, lastPayerId]);
 
-  // Focus amount input on mount
+  // Focus amount input on mount (add only)
   useEffect(() => {
-    setTimeout(() => amountInputRef.current?.focus(), 100);
-  }, []);
+    if (!expense) setTimeout(() => amountInputRef.current?.focus(), 100);
+  }, [expense]);
 
   // Load templates
   useEffect(() => {
@@ -272,7 +283,9 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="pb-8">
+    <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+      {/* Scrollable content */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
       {/* Amount Section - Hero */}
       <div className="bg-gradient-to-br from-[var(--teal-green)] to-[var(--primary)] text-white px-6 py-8 text-center">
         <div className="text-sm opacity-80 mb-2">Amount</div>
@@ -301,6 +314,14 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           </div>
         )}
       </div>
+
+      {/* Existing receipt (edit mode) */}
+      {expense?.imageId && !attachedImage && (
+        <div className="mx-4 mt-4 px-4 py-3 rounded-xl bg-[var(--white)] border border-[var(--border)] flex items-center gap-3">
+          <span className="text-2xl">🧾</span>
+          <span className="text-[15px] text-[var(--text-secondary)]">Receipt attached</span>
+        </div>
+      )}
 
       {/* Image Preview */}
       {attachedImage && imagePreviewUrl && (
@@ -373,7 +394,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="What was this for?"
-            className="w-full bg-transparent border-none outline-none text-[16px] placeholder:text-[var(--text-secondary)]"
+            className="w-full min-h-[48px] py-2 bg-transparent border-none outline-none text-[16px] placeholder:text-[var(--text-secondary)]"
           />
         </div>
 
@@ -386,7 +407,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
-            className="w-full bg-transparent border-none outline-none text-[16px]"
+            className="w-full min-h-[48px] bg-transparent border-none outline-none text-[16px] py-2"
           />
         </div>
 
@@ -396,21 +417,19 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             <label className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1 block">
               Paid By
             </label>
-            <div className="flex items-center">
-              <select
-                value={payerId}
-                onChange={e => setPayerId(e.target.value)}
-                className="flex-1 bg-transparent border-none outline-none text-[16px] appearance-none"
-              >
-                <option value="" disabled>Who paid?</option>
-                {people.map(person => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
-                ))}
-              </select>
-              <span className="text-[var(--text-secondary)]">▾</span>
-            </div>
+            <select
+              value={payerId}
+              onChange={e => setPayerId(e.target.value)}
+              className="w-full min-h-[48px] pl-3 pr-10 py-2 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-[16px] appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--teal-green)]/50"
+              aria-label="Who paid?"
+            >
+              <option value="">Who paid?</option>
+              {people.map(person => (
+                <option key={person.id} value={person.id}>
+                  {person.name}
+                </option>
+              ))}
+            </select>
           </div>
         )}
       </div>
@@ -493,19 +512,20 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           <button
             type="button"
             onClick={saveAsTemplate}
-            className="w-full py-3 bg-[var(--white)] rounded-xl text-[var(--text-secondary)] text-sm font-medium active:bg-[var(--bg)] transition-colors border border-[var(--border)]"
+            className="w-full min-h-[48px] py-3 bg-[var(--white)] rounded-xl text-[var(--text-secondary)] text-sm font-medium active:bg-[var(--bg)] transition-colors border border-[var(--border)]"
           >
             Save as Template
           </button>
         </div>
       )}
 
-      {/* Submit Button */}
-      <div className="px-4 pt-2 pb-safe">
+      </div>
+      {/* Sticky submit - always visible on mobile */}
+      <div className="flex-shrink-0 px-4 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[var(--bg)] border-t border-[var(--border)]/50">
         <Button
           type="submit"
           loading={loading || isProcessing}
-          className="w-full h-14 text-lg font-semibold rounded-2xl shadow-lg shadow-[var(--teal-green)]/30"
+          className="w-full min-h-[52px] text-[17px] font-semibold rounded-2xl shadow-lg shadow-[var(--teal-green)]/30"
         >
           {expense ? 'Update Expense' : 'Save Expense'}
         </Button>
