@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Expense } from '@/types';
-import { formatDate, getCategoryIcon } from '@/types';
+import { formatDate } from '@/types';
 import { Button, useToast, LoadingSpinner } from '@/components/ui';
 import { Modal } from '@/components/ui/Modal';
 import { useExpenseStore } from '@/stores/expenseStore';
@@ -163,8 +163,8 @@ export function ExpenseDetailPage() {
     );
   }
 
-  const icon = getCategoryIcon(effectiveExpense.description);
   const payerName = isSharedMode && effectiveExpense.payerId ? getPersonName(effectiveExpense.payerId) : '';
+  const initial = effectiveExpense.description?.trim().charAt(0)?.toUpperCase() || '•';
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg)]">
@@ -224,8 +224,8 @@ export function ExpenseDetailPage() {
         <div className="bg-[var(--white)] divide-y divide-[var(--border)]">
           {/* Description */}
           <div className="px-4 py-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[var(--bg)] flex items-center justify-center text-xl">
-              {icon}
+            <div className="w-10 h-10 rounded-xl bg-[var(--bg)] flex items-center justify-center text-base font-semibold text-[var(--text-secondary)]">
+              {initial}
             </div>
             <div className="flex-1">
               <div className="text-xs text-[var(--text-secondary)] uppercase tracking-wide">Description</div>

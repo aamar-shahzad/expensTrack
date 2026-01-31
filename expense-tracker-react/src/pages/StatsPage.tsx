@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { PageLoading } from '@/components/ui';
-import { getCategoryIcon } from '@/types';
+import { getCategoryIcon, getCategoryLabel } from '@/types';
 
 export function StatsPage() {
   const { expenses, loadAllExpenses, loading } = useExpenseStore();
@@ -120,7 +120,7 @@ export function StatsPage() {
           {stats.categoryBreakdown.map(cat => (
             <div key={cat.icon}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xl">{cat.icon}</span>
+                <span className="font-medium">{getCategoryLabel(cat.icon)}</span>
                 <span className="text-sm font-medium">{formatAmount(cat.amount)}</span>
               </div>
               <div className="h-2 bg-[var(--bg)] rounded-full overflow-hidden">
@@ -163,7 +163,6 @@ export function StatsPage() {
               <span className="text-lg font-bold text-[var(--text-secondary)] w-6">
                 {i + 1}
               </span>
-              <span className="text-xl">{getCategoryIcon(exp.description)}</span>
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{exp.description}</div>
                 <div className="text-sm text-[var(--text-secondary)]">{exp.date}</div>

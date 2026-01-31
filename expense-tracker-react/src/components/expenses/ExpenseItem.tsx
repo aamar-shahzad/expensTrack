@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Expense } from '@/types';
-import { getCategoryIcon, formatDate } from '@/types';
+import { formatDate } from '@/types';
 import { cn, haptic } from '@/lib/utils';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePeopleStore } from '@/stores/peopleStore';
@@ -47,8 +47,8 @@ export function ExpenseItem({
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const thumbnailUrlRef = useRef<string | null>(null);
 
-  const icon = getCategoryIcon(expense.description);
   const payerName = isSharedMode && expense.payerId ? getPersonName(expense.payerId) : '';
+  const initial = expense.description?.trim().charAt(0)?.toUpperCase() || '•';
 
   // Load thumbnail for expenses with images; if missing and shared+connected, request from peers
   const loadThumbnail = useCallback(async () => {
@@ -253,8 +253,8 @@ export function ExpenseItem({
             />
           </div>
         ) : (
-          <div className="w-11 h-11 rounded-xl bg-[var(--bg)] flex items-center justify-center text-xl flex-shrink-0">
-            {icon}
+          <div className="w-11 h-11 rounded-xl bg-[var(--bg)] flex items-center justify-center text-lg font-semibold text-[var(--text-secondary)] flex-shrink-0">
+            {initial}
           </div>
         )}
         

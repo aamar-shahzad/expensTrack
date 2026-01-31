@@ -163,6 +163,22 @@ export const CATEGORY_ICONS: Record<string, string[]> = {
   '💡': ['bill', 'bills', 'utility', 'payment']
 };
 
+/** Label for category filter display (icons are not shown in UI) */
+export const CATEGORY_LABELS: Record<string, string> = {
+  all: 'All',
+  '🍔': 'Food',
+  '☕': 'Coffee',
+  '🛒': 'Shop',
+  '🚗': 'Travel',
+  '🏠': 'Home',
+  '🎬': 'Fun',
+  '💵': 'Other'
+};
+
+export function getCategoryLabel(icon: string): string {
+  return CATEGORY_LABELS[icon] ?? 'Other';
+}
+
 // Currency Options
 export const CURRENCIES = [
   { symbol: '$', name: 'US Dollar', code: 'USD' },

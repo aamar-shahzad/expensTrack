@@ -169,7 +169,6 @@ export function HomePage() {
                   : 'bg-[var(--white)] text-[var(--text)]'
               )}
             >
-              {cat.icon !== 'all' && <span className="mr-1">{cat.icon}</span>}
               {cat.label}
             </button>
           ))}
