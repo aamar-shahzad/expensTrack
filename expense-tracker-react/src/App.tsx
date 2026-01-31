@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider, BottomNav, FAB } from '@/components/ui';
 import { useAccountStore } from '@/stores/accountStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import { useExpenseStore } from '@/stores/expenseStore';
-import { usePeopleStore } from '@/stores/peopleStore';
-import { usePaymentStore } from '@/stores/paymentStore';
+import { useExpenseStore, setYjsExpenseOperations } from '@/stores/expenseStore';
+import { usePeopleStore, setYjsPeopleOperations } from '@/stores/peopleStore';
+import { usePaymentStore, setYjsPaymentOperations } from '@/stores/paymentStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { useOffline } from '@/hooks/useOffline';
 import { initDB, isDBInitialized } from '@/db/schema';
 import { YjsProvider, useYjs, migrateToYjs, isMigrationComplete } from '@/sync';
+import type { Expense, Person, Payment } from '@/types';
+import { generateId, getYearMonth } from '@/types';
 import {
   HomePage,
   AddExpensePage,
@@ -25,7 +27,7 @@ import { CameraCapture } from '@/components/camera/CameraCapture';
 
 // Component to sync Yjs data with Zustand stores
 function YjsStoreSync() {
-  const { ydoc, expenses, people, payments, isConnected, isSynced, connectedPeers } = useYjs();
+  const { ydoc, isConnected, isSynced, connectedPeers } = useYjs();
   
   const setAllExpenses = useExpenseStore(s => s.setAllExpenses);
   const setPeople = usePeopleStore(s => s.setPeople);
@@ -34,11 +36,139 @@ function YjsStoreSync() {
   const setSynced = useSyncStore(s => s.setSynced);
   const setConnectedPeers = useSyncStore(s => s.setConnectedPeers);
   
+  // Set up Yjs operations for stores
+  useEffect(() => {
+    const yExpenses = ydoc.getArray<Expense>('expenses');
+    const yPeople = ydoc.getArray<Person>('people');
+    const yPayments = ydoc.getArray<Payment>('payments');
+    
+    // Wire up expense operations
+    setYjsExpenseOperations({
+      addExpense: (expense) => {
+        const newExpense: Expense = {
+          ...expense,
+          id: generateId(),
+          syncId: generateId(),
+          syncStatus: 'synced',
+          yearMonth: getYearMonth(expense.date),
+          createdAt: Date.now()
+        };
+        ydoc.transact(() => {
+          yExpenses.push([newExpense]);
+        });
+        return newExpense;
+      },
+      updateExpense: (id, updates) => {
+        ydoc.transact(() => {
+          const arr = yExpenses.toArray();
+          const index = arr.findIndex(e => e.id === id);
+          if (index !== -1) {
+            const existing = arr[index];
+            const updated = { ...existing, ...updates, updatedAt: Date.now() };
+            yExpenses.delete(index, 1);
+            yExpenses.insert(index, [updated]);
+          }
+        });
+      },
+      deleteExpense: (id) => {
+        ydoc.transact(() => {
+          const arr = yExpenses.toArray();
+          const index = arr.findIndex(e => e.id === id);
+          if (index !== -1) {
+            yExpenses.delete(index, 1);
+          }
+        });
+      }
+    });
+    
+    // Wire up people operations
+    setYjsPeopleOperations({
+      addPerson: (name, claimedBy) => {
+        const newPerson: Person = {
+          id: generateId(),
+          name,
+          syncId: generateId(),
+          createdAt: Date.now(),
+          claimedBy
+        };
+        ydoc.transact(() => {
+          yPeople.push([newPerson]);
+        });
+        return newPerson;
+      },
+      updatePerson: (id, updates) => {
+        ydoc.transact(() => {
+          const arr = yPeople.toArray();
+          const index = arr.findIndex(p => p.id === id);
+          if (index !== -1) {
+            const existing = arr[index];
+            const updated = { ...existing, ...updates, updatedAt: Date.now() };
+            yPeople.delete(index, 1);
+            yPeople.insert(index, [updated]);
+          }
+        });
+      },
+      deletePerson: (id) => {
+        ydoc.transact(() => {
+          const arr = yPeople.toArray();
+          const index = arr.findIndex(p => p.id === id);
+          if (index !== -1) {
+            yPeople.delete(index, 1);
+          }
+        });
+      },
+      claimPerson: (id, deviceId) => {
+        ydoc.transact(() => {
+          const arr = yPeople.toArray();
+          const index = arr.findIndex(p => p.id === id);
+          if (index !== -1) {
+            const existing = arr[index];
+            const updated = { ...existing, claimedBy: deviceId, updatedAt: Date.now() };
+            yPeople.delete(index, 1);
+            yPeople.insert(index, [updated]);
+          }
+        });
+      }
+    });
+    
+    // Wire up payment operations
+    setYjsPaymentOperations({
+      addPayment: (payment) => {
+        const newPayment: Payment = {
+          ...payment,
+          id: generateId(),
+          syncId: generateId(),
+          createdAt: Date.now()
+        };
+        ydoc.transact(() => {
+          yPayments.push([newPayment]);
+        });
+        return newPayment;
+      },
+      deletePayment: (id) => {
+        ydoc.transact(() => {
+          const arr = yPayments.toArray();
+          const index = arr.findIndex(p => p.id === id);
+          if (index !== -1) {
+            yPayments.delete(index, 1);
+          }
+        });
+      }
+    });
+    
+    return () => {
+      // Clear operations on unmount
+      setYjsExpenseOperations({});
+      setYjsPeopleOperations({});
+      setYjsPaymentOperations({});
+    };
+  }, [ydoc]);
+  
   // Sync Yjs arrays to Zustand stores
   useEffect(() => {
-    const yExpenses = ydoc.getArray('expenses');
-    const yPeople = ydoc.getArray('people');
-    const yPayments = ydoc.getArray('payments');
+    const yExpenses = ydoc.getArray<Expense>('expenses');
+    const yPeople = ydoc.getArray<Person>('people');
+    const yPayments = ydoc.getArray<Payment>('payments');
     
     // Initial sync
     setAllExpenses(yExpenses.toArray());

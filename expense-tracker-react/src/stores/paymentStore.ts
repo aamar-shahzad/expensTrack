@@ -1,18 +1,31 @@
 import { create } from 'zustand';
 import type { Payment } from '@/types';
+import { generateId } from '@/types';
 
 interface PaymentState {
   payments: Payment[];
   loading: boolean;
   
-  // Actions
+  // Yjs integration
   setPayments: (payments: Payment[]) => void;
   setLoading: (loading: boolean) => void;
-  addPaymentToStore: (payment: Payment) => void;
-  deletePaymentFromStore: (id: string) => void;
+  
+  // Actions
+  addPayment: (payment: Omit<Payment, 'id' | 'syncId' | 'createdAt'>) => Promise<Payment>;
+  deletePayment: (id: string) => Promise<void>;
 }
 
-export const usePaymentStore = create<PaymentState>((set, get) => ({
+// Reference to Yjs operations (set by YjsStoreSync)
+let yjsOperations: {
+  addPayment?: (payment: Omit<Payment, 'id' | 'syncId' | 'createdAt'>) => Payment;
+  deletePayment?: (id: string) => void;
+} = {};
+
+export function setYjsPaymentOperations(ops: typeof yjsOperations) {
+  yjsOperations = ops;
+}
+
+export const usePaymentStore = create<PaymentState>((set) => ({
   payments: [],
   loading: false,
 
@@ -25,15 +38,31 @@ export const usePaymentStore = create<PaymentState>((set, get) => ({
     set({ loading });
   },
 
-  // Add payment to local store (called after Yjs add)
-  addPaymentToStore: (payment) => {
+  // Add payment via Yjs
+  addPayment: async (payment) => {
+    if (yjsOperations.addPayment) {
+      return yjsOperations.addPayment(payment);
+    }
+    // Fallback: create locally
+    const newPayment: Payment = {
+      ...payment,
+      id: generateId(),
+      syncId: generateId(),
+      createdAt: Date.now()
+    };
     set(state => ({
-      payments: [payment, ...state.payments]
+      payments: [newPayment, ...state.payments]
     }));
+    return newPayment;
   },
 
-  // Delete payment from local store (called after Yjs delete)
-  deletePaymentFromStore: (id) => {
+  // Delete payment via Yjs
+  deletePayment: async (id) => {
+    if (yjsOperations.deletePayment) {
+      yjsOperations.deletePayment(id);
+      return;
+    }
+    // Fallback: delete locally
     set(state => ({
       payments: state.payments.filter(p => p.id !== id)
     }));

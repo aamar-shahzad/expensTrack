@@ -47,7 +47,7 @@ export function OnboardingPage() {
   const deviceId = useSyncStore(s => s.deviceId);
   
   // Yjs hook
-  const { connect, setAwareness, isConnected, isSynced } = useYjs();
+  const { connect, setAwareness, isConnected } = useYjs();
   
   // Form state
   const [step, setStep] = useState<Step>('welcome');

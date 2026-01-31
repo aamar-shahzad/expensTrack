@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
-import * as Y from 'yjs';
-import { useYjs, useYArray, type AwarenessUser } from './YjsProvider';
+import { useCallback, useEffect } from 'react';
+import { useYjs, useYArray } from './YjsProvider';
 import { useAccountStore } from '@/stores/accountStore';
 import { useSyncStore } from '@/stores/syncStore';
 import type { Expense, Person, Payment } from '@/types';
@@ -16,10 +15,7 @@ export function useYjsSync() {
   
   const currentAccount = useAccountStore(s => s.getCurrentAccount());
   const selfPersonId = useAccountStore(s => s.selfPersonId);
-  const { deviceId, setConnected, addConnectedPeer, removeConnectedPeer } = useSyncStore();
-  
-  // Track if we've set up observers
-  const observersSetup = useRef(false);
+  const { deviceId, setConnected, addConnectedPeer } = useSyncStore();
   
   // Get reactive arrays
   const expenses = useYArray(yExpenses);

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSyncStore } from '@/stores/syncStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { usePeopleStore } from '@/stores/peopleStore';
-import { Button, Input, useToast, Modal } from '@/components/ui';
+import { Button, useToast, Modal } from '@/components/ui';
 import { QRCode, QRScanner } from '@/components/sync';
 import { haptic, copyToClipboard } from '@/lib/utils';
 import { useYjs } from '@/sync';
@@ -10,7 +10,7 @@ import type { Person } from '@/types';
 
 export function SyncPage() {
   const { deviceId, isConnected, isSynced, connectedPeers, getLastSyncTimeFormatted } = useSyncStore();
-  const { connect, disconnect, setAwareness } = useYjs();
+  const { connect, setAwareness } = useYjs();
 
   const currentAccount = useAccountStore(s => s.getCurrentAccount());
   const selfPersonId = useAccountStore(s => s.selfPersonId);

@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { usePeopleStore } from '@/stores/peopleStore';
+import { usePaymentStore } from '@/stores/paymentStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { Sheet, Input, Button, useToast } from '@/components/ui';
 import { haptic, cn } from '@/lib/utils';
-import * as db from '@/db/operations';
-import type { Settlement, Payment, Person } from '@/types';
+import type { Settlement, Person } from '@/types';
 
 export function SettlePage() {
   const { allExpenses, loadAllExpenses } = useExpenseStore();
   const { people, loadPeople, getPersonName } = usePeopleStore();
+  const { payments, addPayment, deletePayment } = usePaymentStore();
   const formatAmount = useSettingsStore(s => s.formatAmount);
   const { showSuccess, showError } = useToast();
   
-  const [payments, setPayments] = useState<Payment[]>([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedSettlement, setSelectedSettlement] = useState<Settlement | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -22,17 +22,7 @@ export function SettlePage() {
   useEffect(() => {
     loadAllExpenses();
     loadPeople();
-    loadPayments();
   }, [loadAllExpenses, loadPeople]);
-
-  const loadPayments = async () => {
-    try {
-      const p = await db.getPayments();
-      setPayments(p);
-    } catch (error) {
-      console.error('Failed to load payments:', error);
-    }
-  };
 
   // Helper to round to 2 decimal places for currency
   const roundCurrency = (amount: number) => Math.round(amount * 100) / 100;
@@ -181,7 +171,7 @@ export function SettlePage() {
 
     setSaving(true);
     try {
-      await db.addPayment({
+      await addPayment({
         fromId: selectedSettlement.from.id,
         toId: selectedSettlement.to.id,
         amount,
@@ -193,7 +183,6 @@ export function SettlePage() {
       setShowPaymentModal(false);
       setSelectedSettlement(null);
       setPaymentAmount('');
-      loadPayments();
     } catch {
       showError('Failed to record payment');
     } finally {
@@ -205,10 +194,9 @@ export function SettlePage() {
     if (!confirm('Delete this payment record?')) return;
     
     try {
-      await db.deletePayment(id);
+      await deletePayment(id);
       haptic('success');
       showSuccess('Payment deleted');
-      loadPayments();
     } catch {
       showError('Failed to delete');
     }
