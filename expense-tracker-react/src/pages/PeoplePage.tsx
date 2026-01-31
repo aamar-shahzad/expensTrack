@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { useSyncStore } from '@/stores/syncStore';
@@ -8,6 +9,7 @@ import { haptic } from '@/lib/utils';
 import type { Person } from '@/types';
 
 export function PeoplePage() {
+  const navigate = useNavigate();
   const { people, loadPeople, addPerson, updatePerson, deletePerson, claimPerson } = usePeopleStore();
   const isSharedMode = useAccountStore(s => s.isSharedMode());
   const selfPersonId = useAccountStore(s => s.selfPersonId);
@@ -122,6 +124,7 @@ export function PeoplePage() {
           people={people}
           onEdit={openEdit}
           onDelete={handleDelete}
+          onTap={(person) => navigate(`/people/${person.id}`)}
           isSharedMode={isSharedMode}
           selfPersonId={selfPersonId}
           onSetAsMe={isSharedMode ? handleSetAsMe : undefined}
@@ -148,9 +151,12 @@ export function PeoplePage() {
             label="Name"
             value={newName}
             onChange={e => setNewName(e.target.value)}
-            placeholder="Enter name"
+            placeholder="e.g. Alex, Roommate"
             autoFocus
           />
+          <p className="text-[13px] text-[var(--text-secondary)] mt-3">
+            Names are used when splitting expenses and on the Settle tab.
+          </p>
         </div>
       </Sheet>
 

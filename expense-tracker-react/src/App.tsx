@@ -23,6 +23,7 @@ import {
   AddExpensePage,
   ExpenseDetailPage,
   PeoplePage,
+  PersonDetailPage,
   StatsPage,
   SettlePage,
   SyncPage,
@@ -299,6 +300,7 @@ function AppRoutes() {
         <Route path="/expense/:id/edit" element={<AddExpensePage />} />
         <Route path="/camera" element={<CameraCapture />} />
         <Route path="/people" element={<PeoplePage />} />
+        <Route path="/people/:id" element={<PersonDetailPage />} />
         <Route path="/stats" element={<StatsPage />} />
         <Route path="/settle" element={<SettlePage />} />
         <Route path="/sync" element={<SyncPage />} />

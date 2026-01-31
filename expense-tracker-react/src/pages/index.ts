@@ -2,6 +2,7 @@ export { HomePage } from './HomePage';
 export { AddExpensePage } from './AddExpensePage';
 export { ExpenseDetailPage } from './ExpenseDetailPage';
 export { PeoplePage } from './PeoplePage';
+export { PersonDetailPage } from './PersonDetailPage';
 export { StatsPage } from './StatsPage';
 export { SettlePage } from './SettlePage';
 export { SyncPage } from './SyncPage';
