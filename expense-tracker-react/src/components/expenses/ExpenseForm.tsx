@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Expense, Template } from '@/types';
 import { getToday } from '@/types';
@@ -23,6 +23,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const { showSuccess, showError } = useToast();
   const addExpense = useExpenseStore(s => s.addExpense);
   const updateExpense = useExpenseStore(s => s.updateExpense);
+  const allExpenses = useExpenseStore(s => s.allExpenses);
   const people = usePeopleStore(s => s.people);
   const lastPayerId = usePeopleStore(s => s.lastPayerId);
   const setLastPayer = usePeopleStore(s => s.setLastPayer);
@@ -45,6 +46,10 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   // Templates state
   const [templates, setTemplates] = useState<Template[]>([]);
   const [showManageTemplates, setShowManageTemplates] = useState(false);
+
+  // Description suggestions from past expenses (same description, different dates/amounts)
+  const [showDescriptionSuggestions, setShowDescriptionSuggestions] = useState(false);
+  const descriptionInputRef = useRef<HTMLInputElement>(null);
   
   const amountInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +104,24 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   useEffect(() => {
     if (!expense) setTimeout(() => amountInputRef.current?.focus(), 100);
   }, [expense]);
+
+  // Unique past descriptions, most recent first (same description can have different dates/amounts)
+  const descriptionSuggestions = useMemo(() => {
+    const byDesc: Record<string, number> = {};
+    allExpenses.forEach(e => {
+      const d = (e.description ?? '').trim();
+      if (!d) return;
+      const existing = byDesc[d];
+      const t = e.date ? new Date(e.date).getTime() : 0;
+      if (existing == null || t > existing) byDesc[d] = t;
+    });
+    const query = description.trim().toLowerCase();
+    return Object.entries(byDesc)
+      .filter(([d]) => !query || d.toLowerCase().includes(query))
+      .sort((a, b) => b[1] - a[1])
+      .map(([d]) => d)
+      .slice(0, 8);
+  }, [allExpenses, description]);
 
   // Load templates
   useEffect(() => {
@@ -399,18 +422,43 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
       {/* Main Form Fields */}
       <div className="bg-[var(--white)] divide-y divide-[var(--border)]">
-        {/* Description */}
-        <div className="px-4 py-3">
+        {/* Description with past-description suggestions */}
+        <div className="px-4 py-3 relative">
           <label className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1 block">
             Description
           </label>
           <input
+            ref={descriptionInputRef}
             type="text"
             value={description}
             onChange={e => setDescription(e.target.value)}
+            onFocus={() => setShowDescriptionSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowDescriptionSuggestions(false), 180)}
             placeholder="What was this for?"
             className="w-full min-h-[48px] py-2 bg-transparent border-none outline-none text-[16px] placeholder:text-[var(--text-secondary)]"
+            autoComplete="off"
           />
+          {showDescriptionSuggestions && descriptionSuggestions.length > 0 && (
+            <div className="absolute left-4 right-4 top-full mt-0 z-10 bg-[var(--white)] border border-[var(--border)] rounded-xl shadow-lg max-h-48 overflow-y-auto">
+              <div className="py-1 text-[11px] text-[var(--text-secondary)] px-3 pt-2">
+                Past descriptions — tap to reuse (amount/date can differ)
+              </div>
+              {descriptionSuggestions.map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onMouseDown={() => {
+                    haptic('light');
+                    setDescription(s);
+                    setShowDescriptionSuggestions(false);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-[15px] hover:bg-[var(--bg)] active:bg-[var(--teal-green)]/10 truncate"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Date */}
