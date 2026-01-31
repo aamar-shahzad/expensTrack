@@ -18,23 +18,15 @@ VITE_BASE_PATH='/expensTrack/' npm run build
 npm run preview
 ```
 
-## WebRTC Sync & Signaling
+## WebRTC Sync (GitHub Pages only)
 
-The app uses **y-webrtc** for peer-to-peer sync. Peers discover each other via a **signaling server**. By default it tries:
+The app uses **y-webrtc** for peer-to-peer sync. With **only GitHub Pages** (no other hosting), the app uses the built-in **public signaling servers** so peers can find each other:
 
 - `wss://signaling.yjs.dev`
 - `wss://y-webrtc-signaling-eu.herokuapp.com`
 - `wss://y-webrtc-signaling-us.herokuapp.com`
 
-If you see **"WebSocket connection to 'wss://signaling.yjs.dev/' failed"**:
-
-1. **Public servers may be down** – Try again later or use your own server.
-2. **Network/firewall** – Some networks block WebSockets. Try another network.
-3. **Custom signaling server** – Run the built-in server:
-   ```bash
-   cd node_modules/y-webrtc && PORT=4444 node bin/server.js
-   ```
-   Then set `VITE_YJS_SIGNALING=ws://localhost:4444` (or your server’s `wss://` URL) when building.
+If you see **"WebSocket connection to 'wss://signaling.yjs.dev/' failed"**, the public servers may be down or blocked by your network; try another network or again later. Sync works when at least one of these servers is reachable.
 
 ## Verification (existing data)
 
