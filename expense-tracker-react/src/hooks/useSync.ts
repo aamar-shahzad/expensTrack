@@ -5,7 +5,7 @@ import { useAccountStore } from '@/stores/accountStore';
 import { useExpenseStore } from '@/stores/expenseStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import * as db from '@/db/operations';
-import type { SyncMessage, SyncData } from '@/types';
+import type { SyncMessage, SyncData, Expense, Person, Payment } from '@/types';
 
 const PEER_CONFIG = {
   host: '0.peerjs.com',
@@ -18,27 +18,44 @@ export function useSync() {
   const peerRef = useRef<Peer | null>(null);
   const connectionsRef = useRef<Map<string, DataConnection>>(new Map());
   
+  // Use refs for values needed in callbacks to avoid stale closures
+  const deviceIdRef = useRef<string | null>(null);
+  const currentAccountRef = useRef<{ id: string; name: string; mode: string } | null>(null);
+  
   const {
     deviceId,
     setConnected,
     setConnecting,
     addConnectedPeer,
     removeConnectedPeer,
-    savedConnections,
     setLastSyncTime,
     setSyncProgress
   } = useSyncStore();
   
   const currentAccount = useAccountStore(s => s.getCurrentAccount());
   const loadExpenses = useExpenseStore(s => s.loadExpenses);
+  const loadAllExpenses = useExpenseStore(s => s.loadAllExpenses);
   const loadPeople = usePeopleStore(s => s.loadPeople);
+
+  // Keep refs in sync
+  useEffect(() => {
+    deviceIdRef.current = deviceId;
+  }, [deviceId]);
+
+  useEffect(() => {
+    currentAccountRef.current = currentAccount ?? null;
+  }, [currentAccount]);
 
   // Initialize peer
   const initPeer = useCallback(() => {
     if (peerRef.current) return;
-    if (!deviceId) return;
+    
+    const currentDeviceId = deviceIdRef.current;
+    const account = currentAccountRef.current;
+    
+    if (!currentDeviceId) return;
 
-    const peerId = `et-${currentAccount?.id || 'default'}-${deviceId}`;
+    const peerId = `et-${account?.id || 'default'}-${currentDeviceId}`;
     
     const peer = new Peer(peerId, PEER_CONFIG);
     peerRef.current = peer;
@@ -47,30 +64,39 @@ export function useSync() {
       console.log('Peer connected with ID:', peer.id);
       setConnected(true);
       
-      // Auto-connect to saved connections
-      savedConnections.forEach(savedId => {
-        connect(savedId);
+      // Auto-connect to saved connections (use store directly to get current value)
+      const { savedConnections: currentSaved } = useSyncStore.getState();
+      currentSaved.forEach(savedId => {
+        // Don't await, let connections happen in background
+        connectToPeer(savedId).catch(err => {
+          console.warn('Auto-connect failed for', savedId, err);
+        });
       });
     });
 
     peer.on('connection', (conn) => {
-      handleConnection(conn);
+      setupConnectionHandlers(conn);
     });
 
     peer.on('disconnected', () => {
       setConnected(false);
       // Try to reconnect
-      setTimeout(() => peer.reconnect(), 3000);
+      setTimeout(() => {
+        if (peerRef.current && !peerRef.current.destroyed) {
+          peerRef.current.reconnect();
+        }
+      }, 3000);
     });
 
     peer.on('error', (err) => {
       console.error('Peer error:', err);
       setConnected(false);
     });
-  }, [deviceId, currentAccount?.id, savedConnections]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setConnected]); // connectToPeer and setupConnectionHandlers are stable refs
 
-  // Handle incoming connection
-  const handleConnection = useCallback((conn: DataConnection) => {
+  // Setup connection event handlers
+  const setupConnectionHandlers = useCallback((conn: DataConnection) => {
     conn.on('open', () => {
       console.log('Connection opened with:', conn.peer);
       connectionsRef.current.set(conn.peer, conn);
@@ -91,34 +117,49 @@ export function useSync() {
       connectionsRef.current.delete(conn.peer);
       removeConnectedPeer(conn.peer);
     });
-  }, [addConnectedPeer, removeConnectedPeer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addConnectedPeer, removeConnectedPeer]); // handleMessage is stable
 
   // Handle incoming messages
   const handleMessage = async (message: SyncMessage, conn: DataConnection) => {
     console.log('Received message:', message.type);
+    const account = currentAccountRef.current;
 
     switch (message.type) {
-      case 'sync_request':
+      case 'sync_request': {
         // Verify account match
-        if (message.accountId !== currentAccount?.id) {
+        if (message.accountId !== account?.id) {
           conn.send({ type: 'sync_rejected', reason: 'Account mismatch' });
           return;
         }
         
-        // Send our data
+        // First, merge the requester's data if they sent any
+        if (message.data) {
+          await mergeData(message.data);
+        }
+        
+        // Send our data back
         const syncData = await prepareSyncData();
         conn.send({ 
           type: 'sync_response', 
-          accountId: currentAccount?.id,
+          accountId: account?.id,
           data: syncData 
         });
+        
+        // Reload data after merge
+        setLastSyncTime();
+        loadExpenses();
+        loadAllExpenses();
+        loadPeople();
         break;
+      }
 
       case 'sync_response':
         if (message.data) {
           await mergeData(message.data);
           setLastSyncTime();
           loadExpenses();
+          loadAllExpenses();
           loadPeople();
         }
         break;
@@ -154,82 +195,166 @@ export function useSync() {
     };
   };
 
-  // Merge incoming data
+  // Merge incoming data with conflict resolution
   const mergeData = async (data: SyncData) => {
     setSyncProgress(0, 'Merging data...');
     
     const existingExpenses = await db.getAllExpenses();
     const existingPeople = await db.getAllPeople();
-    const existingSyncIds = new Set([
-      ...existingExpenses.map(e => e.syncId),
-      ...existingPeople.map(p => p.syncId)
-    ]);
+    const existingPayments = await db.getPayments();
+    
+    // Create maps for quick lookup by syncId
+    const expensesBySyncId = new Map<string, Expense>(
+      existingExpenses.map(e => [e.syncId, e])
+    );
+    const peopleBySyncId = new Map<string, Person>(
+      existingPeople.map(p => [p.syncId, p])
+    );
+    const paymentsBySyncId = new Map<string, Payment>(
+      existingPayments.map(p => [p.syncId, p])
+    );
 
-    // Process tombstones first
+    // Process tombstones first - these represent deletions
     const deletedSyncIds = new Set(data.tombstones.map(t => t.syncId));
 
-    // Merge expenses
+    // Calculate total items for progress
+    const total = data.expenses.length + data.people.length + (data.payments?.length || 0);
     let progress = 0;
-    const total = data.expenses.length + data.people.length;
-    
+
+    // Merge expenses
     for (const expense of data.expenses) {
-      if (deletedSyncIds.has(expense.syncId)) continue;
-      if (!existingSyncIds.has(expense.syncId)) {
+      // Skip if deleted
+      if (deletedSyncIds.has(expense.syncId)) {
+        progress++;
+        continue;
+      }
+      
+      const existing = expensesBySyncId.get(expense.syncId);
+      if (!existing) {
+        // New expense - add it
+        await db.putExpense(expense);
+      } else if (expense.updatedAt && existing.updatedAt && expense.updatedAt > existing.updatedAt) {
+        // Remote is newer - update
+        await db.putExpense(expense);
+      } else if (!existing.updatedAt && expense.createdAt > existing.createdAt) {
+        // No updatedAt, use createdAt for conflict resolution
         await db.putExpense(expense);
       }
+      // Otherwise keep local version (it's newer or same)
+      
       progress++;
       setSyncProgress((progress / total) * 100, 'Syncing expenses...');
     }
 
     // Merge people
     for (const person of data.people) {
-      if (deletedSyncIds.has(person.syncId)) continue;
-      if (!existingSyncIds.has(person.syncId)) {
+      if (deletedSyncIds.has(person.syncId)) {
+        progress++;
+        continue;
+      }
+      
+      const existing = peopleBySyncId.get(person.syncId);
+      if (!existing) {
+        // New person - add
         await db.putPerson(person);
       }
+      // People don't have updatedAt, so we keep the first one (no conflict resolution needed)
+      
       progress++;
       setSyncProgress((progress / total) * 100, 'Syncing people...');
+    }
+
+    // Merge payments (was missing before!)
+    if (data.payments && data.payments.length > 0) {
+      for (const payment of data.payments) {
+        if (deletedSyncIds.has(payment.syncId)) {
+          progress++;
+          continue;
+        }
+        
+        const existing = paymentsBySyncId.get(payment.syncId);
+        if (!existing) {
+          // New payment - add it
+          // Use putPayment if available, otherwise we need to add it
+          await db.addPayment({
+            fromId: payment.fromId,
+            toId: payment.toId,
+            amount: payment.amount,
+            date: payment.date
+          }).catch(() => {
+            // If addPayment fails (e.g., duplicate), ignore
+          });
+        }
+        
+        progress++;
+        setSyncProgress((progress / total) * 100, 'Syncing payments...');
+      }
     }
 
     setSyncProgress(100, 'Complete');
   };
 
-  // Connect to a peer
-  const connect = useCallback(async (targetId: string) => {
+  // Internal connect function that uses refs
+  const connectToPeer = async (targetId: string): Promise<void> => {
     if (!peerRef.current) {
       initPeer();
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait for peer to be ready
+      await new Promise<void>((resolve, reject) => {
+        const checkPeer = setInterval(() => {
+          if (peerRef.current?.open) {
+            clearInterval(checkPeer);
+            resolve();
+          }
+        }, 100);
+        setTimeout(() => {
+          clearInterval(checkPeer);
+          reject(new Error('Peer initialization timeout'));
+        }, 5000);
+      });
     }
 
     if (!peerRef.current) {
       throw new Error('Peer not initialized');
     }
 
-    setConnecting(true);
+    const account = currentAccountRef.current;
+    const peerId = `et-${account?.id || 'default'}-${targetId}`;
     
-    const peerId = `et-${currentAccount?.id || 'default'}-${targetId}`;
+    // Check if already connected
+    if (connectionsRef.current.has(peerId)) {
+      return;
+    }
+    
     const conn = peerRef.current.connect(peerId);
     
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        setConnecting(false);
         reject(new Error('Connection timeout'));
       }, 10000);
 
       conn.on('open', () => {
         clearTimeout(timeout);
-        handleConnection(conn);
-        setConnecting(false);
+        setupConnectionHandlers(conn);
         resolve();
       });
 
       conn.on('error', (err) => {
         clearTimeout(timeout);
-        setConnecting(false);
         reject(err);
       });
     });
-  }, [currentAccount?.id, initPeer, handleConnection, setConnecting]);
+  };
+
+  // Public connect function with UI state management
+  const connect = useCallback(async (targetId: string) => {
+    setConnecting(true);
+    try {
+      await connectToPeer(targetId);
+    } finally {
+      setConnecting(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setConnecting]); // connectToPeer is stable
 
   // Disconnect from a peer
   const disconnect = useCallback((peerId: string) => {
@@ -241,16 +366,22 @@ export function useSync() {
     }
   }, [removeConnectedPeer]);
 
-  // Request sync from all connected peers
-  const requestSync = useCallback(() => {
+  // Request sync from all connected peers (bidirectional - send our data too)
+  const requestSync = useCallback(async () => {
+    const account = currentAccountRef.current;
+    
+    // Prepare our data to send along with the request
+    const syncData = await prepareSyncData();
+    
     connectionsRef.current.forEach(conn => {
       conn.send({
         type: 'sync_request',
-        accountId: currentAccount?.id,
-        accountName: currentAccount?.name
+        accountId: account?.id,
+        accountName: account?.name,
+        data: syncData  // Include our data so sync is bidirectional
       });
     });
-  }, [currentAccount]);
+  }, []);
 
   // Broadcast data to all peers
   const broadcast = useCallback((message: SyncMessage) => {
@@ -265,11 +396,26 @@ export function useSync() {
       initPeer();
     }
 
+    // Capture ref values for cleanup
+    const connections = connectionsRef.current;
+    const peer = peerRef.current;
+
     return () => {
-      if (peerRef.current) {
-        peerRef.current.destroy();
-        peerRef.current = null;
+      // Close all connections first
+      connections.forEach(conn => {
+        try {
+          conn.close();
+        } catch {
+          // Ignore errors during cleanup
+        }
+      });
+      connections.clear();
+      
+      // Then destroy the peer
+      if (peer) {
+        peer.destroy();
       }
+      peerRef.current = null;
     };
   }, [currentAccount?.mode, initPeer]);
 

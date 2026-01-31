@@ -8,7 +8,7 @@ import * as db from '@/db/operations';
 import type { Settlement, Payment, Person } from '@/types';
 
 export function SettlePage() {
-  const { expenses, loadAllExpenses } = useExpenseStore();
+  const { allExpenses, loadAllExpenses } = useExpenseStore();
   const { people, loadPeople, getPersonName } = usePeopleStore();
   const formatAmount = useSettingsStore(s => s.formatAmount);
   const { showSuccess, showError } = useToast();
@@ -34,39 +34,83 @@ export function SettlePage() {
     }
   };
 
+  // Helper to round to 2 decimal places for currency
+  const roundCurrency = (amount: number) => Math.round(amount * 100) / 100;
+
   // Calculate balances and settlements
   const { totalExpenses, sharePerPerson, personSpent, balances, settlements } = useMemo(() => {
-    if (people.length === 0 || expenses.length === 0) {
+    if (people.length === 0 || allExpenses.length === 0) {
       return { totalExpenses: 0, sharePerPerson: 0, personSpent: {}, balances: {}, settlements: [] };
     }
 
-    const personCount = people.length;
     const personPaid: Record<string, number> = {};
     const personOwes: Record<string, number> = {};
     let total = 0;
 
-    // Calculate what each person paid and owes
-    expenses.forEach(expense => {
+    // Initialize all people with 0
+    people.forEach(p => {
+      personPaid[p.id] = 0;
+      personOwes[p.id] = 0;
+    });
+
+    // Calculate what each person paid and owes based on split type
+    allExpenses.forEach(expense => {
       const amount = expense.amount;
       total += amount;
       
       // Track what the payer paid
-      if (expense.payerId) {
-        personPaid[expense.payerId] = (personPaid[expense.payerId] || 0) + amount;
+      if (expense.payerId && personPaid[expense.payerId] !== undefined) {
+        personPaid[expense.payerId] += amount;
       }
       
-      // Equal split among all people
-      const share = amount / personCount;
-      people.forEach(p => {
-        personOwes[p.id] = (personOwes[p.id] || 0) + share;
-      });
+      // Determine who this expense is split with
+      let splitParticipants: string[];
+      
+      if (expense.splitType === 'full' && expense.payerId) {
+        // Full means only the payer owes (no split)
+        splitParticipants = [expense.payerId];
+      } else if (expense.splitWith && expense.splitWith.length > 0) {
+        // Custom split participants
+        splitParticipants = expense.splitWith;
+      } else {
+        // Default: equal split among all people
+        splitParticipants = people.map(p => p.id);
+      }
+
+      // Filter to only include valid people
+      splitParticipants = splitParticipants.filter(id => personOwes[id] !== undefined);
+
+      if (splitParticipants.length === 0) {
+        // Fallback to all people if no valid participants
+        splitParticipants = people.map(p => p.id);
+      }
+
+      // Calculate shares based on split type
+      if (expense.splitType === 'custom' && expense.splitDetails) {
+        // Custom amounts per person
+        for (const [personId, shareAmount] of Object.entries(expense.splitDetails)) {
+          if (personOwes[personId] !== undefined) {
+            personOwes[personId] += shareAmount;
+          }
+        }
+      } else {
+        // Equal split among participants
+        const share = roundCurrency(amount / splitParticipants.length);
+        splitParticipants.forEach(personId => {
+          personOwes[personId] += share;
+        });
+      }
     });
 
     // Adjust for payments already made
+    // When A pays B: A's debt decreases, B's credit decreases (B received money they were owed)
     payments.forEach(payment => {
-      // Payment reduces what 'from' owes and what 'to' is owed
-      personOwes[payment.fromId] = (personOwes[payment.fromId] || 0) - payment.amount;
-      personOwes[payment.toId] = (personOwes[payment.toId] || 0) + payment.amount;
+      if (personPaid[payment.fromId] !== undefined) {
+        personPaid[payment.fromId] += payment.amount; // fromId effectively "paid" more
+      }
+      if (personOwes[payment.toId] !== undefined) {
+        personOwes[payment.toId] += payment.amount; // toId now "owes" more (cancels their credit)
+      }
     });
 
     // Calculate balances (positive = owed money back, negative = owes money)
@@ -74,22 +118,24 @@ export function SettlePage() {
     for (const person of people) {
       const paid = personPaid[person.id] || 0;
       const owes = personOwes[person.id] || 0;
-      balanceMap[person.id] = paid - owes;
+      balanceMap[person.id] = roundCurrency(paid - owes);
     }
 
-    // Calculate settlement transactions
+    // Calculate settlement transactions using greedy algorithm
+    const EPSILON = 0.005; // Half a cent threshold
     const debtors: { person: Person; amount: number }[] = [];
     const creditors: { person: Person; amount: number }[] = [];
 
     for (const person of people) {
       const balance = balanceMap[person.id] || 0;
-      if (balance < -0.01) {
-        debtors.push({ person, amount: -balance });
-      } else if (balance > 0.01) {
-        creditors.push({ person, amount: balance });
+      if (balance < -EPSILON) {
+        debtors.push({ person, amount: roundCurrency(-balance) });
+      } else if (balance > EPSILON) {
+        creditors.push({ person, amount: roundCurrency(balance) });
       }
     }
 
+    // Sort by amount descending for optimal settlement
     debtors.sort((a, b) => b.amount - a.amount);
     creditors.sort((a, b) => b.amount - a.amount);
 
@@ -98,31 +144,31 @@ export function SettlePage() {
     while (i < debtors.length && j < creditors.length) {
       const debtor = debtors[i];
       const creditor = creditors[j];
-      const payment = Math.min(debtor.amount, creditor.amount);
+      const paymentAmount = roundCurrency(Math.min(debtor.amount, creditor.amount));
 
-      if (payment > 0.01) {
+      if (paymentAmount > EPSILON) {
         settlementList.push({
           from: debtor.person,
           to: creditor.person,
-          amount: payment
+          amount: paymentAmount
         });
       }
 
-      debtor.amount -= payment;
-      creditor.amount -= payment;
+      debtor.amount = roundCurrency(debtor.amount - paymentAmount);
+      creditor.amount = roundCurrency(creditor.amount - paymentAmount);
 
-      if (debtor.amount <= 0.01) i++;
-      if (creditor.amount <= 0.01) j++;
+      if (debtor.amount <= EPSILON) i++;
+      if (creditor.amount <= EPSILON) j++;
     }
 
     return {
-      totalExpenses: total,
-      sharePerPerson: total / personCount,
+      totalExpenses: roundCurrency(total),
+      sharePerPerson: roundCurrency(total / people.length),
       personSpent: personPaid,
       balances: balanceMap,
       settlements: settlementList
     };
-  }, [expenses, people, payments]);
+  }, [allExpenses, people, payments]);
 
   const handleRecordPayment = async () => {
     if (!selectedSettlement) return;
@@ -199,7 +245,7 @@ export function SettlePage() {
               Go to People tab to add members
             </p>
           </div>
-        ) : expenses.length === 0 ? (
+        ) : allExpenses.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-5xl mb-4">📊</div>
             <h3 className="text-lg font-semibold mb-2">No expenses yet</h3>
