@@ -236,9 +236,13 @@ function AppRoutes() {
   // If not onboarded, show onboarding
   if (!isOnboarded) {
     return (
-      <Routes>
-        <Route path="*" element={<OnboardingPage />} />
-      </Routes>
+      <>
+        {/* Always render YjsStoreSync so Yjs operations work during onboarding */}
+        <YjsStoreSync />
+        <Routes>
+          <Route path="*" element={<OnboardingPage />} />
+        </Routes>
+      </>
     );
   }
 
@@ -246,9 +250,12 @@ function AppRoutes() {
   // This handles edge cases where the app state is inconsistent
   if (currentAccount?.mode === 'shared' && !selfPersonId) {
     return (
-      <Routes>
-        <Route path="*" element={<OnboardingPage />} />
-      </Routes>
+      <>
+        <YjsStoreSync />
+        <Routes>
+          <Route path="*" element={<OnboardingPage />} />
+        </Routes>
+      </>
     );
   }
 

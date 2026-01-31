@@ -37,7 +37,6 @@ export function OnboardingPage() {
   
   // People store
   const addPerson = usePeopleStore(s => s.addPerson);
-  const loadPeople = usePeopleStore(s => s.loadPeople);
   const claimPerson = usePeopleStore(s => s.claimPerson);
   
   // Settings store
@@ -47,7 +46,7 @@ export function OnboardingPage() {
   const deviceId = useSyncStore(s => s.deviceId);
   
   // Yjs hook
-  const { connect, setAwareness, isConnected } = useYjs();
+  const { connect, setAwareness, isConnected, people: yjsPeople } = useYjs();
   
   // Form state
   const [step, setStep] = useState<Step>('welcome');
@@ -68,14 +67,19 @@ export function OnboardingPage() {
   const [lastScannedData, setLastScannedData] = useState<{ accountId: string; deviceId: string; accountName: string } | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Load people when we reach selectName step
+  // Load people when we reach selectName step - use Yjs data
   useEffect(() => {
     if (step === 'selectName') {
-      loadPeople().then(() => {
+      // Get people from Yjs
+      const currentPeople = yjsPeople.toArray();
+      if (currentPeople.length > 0) {
+        setSyncedPeople(currentPeople);
+      } else {
+        // Fallback to store
         setSyncedPeople(usePeopleStore.getState().people);
-      });
+      }
     }
-  }, [step, loadPeople]);
+  }, [step, yjsPeople]);
 
   const handleModeSelect = (selectedMode: 'single' | 'shared') => {
     haptic('light');
@@ -111,6 +115,19 @@ export function OnboardingPage() {
         );
         setCurrency(selectedCurrency);
         await setCurrentAccount(account.id);
+        
+        // Connect to Yjs room for this account so data syncs
+        const roomName = `expense-tracker-${account.id}`;
+        connect(roomName);
+        
+        // Set awareness with our info
+        setAwareness({
+          id: deviceId,
+          name: userName.trim()
+        });
+        
+        // Wait a moment for Yjs to initialize
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Add self as first person and claim it with our deviceId
         const selfPerson = await addPerson(userName.trim(), deviceId ?? undefined);
@@ -225,23 +242,27 @@ export function OnboardingPage() {
         name: 'New User'
       });
       
-      // Wait for sync to happen
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait for connection and sync - poll for people data
+      let attempts = 0;
+      const maxAttempts = 20; // 10 seconds max
       
-      // Load synced people
-      await loadPeople();
-      const syncedPeopleList = usePeopleStore.getState().people;
-      setSyncedPeople(syncedPeopleList);
-      
-      if (syncedPeopleList.length === 0) {
-        setJoinError('No group members found. Ask the group creator to add you first.');
-        setStep('connectionFailed');
-        return;
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+        
+        // Check if we have people data from Yjs
+        const currentPeople = yjsPeople.toArray();
+        if (currentPeople.length > 0) {
+          setSyncedPeople(currentPeople);
+          setRetryCount(0);
+          setStep('selectName');
+          return;
+        }
       }
       
-      // Reset retry count on success
-      setRetryCount(0);
-      setStep('selectName');
+      // If we get here, no people were synced
+      setJoinError('No group members found. Make sure the other device has the app open and try again.');
+      setStep('connectionFailed');
     } catch (error) {
       console.error('Join failed:', error);
       setJoinError(error instanceof Error ? error.message : 'Failed to connect');
