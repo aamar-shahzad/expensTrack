@@ -265,8 +265,6 @@ function YjsStoreSync() {
 function AppRoutes() {
   const isOnboarded = useAccountStore((s) => s.isOnboarded);
   const currentAccountId = useAccountStore((s) => s.currentAccountId);
-  const currentAccount = useAccountStore((s) => s.getCurrentAccount());
-  const selfPersonId = useAccountStore((s) => s.selfPersonId);
 
   // Initialize database when account changes
   useEffect(() => {
@@ -287,17 +285,8 @@ function AppRoutes() {
     );
   }
 
-  // If shared account but no selfPersonId, force back to onboarding to select name
-  if (currentAccount?.mode === "shared" && !selfPersonId) {
-    return (
-      <>
-        <YjsStoreSync />
-        <Routes>
-          <Route path="*" element={<OnboardingPage />} />
-        </Routes>
-      </>
-    );
-  }
+  // When switching from personal → shared, selfPersonId is cleared (per-account identity).
+  // Do not force onboarding: show main app so user can set "who am I" on Sync/People if needed.
 
   return (
     <>
