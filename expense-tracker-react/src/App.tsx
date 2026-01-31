@@ -1,17 +1,23 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ToastProvider, BottomNav, FAB, ErrorBoundary } from '@/components/ui';
-import { useAccountStore } from '@/stores/accountStore';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { useExpenseStore, setYjsExpenseOperations } from '@/stores/expenseStore';
-import { usePeopleStore, setYjsPeopleOperations } from '@/stores/peopleStore';
-import { usePaymentStore, setYjsPaymentOperations } from '@/stores/paymentStore';
-import { useSyncStore } from '@/stores/syncStore';
-import { useOffline } from '@/hooks/useOffline';
-import { initDB, isDBInitialized } from '@/db/schema';
-import { YjsProvider, useYjs, migrateToYjs, isMigrationComplete } from '@/sync';
-import type { Expense, Person, Payment } from '@/types';
-import { generateId, getYearMonth } from '@/types';
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ToastProvider, BottomNav, FAB } from "@/components/ui";
+import { useAccountStore } from "@/stores/accountStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import {
+  useExpenseStore,
+  setYjsExpenseOperations,
+} from "@/stores/expenseStore";
+import { usePeopleStore, setYjsPeopleOperations } from "@/stores/peopleStore";
+import {
+  usePaymentStore,
+  setYjsPaymentOperations,
+} from "@/stores/paymentStore";
+import { useSyncStore } from "@/stores/syncStore";
+import { useOffline } from "@/hooks/useOffline";
+import { initDB, isDBInitialized } from "@/db/schema";
+import { YjsProvider, useYjs, migrateToYjs, isMigrationComplete } from "@/sync";
+import type { Expense, Person, Payment } from "@/types";
+import { generateId, getYearMonth } from "@/types";
 import {
   HomePage,
   AddExpensePage,
@@ -22,34 +28,33 @@ import {
   SyncPage,
   SettingsPage,
   OnboardingPage,
-  JoinFromLinkHandler
-} from '@/pages';
-import { CameraCapture } from '@/components/camera/CameraCapture';
-import { SyncActionsProvider } from '@/contexts/SyncActionsContext';
-import { ConnectionErrorBanner } from '@/components/sync/ConnectionErrorBanner';
+  JoinFromLinkHandler,
+} from "@/pages";
+import { CameraCapture } from "@/components/camera/CameraCapture";
+import { SyncActionsProvider } from "@/contexts/SyncActionsContext";
 
 // Component to sync Yjs data with Zustand stores
 function YjsStoreSync() {
-  const { ydoc, isConnected, isSynced, connectedPeers, connect, setAwareness } = useYjs();
-  const currentAccount = useAccountStore(s => s.getCurrentAccount());
-  const selfPersonId = useAccountStore(s => s.selfPersonId);
-  const people = usePeopleStore(s => s.people);
-  const deviceId = useSyncStore(s => s.deviceId);
-  
-  const setAllExpenses = useExpenseStore(s => s.setAllExpenses);
-  const setPeople = usePeopleStore(s => s.setPeople);
-  const setPayments = usePaymentStore(s => s.setPayments);
-  const setConnected = useSyncStore(s => s.setConnected);
-  const setSynced = useSyncStore(s => s.setSynced);
-  const setConnectedPeers = useSyncStore(s => s.setConnectedPeers);
-  const setLastConnectParams = useSyncStore(s => s.setLastConnectParams);
-  
+  const { ydoc, isConnected, isSynced, connectedPeers, connect, setAwareness } =
+    useYjs();
+  const currentAccount = useAccountStore((s) => s.getCurrentAccount());
+  const selfPersonId = useAccountStore((s) => s.selfPersonId);
+  const people = usePeopleStore((s) => s.people);
+  const deviceId = useSyncStore((s) => s.deviceId);
+
+  const setAllExpenses = useExpenseStore((s) => s.setAllExpenses);
+  const setPeople = usePeopleStore((s) => s.setPeople);
+  const setPayments = usePaymentStore((s) => s.setPayments);
+  const setConnected = useSyncStore((s) => s.setConnected);
+  const setSynced = useSyncStore((s) => s.setSynced);
+  const setConnectedPeers = useSyncStore((s) => s.setConnectedPeers);
+
   // Set up Yjs operations for stores
   useEffect(() => {
-    const yExpenses = ydoc.getArray<Expense>('expenses');
-    const yPeople = ydoc.getArray<Person>('people');
-    const yPayments = ydoc.getArray<Payment>('payments');
-    
+    const yExpenses = ydoc.getArray<Expense>("expenses");
+    const yPeople = ydoc.getArray<Person>("people");
+    const yPayments = ydoc.getArray<Payment>("payments");
+
     // Wire up expense operations
     setYjsExpenseOperations({
       addExpense: (expense) => {
@@ -57,9 +62,9 @@ function YjsStoreSync() {
           ...expense,
           id: generateId(),
           syncId: generateId(),
-          syncStatus: 'synced',
+          syncStatus: "synced",
           yearMonth: getYearMonth(expense.date),
-          createdAt: Date.now()
+          createdAt: Date.now(),
         };
         ydoc.transact(() => {
           yExpenses.push([newExpense]);
@@ -69,7 +74,7 @@ function YjsStoreSync() {
       updateExpense: (id, updates) => {
         ydoc.transact(() => {
           const arr = yExpenses.toArray();
-          const index = arr.findIndex(e => e.id === id);
+          const index = arr.findIndex((e) => e.id === id);
           if (index !== -1) {
             const existing = arr[index];
             const updated = { ...existing, ...updates, updatedAt: Date.now() };
@@ -81,14 +86,14 @@ function YjsStoreSync() {
       deleteExpense: (id) => {
         ydoc.transact(() => {
           const arr = yExpenses.toArray();
-          const index = arr.findIndex(e => e.id === id);
+          const index = arr.findIndex((e) => e.id === id);
           if (index !== -1) {
             yExpenses.delete(index, 1);
           }
         });
-      }
+      },
     });
-    
+
     // Wire up people operations
     setYjsPeopleOperations({
       addPerson: (name, claimedBy) => {
@@ -97,7 +102,7 @@ function YjsStoreSync() {
           name,
           syncId: generateId(),
           createdAt: Date.now(),
-          claimedBy
+          claimedBy,
         };
         ydoc.transact(() => {
           yPeople.push([newPerson]);
@@ -107,7 +112,7 @@ function YjsStoreSync() {
       updatePerson: (id, updates) => {
         ydoc.transact(() => {
           const arr = yPeople.toArray();
-          const index = arr.findIndex(p => p.id === id);
+          const index = arr.findIndex((p) => p.id === id);
           if (index !== -1) {
             const existing = arr[index];
             const updated = { ...existing, ...updates, updatedAt: Date.now() };
@@ -119,7 +124,7 @@ function YjsStoreSync() {
       deletePerson: (id) => {
         ydoc.transact(() => {
           const arr = yPeople.toArray();
-          const index = arr.findIndex(p => p.id === id);
+          const index = arr.findIndex((p) => p.id === id);
           if (index !== -1) {
             yPeople.delete(index, 1);
           }
@@ -128,17 +133,21 @@ function YjsStoreSync() {
       claimPerson: (id, deviceId) => {
         ydoc.transact(() => {
           const arr = yPeople.toArray();
-          const index = arr.findIndex(p => p.id === id);
+          const index = arr.findIndex((p) => p.id === id);
           if (index !== -1) {
             const existing = arr[index];
-            const updated = { ...existing, claimedBy: deviceId, updatedAt: Date.now() };
+            const updated = {
+              ...existing,
+              claimedBy: deviceId,
+              updatedAt: Date.now(),
+            };
             yPeople.delete(index, 1);
             yPeople.insert(index, [updated]);
           }
         });
-      }
+      },
     });
-    
+
     // Wire up payment operations
     setYjsPaymentOperations({
       addPayment: (payment) => {
@@ -146,7 +155,7 @@ function YjsStoreSync() {
           ...payment,
           id: generateId(),
           syncId: generateId(),
-          createdAt: Date.now()
+          createdAt: Date.now(),
         };
         ydoc.transact(() => {
           yPayments.push([newPayment]);
@@ -156,14 +165,14 @@ function YjsStoreSync() {
       deletePayment: (id) => {
         ydoc.transact(() => {
           const arr = yPayments.toArray();
-          const index = arr.findIndex(p => p.id === id);
+          const index = arr.findIndex((p) => p.id === id);
           if (index !== -1) {
             yPayments.delete(index, 1);
           }
         });
-      }
+      },
     });
-    
+
     return () => {
       // Clear operations on unmount
       setYjsExpenseOperations({});
@@ -171,83 +180,93 @@ function YjsStoreSync() {
       setYjsPaymentOperations({});
     };
   }, [ydoc]);
-  
+
   // Sync Yjs arrays to Zustand stores
   useEffect(() => {
-    const yExpenses = ydoc.getArray<Expense>('expenses');
-    const yPeople = ydoc.getArray<Person>('people');
-    const yPayments = ydoc.getArray<Payment>('payments');
-    
+    const yExpenses = ydoc.getArray<Expense>("expenses");
+    const yPeople = ydoc.getArray<Person>("people");
+    const yPayments = ydoc.getArray<Payment>("payments");
+
     // Initial sync
     setAllExpenses(yExpenses.toArray());
     setPeople(yPeople.toArray());
     setPayments(yPayments.toArray());
-    
+
     // Set up observers
     const expenseObserver = () => setAllExpenses(yExpenses.toArray());
     const peopleObserver = () => setPeople(yPeople.toArray());
     const paymentObserver = () => setPayments(yPayments.toArray());
-    
+
     yExpenses.observe(expenseObserver);
     yPeople.observe(peopleObserver);
     yPayments.observe(paymentObserver);
-    
+
     return () => {
       yExpenses.unobserve(expenseObserver);
       yPeople.unobserve(peopleObserver);
       yPayments.unobserve(paymentObserver);
     };
   }, [ydoc, setAllExpenses, setPeople, setPayments]);
-  
+
   // Sync connection state
   useEffect(() => {
     setConnected(isConnected);
   }, [isConnected, setConnected]);
-  
+
   useEffect(() => {
     setSynced(isSynced);
   }, [isSynced, setSynced]);
-  
+
   useEffect(() => {
     setConnectedPeers(connectedPeers);
   }, [connectedPeers, setConnectedPeers]);
-  
+
   // Run migration on first load
   useEffect(() => {
     if (!isMigrationComplete()) {
-      migrateToYjs(ydoc).then(result => {
+      migrateToYjs(ydoc).then((result) => {
         if (result.success) {
-          console.log(`[App] Migration complete: ${result.migratedExpenses} expenses, ${result.migratedPeople} people, ${result.migratedPayments} payments`);
+          console.log(
+            `[App] Migration complete: ${result.migratedExpenses} expenses, ${result.migratedPeople} people, ${result.migratedPayments} payments`
+          );
         } else {
-          console.error('[App] Migration failed:', result.error);
+          console.error("[App] Migration failed:", result.error);
         }
       });
     }
   }, [ydoc]);
-  
+
   // Auto-connect via PeerJS for shared accounts (host = creator, joiners connect to host)
   useEffect(() => {
-    if (currentAccount?.mode === 'shared' && currentAccount.id) {
+    if (currentAccount?.mode === "shared" && currentAccount.id) {
       const roomName = `expense-tracker-${currentAccount.id}`;
       const hostDeviceId = currentAccount.hostDeviceId ?? deviceId;
-      setLastConnectParams({ roomName, deviceId, hostDeviceId });
       connect(roomName, { deviceId, hostDeviceId });
-      const selfPerson = people.find(p => p.id === selfPersonId);
+      const selfPerson = people.find((p) => p.id === selfPersonId);
       setAwareness({
         id: deviceId,
-        name: selfPerson?.name || 'Unknown'
+        name: selfPerson?.name || "Unknown",
       });
     }
-  }, [currentAccount?.mode, currentAccount?.id, currentAccount?.hostDeviceId, connect, deviceId, selfPersonId, people, setAwareness, setLastConnectParams]);
-  
+  }, [
+    currentAccount?.mode,
+    currentAccount?.id,
+    currentAccount?.hostDeviceId,
+    connect,
+    deviceId,
+    selfPersonId,
+    people,
+    setAwareness,
+  ]);
+
   return null;
 }
 
 function AppRoutes() {
-  const isOnboarded = useAccountStore(s => s.isOnboarded);
-  const currentAccountId = useAccountStore(s => s.currentAccountId);
-  const currentAccount = useAccountStore(s => s.getCurrentAccount());
-  const selfPersonId = useAccountStore(s => s.selfPersonId);
+  const isOnboarded = useAccountStore((s) => s.isOnboarded);
+  const currentAccountId = useAccountStore((s) => s.currentAccountId);
+  const currentAccount = useAccountStore((s) => s.getCurrentAccount());
+  const selfPersonId = useAccountStore((s) => s.selfPersonId);
 
   // Initialize database when account changes
   useEffect(() => {
@@ -271,7 +290,7 @@ function AppRoutes() {
 
   // If shared account but no selfPersonId, force back to onboarding to select name
   // This handles edge cases where the app state is inconsistent
-  if (currentAccount?.mode === 'shared' && !selfPersonId) {
+  if (currentAccount?.mode === "shared" && !selfPersonId) {
     return (
       <>
         <YjsStoreSync />
@@ -306,13 +325,14 @@ function AppRoutes() {
 }
 
 function AppContent() {
-  const currentAccountId = useAccountStore(s => s.currentAccountId);
-  const dbName = currentAccountId ? `expense-tracker-yjs-${currentAccountId}` : 'expense-tracker-yjs-default';
-  
+  const currentAccountId = useAccountStore((s) => s.currentAccountId);
+  const dbName = currentAccountId
+    ? `expense-tracker-yjs-${currentAccountId}`
+    : "expense-tracker-yjs-default";
+
   return (
     <YjsProvider dbName={dbName}>
       <SyncActionsProvider>
-        <ConnectionErrorBanner />
         <AppRoutes />
       </SyncActionsProvider>
     </YjsProvider>
@@ -320,37 +340,35 @@ function AppContent() {
 }
 
 function App() {
-  const darkMode = useSettingsStore(s => s.darkMode);
+  const darkMode = useSettingsStore((s) => s.darkMode);
 
   // Apply dark mode on mount
   useEffect(() => {
     if (darkMode) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   }, [darkMode]);
 
   const isOffline = useOffline();
 
   // Subpath for GitHub Pages (e.g. /expensTrack); no trailing slash for React Router
-  const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/'
+  const basename = (import.meta.env.BASE_URL || "/").replace(/\/$/, "") || "/";
 
   return (
-    <ErrorBoundary>
-      <BrowserRouter basename={basename}>
-        <ToastProvider>
-          <div className="h-full flex flex-col bg-[var(--bg)]">
-            {isOffline && (
-              <div className="bg-amber-500 text-white text-center py-2 text-sm font-medium safe-top">
-                Offline
-              </div>
-            )}
-            <AppContent />
-          </div>
-        </ToastProvider>
-      </BrowserRouter>
-    </ErrorBoundary>
+    <BrowserRouter basename={basename}>
+      <ToastProvider>
+        <div className="h-full flex flex-col bg-[var(--bg)]">
+          {isOffline && (
+            <div className="bg-amber-500 text-white text-center py-2 text-sm font-medium safe-top">
+              Offline
+            </div>
+          )}
+          <AppContent />
+        </div>
+      </ToastProvider>
+    </BrowserRouter>
   );
 }
 

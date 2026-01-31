@@ -155,6 +155,9 @@ export function SyncPage() {
 
   const needsNameSelection = currentAccount?.mode === 'shared' && !selfPersonId && people.length > 0;
   const isShared = currentAccount?.mode === 'shared';
+  const selfPerson = people.find(p => p.id === selfPersonId);
+  const isCreator = currentAccount?.hostDeviceId && deviceId === currentAccount.hostDeviceId;
+  const creatorPerson = isCreator ? selfPerson : people.find(p => p.claimedBy === currentAccount?.hostDeviceId);
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg)]">
@@ -167,6 +170,26 @@ export function SyncPage() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(80px+env(safe-area-inset-bottom))]">
+        {/* Who's who – only in shared mode */}
+        {isShared && (selfPerson || creatorPerson || isCreator) && (
+          <div className="px-4 mb-3">
+            <div className="bg-[var(--white)] rounded-xl p-4 shadow-sm flex flex-wrap gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-[var(--text-secondary)]">You:</span>
+                <span className="font-medium text-[15px]">
+                  {selfPerson ? selfPerson.name : '—'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-[var(--text-secondary)]">Group creator:</span>
+                <span className="font-medium text-[15px]">
+                  {isCreator ? (selfPerson ? `${selfPerson.name} (you)` : 'You') : (creatorPerson?.name ?? '—')}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Status – one card, same style as Home summary */}
         <div className="px-4 mb-3">
           <div className="bg-[var(--white)] rounded-xl p-4 shadow-sm">

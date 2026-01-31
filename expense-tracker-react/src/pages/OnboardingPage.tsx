@@ -363,66 +363,70 @@ export function OnboardingPage() {
     : '';
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] flex flex-col safe-top safe-bottom">
+    <div className="min-h-screen h-full bg-[var(--bg)] flex flex-col safe-top safe-bottom">
       {/* Welcome Step */}
       {step === 'welcome' && (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="text-6xl mb-6">💰</div>
-          <h1 className="text-3xl font-bold mb-3">Expense Tracker</h1>
-          <p className="text-[var(--text-secondary)] mb-8 max-w-xs">
-            Track spending, split bills, and sync with friends - all offline-first
-          </p>
-          
-          <div className="w-full max-w-xs space-y-3">
-            <Button onClick={() => setStep('mode')} className="w-full">
-              Create Account
-            </Button>
-            <Button 
-              variant="secondary" 
-              onClick={handleStartJoin} 
-              className="w-full"
-            >
-              Join Existing Group
-            </Button>
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center min-h-0 overflow-y-auto">
+            <div className="text-6xl mb-6">💰</div>
+            <h1 className="text-3xl font-bold mb-3">Expense Tracker</h1>
+            <p className="text-[var(--text-secondary)] mb-6 max-w-xs">
+              Track spending, split bills, and sync with friends - all offline-first
+            </p>
+          </div>
+          <div className="flex-shrink-0 p-4 pt-2 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[var(--bg)] w-full max-w-xs mx-auto self-center">
+            <div className="space-y-3">
+              <Button onClick={() => setStep('mode')} className="w-full min-h-[48px] text-base">
+                Create Account
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleStartJoin}
+                className="w-full min-h-[48px] text-base"
+              >
+                Join Existing Group
+              </Button>
+            </div>
           </div>
         </div>
       )}
 
       {/* Mode Selection */}
       {step === 'mode' && (
-        <div className="flex-1 flex flex-col p-6">
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-6 pb-[calc(24px+env(safe-area-inset-bottom))]">
           <button
             onClick={() => setStep('welcome')}
-            className="text-[var(--teal-green)] mb-4 self-start"
+            className="text-[var(--teal-green)] mb-4 self-start py-2 -my-2 min-h-[44px] flex items-center"
           >
             ← Back
           </button>
-          
           <h1 className="text-2xl font-bold mb-2">How will you use this?</h1>
-          <p className="text-[var(--text-secondary)] mb-8">
+          <p className="text-[var(--text-secondary)] mb-6">
             You can change this later
           </p>
-          
           <div className="space-y-4">
             <button
               onClick={() => handleModeSelect('single')}
-              className="w-full p-6 bg-[var(--white)] rounded-xl text-left active:scale-[0.98] transition-transform"
+              className="w-full p-5 min-h-[80px] bg-[var(--white)] rounded-xl text-left active:scale-[0.98] transition-transform flex items-center gap-4"
             >
-              <div className="text-3xl mb-2">👤</div>
-              <div className="font-semibold text-lg mb-1">Personal</div>
-              <div className="text-[var(--text-secondary)] text-sm">
-                Track your own expenses
+              <span className="text-3xl">👤</span>
+              <div>
+                <div className="font-semibold text-lg mb-0.5">Personal</div>
+                <div className="text-[var(--text-secondary)] text-sm">
+                  Track your own expenses
+                </div>
               </div>
             </button>
-            
             <button
               onClick={() => handleModeSelect('shared')}
-              className="w-full p-6 bg-[var(--white)] rounded-xl text-left active:scale-[0.98] transition-transform"
+              className="w-full p-5 min-h-[80px] bg-[var(--white)] rounded-xl text-left active:scale-[0.98] transition-transform flex items-center gap-4"
             >
-              <div className="text-3xl mb-2">👥</div>
-              <div className="font-semibold text-lg mb-1">Shared</div>
-              <div className="text-[var(--text-secondary)] text-sm">
-                Split expenses with roommates, partners, or groups
+              <span className="text-3xl">👥</span>
+              <div>
+                <div className="font-semibold text-lg mb-0.5">Shared</div>
+                <div className="text-[var(--text-secondary)] text-sm">
+                  Split expenses with roommates, partners, or groups
+                </div>
               </div>
             </button>
           </div>
@@ -431,139 +435,132 @@ export function OnboardingPage() {
 
       {/* Name Step */}
       {step === 'name' && (
-        <div className="flex-1 flex flex-col p-6">
-          <button
-            onClick={() => setStep('mode')}
-            className="text-[var(--teal-green)] mb-4 self-start"
-          >
-            ← Back
-          </button>
-          
-          <h1 className="text-2xl font-bold mb-6">
-            {mode === 'shared' ? 'Set up your group' : 'Name your account'}
-          </h1>
-          
-          <div className="space-y-4">
-            {mode === 'shared' && (
+        <>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6">
+            <button
+              onClick={() => setStep('mode')}
+              className="text-[var(--teal-green)] mb-4 self-start py-2 -my-2 min-h-[44px] flex items-center"
+            >
+              ← Back
+            </button>
+            <h1 className="text-2xl font-bold mb-6">
+              {mode === 'shared' ? 'Set up your group' : 'Name your account'}
+            </h1>
+            <div className="space-y-4">
+              {mode === 'shared' && (
+                <Input
+                  label="Your Name"
+                  value={userName}
+                  onChange={e => setUserName(e.target.value)}
+                  placeholder="What should we call you?"
+                  autoFocus
+                />
+              )}
               <Input
-                label="Your Name"
-                value={userName}
-                onChange={e => setUserName(e.target.value)}
-                placeholder="What should we call you?"
-                autoFocus
+                label={mode === 'shared' ? 'Group Name' : 'Account Name'}
+                value={accountName}
+                onChange={e => setAccountName(e.target.value)}
+                placeholder={mode === 'shared' ? 'e.g., Apartment, Trip to Paris' : 'e.g., My Expenses'}
+                autoFocus={mode === 'single'}
               />
-            )}
-            
-            <Input
-              label={mode === 'shared' ? 'Group Name' : 'Account Name'}
-              value={accountName}
-              onChange={e => setAccountName(e.target.value)}
-              placeholder={mode === 'shared' ? 'e.g., Apartment, Trip to Paris' : 'e.g., My Expenses'}
-              autoFocus={mode === 'single'}
-            />
+            </div>
           </div>
-          
-          <div className="mt-auto pt-6">
-            <Button onClick={handleNameNext} className="w-full">
+          <div className="flex-shrink-0 p-4 pt-2 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[var(--bg)]">
+            <Button onClick={handleNameNext} className="w-full min-h-[48px] text-base">
               Continue
             </Button>
           </div>
-        </div>
+        </>
       )}
 
       {/* Currency Step */}
       {step === 'currency' && (
-        <div className="flex-1 flex flex-col p-6">
-          <button
-            onClick={() => setStep('name')}
-            className="text-[var(--teal-green)] mb-4 self-start"
-          >
-            ← Back
-          </button>
-          
-          <h1 className="text-2xl font-bold mb-2">Choose your currency</h1>
-          <p className="text-[var(--text-secondary)] mb-6">
-            You can change this later in settings
-          </p>
-          
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            {CURRENCIES.slice(0, 6).map(curr => (
-              <button
-                key={curr.code}
-                onClick={() => { haptic('light'); setSelectedCurrency(curr.symbol); }}
-                className={`p-4 rounded-xl text-left transition-all ${
-                  selectedCurrency === curr.symbol
-                    ? 'bg-[var(--teal-green)] text-white'
-                    : 'bg-[var(--white)]'
-                }`}
-              >
-                <div className="text-2xl mb-1">{curr.symbol}</div>
-                <div className="text-sm font-medium">{curr.code}</div>
-              </button>
-            ))}
+        <>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6">
+            <button
+              onClick={() => setStep('name')}
+              className="text-[var(--teal-green)] mb-4 self-start py-2 -my-2 min-h-[44px] flex items-center"
+            >
+              ← Back
+            </button>
+            <h1 className="text-2xl font-bold mb-2">Choose your currency</h1>
+            <p className="text-[var(--text-secondary)] mb-6">
+              You can change this later in settings
+            </p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {CURRENCIES.slice(0, 6).map(curr => (
+                <button
+                  key={curr.code}
+                  onClick={() => { haptic('light'); setSelectedCurrency(curr.symbol); }}
+                  className={`p-4 min-h-[72px] rounded-xl text-left transition-all active:scale-[0.98] ${
+                    selectedCurrency === curr.symbol
+                      ? 'bg-[var(--teal-green)] text-white'
+                      : 'bg-[var(--white)]'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{curr.symbol}</div>
+                  <div className="text-sm font-medium">{curr.code}</div>
+                </button>
+              ))}
+            </div>
           </div>
-          
-          <div className="mt-auto">
-            <Button onClick={handleCurrencyNext} loading={loading} className="w-full">
+          <div className="flex-shrink-0 p-4 pt-2 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[var(--bg)]">
+            <Button onClick={handleCurrencyNext} loading={loading} className="w-full min-h-[48px] text-base">
               {mode === 'shared' ? 'Continue' : 'Complete Setup'}
             </Button>
           </div>
-        </div>
+        </>
       )}
 
       {/* Add People Step (Shared mode only) */}
       {step === 'addPeople' && (
-        <div className="flex-1 flex flex-col p-6">
-          <button
-            onClick={() => setStep('currency')}
-            className="text-[var(--teal-green)] mb-4 self-start"
-          >
-            ← Back
-          </button>
-          
-          <h1 className="text-2xl font-bold mb-2">Add group members</h1>
-          <p className="text-[var(--text-secondary)] mb-6">
-            Add everyone who will share expenses. They can join later by scanning a QR code.
-          </p>
-          
-          {/* Added people list */}
-          <div className="mb-4">
-            <div className="text-sm text-[var(--text-secondary)] mb-2">Members ({addedPeople.length})</div>
-            <div className="space-y-2">
-              {addedPeople.map((name, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 bg-[var(--white)] rounded-xl">
-                  <div className="w-10 h-10 rounded-full bg-[var(--teal-green)]/10 text-[var(--teal-green)] flex items-center justify-center font-bold">
-                    {name.charAt(0).toUpperCase()}
+        <>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6">
+            <button
+              onClick={() => setStep('currency')}
+              className="text-[var(--teal-green)] mb-4 self-start py-2 -my-2 min-h-[44px] flex items-center"
+            >
+              ← Back
+            </button>
+            <h1 className="text-2xl font-bold mb-2">Add group members</h1>
+            <p className="text-[var(--text-secondary)] mb-6">
+              Add everyone who will share expenses. They can join later by scanning a QR code.
+            </p>
+            <div className="mb-4">
+              <div className="text-sm text-[var(--text-secondary)] mb-2">Members ({addedPeople.length})</div>
+              <div className="space-y-2">
+                {addedPeople.map((name, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-[var(--white)] rounded-xl">
+                    <div className="w-10 h-10 rounded-full bg-[var(--teal-green)]/10 text-[var(--teal-green)] flex items-center justify-center font-bold">
+                      {name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-medium">{name}</span>
+                    {i === 0 && (
+                      <span className="ml-auto text-xs text-[var(--teal-green)] bg-[var(--teal-green)]/10 px-2 py-1 rounded-full">
+                        You
+                      </span>
+                    )}
                   </div>
-                  <span className="font-medium">{name}</span>
-                  {i === 0 && (
-                    <span className="ml-auto text-xs text-[var(--teal-green)] bg-[var(--teal-green)]/10 px-2 py-1 rounded-full">
-                      You
-                    </span>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 mb-4">
+              <Input
+                value={newPersonName}
+                onChange={e => setNewPersonName(e.target.value)}
+                placeholder="Enter name"
+                className="flex-1"
+                onKeyDown={e => e.key === 'Enter' && handleAddPerson()}
+              />
+              <Button onClick={handleAddPerson} variant="secondary" className="min-h-[48px]">
+                Add
+              </Button>
             </div>
           </div>
-          
-          {/* Add new person */}
-          <div className="flex gap-2 mb-6">
-            <Input
-              value={newPersonName}
-              onChange={e => setNewPersonName(e.target.value)}
-              placeholder="Enter name"
-              className="flex-1"
-              onKeyDown={e => e.key === 'Enter' && handleAddPerson()}
-            />
-            <Button onClick={handleAddPerson} variant="secondary">
-              Add
-            </Button>
-          </div>
-          
-          <div className="mt-auto">
-            <Button 
-              onClick={handleFinishAddingPeople} 
-              className="w-full"
+          <div className="flex-shrink-0 p-4 pt-2 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[var(--bg)]">
+            <Button
+              onClick={handleFinishAddingPeople}
+              className="w-full min-h-[48px] text-base"
               disabled={addedPeople.length < 2}
             >
               Continue
@@ -574,103 +571,99 @@ export function OnboardingPage() {
               </p>
             )}
           </div>
-        </div>
+        </>
       )}
 
       {/* Invite Step (Show QR code) */}
       {step === 'invite' && (
-        <div className="flex-1 flex flex-col p-6">
-          <h1 className="text-2xl font-bold mb-2">Invite your group</h1>
-          <p className="text-[var(--text-secondary)] mb-6">
-            Others can scan the QR code or use the invite link to join
-          </p>
-          
-          {/* QR Code */}
-          <div className="bg-[var(--white)] rounded-xl p-6 mb-4">
-            <div className="flex justify-center mb-4">
-              {qrData && (
-                <div className="p-4 bg-white rounded-xl">
-                  <QRCodeSVG value={qrData} size={200} />
-                </div>
-              )}
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6">
+            <h1 className="text-2xl font-bold mb-2">Invite your group</h1>
+            <p className="text-[var(--text-secondary)] mb-6">
+              Others can scan the QR code or use the invite link to join
+            </p>
+            <div className="bg-[var(--white)] rounded-xl p-6 mb-4">
+              <div className="flex justify-center mb-4">
+                {qrData && (
+                  <div className="p-4 bg-white rounded-xl">
+                    <QRCodeSVG value={qrData} size={200} />
+                  </div>
+                )}
+              </div>
+              <div className="text-center">
+                <div className="text-sm text-[var(--text-secondary)] mb-1">Your device code</div>
+                <div className="text-2xl font-mono font-bold tracking-widest">{deviceId}</div>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-sm text-[var(--text-secondary)] mb-1">Your device code</div>
-              <div className="text-2xl font-mono font-bold tracking-widest">{deviceId}</div>
-            </div>
-          </div>
-
-          {/* Invite link for this account */}
-          {currentAccount && (
-            <div className="mb-6 space-y-2">
-              <p className="text-sm text-[var(--text-secondary)]">
-                Invite link for <strong>{currentAccount.name}</strong>
-              </p>
-              <Input
-                readOnly
-                value={generateInviteUrl(currentAccount.id, currentAccount.name, currentAccount.hostDeviceId ?? deviceId ?? undefined)}
-                className="text-sm font-mono"
-                aria-label="Invite URL for this account"
-              />
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={async () => {
-                    const url = generateInviteUrl(currentAccount.id, currentAccount.name, currentAccount.hostDeviceId ?? deviceId ?? undefined);
-                    const success = await copyToClipboard(url);
-                    if (success) {
-                      haptic('success');
-                      showSuccess('Invite link copied! Share it via message or email.');
-                    } else {
-                      showError('Could not copy. Try selecting and copying the link above.');
-                    }
-                  }}
-                >
-                  Copy link
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={async () => {
-                    try {
+            {currentAccount && (
+              <div className="mb-6 space-y-2">
+                <p className="text-sm text-[var(--text-secondary)]">
+                  Invite link for <strong>{currentAccount.name}</strong>
+                </p>
+                <Input
+                  readOnly
+                  value={generateInviteUrl(currentAccount.id, currentAccount.name, currentAccount.hostDeviceId ?? deviceId ?? undefined)}
+                  className="text-sm font-mono"
+                  aria-label="Invite URL for this account"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="flex-1 min-h-[44px]"
+                    onClick={async () => {
                       const url = generateInviteUrl(currentAccount.id, currentAccount.name, currentAccount.hostDeviceId ?? deviceId ?? undefined);
                       const success = await copyToClipboard(url);
                       if (success) {
                         haptic('success');
-                        showSuccess('Link regenerated and copied. Share the new link.');
+                        showSuccess('Invite link copied! Share it via message or email.');
                       } else {
-                        haptic('error');
                         showError('Could not copy. Try selecting and copying the link above.');
                       }
-                    } catch {
-                      haptic('error');
-                      showError('Could not copy link.');
-                    }
-                  }}
-                >
-                  Regenerate link
-                </Button>
+                    }}
+                  >
+                    Copy link
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="flex-1 min-h-[44px]"
+                    onClick={async () => {
+                      try {
+                        const url = generateInviteUrl(currentAccount.id, currentAccount.name, currentAccount.hostDeviceId ?? deviceId ?? undefined);
+                        const success = await copyToClipboard(url);
+                        if (success) {
+                          haptic('success');
+                          showSuccess('Link regenerated and copied. Share the new link.');
+                        } else {
+                          haptic('error');
+                          showError('Could not copy. Try selecting and copying the link above.');
+                        }
+                      } catch {
+                        haptic('error');
+                        showError('Could not copy link.');
+                      }
+                    }}
+                  >
+                    Regenerate link
+                  </Button>
+                </div>
+              </div>
+            )}
+            <div className="bg-[var(--teal-green)]/10 rounded-xl p-4 mb-4">
+              <div className="text-sm">
+                <strong>How to join:</strong>
+                <ol className="list-decimal list-inside mt-2 space-y-1 text-[var(--text-secondary)]">
+                  <li>Open the app on another device</li>
+                  <li>Tap "Join Existing Group"</li>
+                  <li>Scan the QR code or paste the invite link</li>
+                  <li>Select their name from the list</li>
+                </ol>
               </div>
             </div>
-          )}
-          
-          <div className="bg-[var(--teal-green)]/10 rounded-xl p-4 mb-6">
-            <div className="text-sm">
-              <strong>How to join:</strong>
-              <ol className="list-decimal list-inside mt-2 space-y-1 text-[var(--text-secondary)]">
-                <li>Open the app on another device</li>
-                <li>Tap "Join Existing Group"</li>
-                <li>Scan the QR code or paste the invite link</li>
-                <li>Select their name from the list</li>
-              </ol>
-            </div>
           </div>
-          
-          <div className="mt-auto">
-            <Button onClick={handleCompleteShared} className="w-full">
+          <div className="flex-shrink-0 p-4 pt-2 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[var(--bg)] border-t border-[var(--border)]/50">
+            <Button onClick={handleCompleteShared} className="w-full min-h-[48px] text-base">
               Done
             </Button>
             <p className="text-center text-sm text-[var(--text-secondary)] mt-2">
@@ -682,50 +675,54 @@ export function OnboardingPage() {
 
       {/* Join options: paste link or scan QR */}
       {step === 'joinOptions' && (
-        <div className="flex-1 flex flex-col p-6">
-          <button
-            onClick={() => { setStep('welcome'); setJoinError(null); }}
-            className="text-[var(--teal-green)] mb-4 self-start"
-          >
-            ← Back
-          </button>
-          
-          <h1 className="text-2xl font-bold mb-2">Join a group</h1>
-          <p className="text-[var(--text-secondary)] mb-6">
-            Paste the invite link shared by the group creator, or scan their QR code
-          </p>
-          
-          <div className="space-y-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium mb-2 text-[var(--text-secondary)]">
-                Paste invite link or code
-              </label>
-              <div className="flex gap-2">
-                <Input
-                  value={pasteInput}
-                  onChange={e => setPasteInput(e.target.value)}
-                  placeholder="Paste link or et:... code"
-                  className="flex-1"
-                  onKeyDown={e => e.key === 'Enter' && handlePasteInvite()}
-                />
-                <Button onClick={handlePasteInvite} disabled={!pasteInput.trim()}>
-                  Join
-                </Button>
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6">
+            <button
+              onClick={() => { setStep('welcome'); setJoinError(null); }}
+              className="text-[var(--teal-green)] mb-4 self-start py-2 -my-2 min-h-[44px] flex items-center"
+            >
+              ← Back
+            </button>
+            <h1 className="text-2xl font-bold mb-2">Join a group</h1>
+            <p className="text-[var(--text-secondary)] mb-6">
+              Paste the invite link shared by the group creator, or scan their QR code
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-[var(--text-secondary)]">
+                  Paste invite link or code
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    value={pasteInput}
+                    onChange={e => setPasteInput(e.target.value)}
+                    placeholder="Paste link or et:... code"
+                    className="flex-1 min-h-[48px]"
+                    onKeyDown={e => e.key === 'Enter' && handlePasteInvite()}
+                  />
+                  <Button
+                    onClick={handlePasteInvite}
+                    disabled={!pasteInput.trim()}
+                    className="min-h-[48px] text-base sm:flex-shrink-0"
+                  >
+                    Join
+                  </Button>
+                </div>
+              </div>
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[var(--border)]" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-[var(--bg)] px-4 text-sm text-[var(--text-secondary)]">or</span>
+                </div>
               </div>
             </div>
-            
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[var(--border)]" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-[var(--bg)] px-4 text-sm text-[var(--text-secondary)]">or</span>
-              </div>
-            </div>
-            
+          </div>
+          <div className="flex-shrink-0 p-4 pt-2 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[var(--bg)] border-t border-[var(--border)]/50">
             <Button
               variant="secondary"
-              className="w-full"
+              className="w-full min-h-[48px] text-base"
               onClick={() => { setJoinError(null); setStep('scan'); }}
             >
               Scan QR Code
@@ -773,135 +770,140 @@ export function OnboardingPage() {
 
       {/* Connection Failed Step */}
       {step === 'connectionFailed' && (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="text-6xl mb-6">😕</div>
-          <h1 className="text-2xl font-bold mb-2">Connection Failed</h1>
-          <p className="text-[var(--text-secondary)] mb-2 max-w-xs">
-            {joinError || 'Could not connect to the other device.'}
-          </p>
-          <p className="text-sm text-[var(--text-secondary)] mb-8 max-w-xs">
-            Make sure the other device has the app open and is showing the QR code.
-          </p>
-          
-          <div className="w-full max-w-xs space-y-3">
-            {lastScannedData && retryCount < 3 && (
-              <Button onClick={handleRetry} className="w-full">
-                Try Again
-              </Button>
-            )}
-            <Button 
-              variant={lastScannedData && retryCount < 3 ? 'secondary' : 'primary'}
-              onClick={handleScanAgain} 
-              className="w-full"
-            >
-              Scan QR Code Again
-            </Button>
-            <button
-              onClick={() => {
-                setLastScannedData(null);
-                setJoinError(null);
-                setRetryCount(0);
-                setStep('welcome');
-              }}
-              className="text-[var(--text-secondary)] text-sm"
-            >
-              Cancel
-            </button>
-          </div>
-          
-          {retryCount >= 3 && (
-            <p className="text-sm text-[var(--text-secondary)] mt-6 max-w-xs">
-              Multiple connection attempts failed. Try scanning a new QR code or check your internet connection.
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center min-h-0 overflow-y-auto">
+            <div className="text-6xl mb-6">😕</div>
+            <h1 className="text-2xl font-bold mb-2">Connection Failed</h1>
+            <p className="text-[var(--text-secondary)] mb-2 max-w-xs">
+              {joinError || 'Could not connect to the other device.'}
             </p>
-          )}
+            <p className="text-sm text-[var(--text-secondary)] mb-4 max-w-xs">
+              Make sure the other device has the app open and is showing the QR code.
+            </p>
+            {retryCount >= 3 && (
+              <p className="text-sm text-[var(--text-secondary)] max-w-xs">
+                Multiple connection attempts failed. Try scanning a new QR code or check your internet connection.
+              </p>
+            )}
+          </div>
+          <div className="flex-shrink-0 p-4 pt-2 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[var(--bg)] w-full max-w-xs mx-auto">
+            <div className="space-y-3">
+              {lastScannedData && retryCount < 3 && (
+                <Button onClick={handleRetry} className="w-full min-h-[48px] text-base">
+                  Try Again
+                </Button>
+              )}
+              <Button
+                variant={lastScannedData && retryCount < 3 ? 'secondary' : 'primary'}
+                onClick={handleScanAgain}
+                className="w-full min-h-[48px] text-base"
+              >
+                Scan QR Code Again
+              </Button>
+              <button
+                onClick={() => {
+                  setLastScannedData(null);
+                  setJoinError(null);
+                  setRetryCount(0);
+                  setStep('welcome');
+                }}
+                className="w-full block py-3 text-[var(--text-secondary)] text-base min-h-[44px] active:opacity-80"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Select Name Step */}
       {step === 'selectName' && (
-        <div className="flex-1 flex flex-col p-6">
-          <h1 className="text-2xl font-bold mb-2">Select your name</h1>
-          <p className="text-[var(--text-secondary)] mb-6">
-            {syncedPeople.length > 0 
-              ? "You must select your name to complete joining the group"
-              : "No members found. Ask the group creator to add you first."}
-          </p>
-          
-          {syncedPeople.length > 0 ? (
-            <>
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-4">
-                <p className="text-sm text-amber-700 text-center">
-                  Select your name from the list below to continue
-                </p>
-              </div>
-              <div className="space-y-3">
-                {syncedPeople.map(person => {
-                  const isClaimed = !!(person.claimedBy && person.claimedBy !== deviceId);
-                  return (
-                    <button
-                      key={person.id}
-                      onClick={() => !isClaimed && handleSelectName(person)}
-                      disabled={isClaimed}
-                      className={`w-full flex items-center gap-3 p-4 rounded-xl transition-transform border-2 ${
-                        isClaimed 
-                          ? 'bg-gray-100 border-transparent opacity-60 cursor-not-allowed'
-                          : 'bg-[var(--white)] border-transparent hover:border-[var(--teal-green)] active:scale-[0.98]'
-                      }`}
-                    >
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
-                        isClaimed 
-                          ? 'bg-gray-200 text-gray-400'
-                          : 'bg-[var(--teal-green)]/10 text-[var(--teal-green)]'
-                      }`}>
-                        {person.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 text-left">
-                        <span className={`font-medium text-lg ${isClaimed ? 'text-gray-400' : ''}`}>
-                          {person.name}
-                        </span>
-                        {isClaimed && (
-                          <div className="text-xs text-gray-400">Already taken</div>
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6">
+            <h1 className="text-2xl font-bold mb-2">Select your name</h1>
+            <p className="text-[var(--text-secondary)] mb-4">
+              {syncedPeople.length > 0
+                ? 'You must select your name to complete joining the group'
+                : 'No members found. Ask the group creator to add you first.'}
+            </p>
+            {syncedPeople.length > 0 ? (
+              <>
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-4">
+                  <p className="text-sm text-amber-700 dark:text-amber-400 text-center">
+                    Select your name from the list below to continue
+                  </p>
+                </div>
+                <div className="space-y-3 pb-4">
+                  {syncedPeople.map(person => {
+                    const isClaimed = !!(person.claimedBy && person.claimedBy !== deviceId);
+                    return (
+                      <button
+                        key={person.id}
+                        onClick={() => !isClaimed && handleSelectName(person)}
+                        disabled={isClaimed}
+                        className={`w-full flex items-center gap-3 p-4 min-h-[64px] rounded-xl transition-transform border-2 ${
+                          isClaimed
+                            ? 'bg-[var(--border)]/50 border-transparent opacity-60 cursor-not-allowed'
+                            : 'bg-[var(--white)] border-transparent hover:border-[var(--teal-green)] active:scale-[0.98]'
+                        }`}
+                      >
+                        <div
+                          className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${
+                            isClaimed
+                              ? 'bg-[var(--border)] text-[var(--text-secondary)]'
+                              : 'bg-[var(--teal-green)]/10 text-[var(--teal-green)]'
+                          }`}
+                        >
+                          {person.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <span className={`font-medium text-lg ${isClaimed ? 'text-[var(--text-secondary)]' : ''}`}>
+                            {person.name}
+                          </span>
+                          {isClaimed && (
+                            <div className="text-xs text-[var(--text-secondary)]">Already taken</div>
+                          )}
+                        </div>
+                        {!isClaimed && (
+                          <span className="text-[var(--teal-green)] text-sm shrink-0">Tap to select</span>
                         )}
-                      </div>
-                      {!isClaimed && (
-                        <span className="text-[var(--teal-green)]">Tap to select</span>
-                      )}
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center py-12">
+                <div className="text-5xl mb-4">🤷</div>
+                <p className="text-[var(--text-secondary)] text-center mb-6">
+                  Your name isn't in the group yet.<br />
+                  Ask the group creator to add you.
+                </p>
+                <Button
+                  variant="secondary"
+                  className="min-h-[48px] text-base"
+                  onClick={() => {
+                    setStep('welcome');
+                    setJoinError(null);
+                  }}
+                >
+                  Go Back
+                </Button>
               </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div className="text-5xl mb-4">🤷</div>
-              <p className="text-[var(--text-secondary)] text-center mb-6">
-                Your name isn't in the group yet.<br />
-                Ask the group creator to add you.
-              </p>
-              <Button 
-                variant="secondary" 
-                onClick={() => {
-                  setStep('welcome');
-                  setJoinError(null);
-                }}
-              >
-                Go Back
-              </Button>
-            </div>
-          )}
-          
+            )}
+          </div>
           {syncedPeople.length > 0 && (
-            <div className="mt-auto pt-6">
-              <p className="text-center text-sm text-[var(--text-secondary)]">
+            <div className="flex-shrink-0 p-4 pt-2 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[var(--bg)] border-t border-[var(--border)]/50">
+              <p className="text-center text-sm text-[var(--text-secondary)] mb-3">
                 Don't see your name? Ask the group creator to add you, then scan again.
               </p>
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setStep('scan');
                   setJoinError(null);
                 }}
-                className="w-full mt-3"
+                className="w-full min-h-[48px] text-base"
               >
                 Scan Again
               </Button>
