@@ -37,7 +37,6 @@ export function OnboardingPage() {
   // People store
   const addPerson = usePeopleStore(s => s.addPerson);
   const loadPeople = usePeopleStore(s => s.loadPeople);
-  const people = usePeopleStore(s => s.people);
   
   // Settings store
   const setCurrency = useSettingsStore(s => s.setCurrency);
@@ -63,8 +62,6 @@ export function OnboardingPage() {
   const [addedPeople, setAddedPeople] = useState<string[]>([]);
   
   // Join state
-  const [joinAccountId, setJoinAccountId] = useState('');
-  const [joinDeviceId, setJoinDeviceId] = useState('');
   const [joinAccountName, setJoinAccountName] = useState('');
   const [joinError, setJoinError] = useState<string | null>(null);
   const [syncedPeople, setSyncedPeople] = useState<Person[]>([]);
@@ -197,8 +194,6 @@ export function OnboardingPage() {
 
   const handleQRScanned = async (data: { accountId: string; deviceId: string; accountName: string }) => {
     haptic('success');
-    setJoinAccountId(data.accountId);
-    setJoinDeviceId(data.deviceId);
     setJoinAccountName(data.accountName);
     setJoinError(null);
     setStep('connecting');

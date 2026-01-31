@@ -37,7 +37,6 @@ export function SyncPage() {
   const [showScanner, setShowScanner] = useState(false);
   const [showSelectName, setShowSelectName] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  const [joinError, setJoinError] = useState<string | null>(null);
 
   const lastSync = getLastSyncTimeFormatted();
 
@@ -84,14 +83,12 @@ export function SyncPage() {
   // QR Scanner handlers for new member joining
   const handleOpenScanner = () => {
     haptic('light');
-    setJoinError(null);
     setShowScanner(true);
   };
 
   const handleQRScanned = async (data: { accountId: string; deviceId: string; accountName: string }) => {
     setShowScanner(false);
     setIsJoining(true);
-    setJoinError(null);
     
     try {
       // Connect and sync with the scanned device
@@ -113,7 +110,6 @@ export function SyncPage() {
       }
     } catch (error) {
       console.error('Join failed:', error);
-      setJoinError(error instanceof Error ? error.message : 'Failed to connect');
       showError('Failed to connect. Make sure the other device has the app open.');
     } finally {
       setIsJoining(false);
@@ -233,7 +229,6 @@ export function SyncPage() {
         <QRScanner
           onScan={handleQRScanned}
           onError={(error) => {
-            setJoinError(error);
             showError(error);
           }}
           onCancel={() => setShowScanner(false)}
