@@ -27,7 +27,11 @@ import { CameraCapture } from '@/components/camera/CameraCapture';
 
 // Component to sync Yjs data with Zustand stores
 function YjsStoreSync() {
-  const { ydoc, isConnected, isSynced, connectedPeers } = useYjs();
+  const { ydoc, isConnected, isSynced, connectedPeers, connect, setAwareness } = useYjs();
+  const currentAccount = useAccountStore(s => s.getCurrentAccount());
+  const selfPersonId = useAccountStore(s => s.selfPersonId);
+  const people = usePeopleStore(s => s.people);
+  const deviceId = useSyncStore(s => s.deviceId);
   
   const setAllExpenses = useExpenseStore(s => s.setAllExpenses);
   const setPeople = usePeopleStore(s => s.setPeople);
@@ -216,6 +220,19 @@ function YjsStoreSync() {
       });
     }
   }, [ydoc]);
+  
+  // Auto-connect to Yjs room for shared accounts (keeps creator discoverable for joiners)
+  useEffect(() => {
+    if (currentAccount?.mode === 'shared' && currentAccount.id) {
+      const roomName = `expense-tracker-${currentAccount.id}`;
+      connect(roomName);
+      const selfPerson = people.find(p => p.id === selfPersonId);
+      setAwareness({
+        id: deviceId,
+        name: selfPerson?.name || 'Unknown'
+      });
+    }
+  }, [currentAccount?.mode, currentAccount?.id, connect, deviceId, selfPersonId, people, setAwareness]);
   
   return null;
 }

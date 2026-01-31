@@ -90,8 +90,8 @@ export function SyncPage() {
     
     haptic('success');
     
-    // Update person with claim (Yjs will sync this automatically)
-    // Note: This would need to be done through useYjsSync
+    // Claim this person for our device (syncs to Yjs)
+    await usePeopleStore.getState().claimPerson(person.id, deviceId);
     setSelfPersonId(person.id);
     setShowSelectName(false);
     

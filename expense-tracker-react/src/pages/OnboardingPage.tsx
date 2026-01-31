@@ -116,7 +116,11 @@ export function OnboardingPage() {
         setCurrency(selectedCurrency);
         await setCurrentAccount(account.id);
         
-        // Connect to Yjs room for this account so data syncs
+        // Wait for React to re-render and YjsProvider to create the account-specific document
+        // (dbName changes from 'default' to expense-tracker-yjs-{accountId})
+        await new Promise(resolve => setTimeout(resolve, 400));
+        
+        // Now connect to Yjs room - must happen AFTER document is recreated for this account
         const roomName = `expense-tracker-${account.id}`;
         connect(roomName);
         
@@ -126,8 +130,8 @@ export function OnboardingPage() {
           name: userName.trim()
         });
         
-        // Wait a moment for Yjs to initialize
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Brief wait for WebRTC connection to establish
+        await new Promise(resolve => setTimeout(resolve, 300));
         
         // Add self as first person and claim it with our deviceId
         const selfPerson = await addPerson(userName.trim(), deviceId ?? undefined);
@@ -232,6 +236,9 @@ export function OnboardingPage() {
       );
       await setCurrentAccount(account.id);
       
+      // Wait for YjsProvider to create the account-specific document
+      await new Promise(resolve => setTimeout(resolve, 400));
+      
       // Connect to Yjs room (sync happens automatically)
       const roomName = `expense-tracker-${data.accountId}`;
       connect(roomName);
@@ -242,15 +249,15 @@ export function OnboardingPage() {
         name: 'New User'
       });
       
-      // Wait for connection and sync - poll for people data
+      // Wait for WebRTC connection and CRDT sync - poll for people data
       let attempts = 0;
-      const maxAttempts = 20; // 10 seconds max
+      const maxAttempts = 25; // ~12.5 seconds max
       
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 500));
         attempts++;
         
-        // Check if we have people data from Yjs
+        // Check if we have people data from Yjs (synced from creator)
         const currentPeople = yjsPeople.toArray();
         if (currentPeople.length > 0) {
           setSyncedPeople(currentPeople);
@@ -261,7 +268,7 @@ export function OnboardingPage() {
       }
       
       // If we get here, no people were synced
-      setJoinError('No group members found. Make sure the other device has the app open and try again.');
+      setJoinError('No group members found. Make sure the other device has the app open and is on the Sync/Invite screen, then try again.');
       setStep('connectionFailed');
     } catch (error) {
       console.error('Join failed:', error);
