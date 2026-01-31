@@ -5,6 +5,7 @@ import { useExpenseStore } from '@/stores/expenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { useAccountStore } from '@/stores/accountStore';
+import { usePeopleStore } from '@/stores/peopleStore';
 import { useSyncActions } from '@/contexts/SyncActionsContext';
 import { cn } from '@/lib/utils';
 
@@ -48,7 +49,11 @@ export function HomePage() {
   const getBudgetStatus = useSettingsStore(s => s.getBudgetStatus);
   const isConnected = useSyncStore(s => s.isConnected);
   const isSharedMode = useAccountStore(s => s.isSharedMode());
+  const selfPersonId = useAccountStore(s => s.selfPersonId);
+  const people = usePeopleStore(s => s.people);
   const syncActions = useSyncActions();
+
+  const needsWhoAreYou = isSharedMode && !selfPersonId && people.length > 0;
 
   useEffect(() => {
     loadExpenses();
@@ -179,6 +184,18 @@ export function HomePage() {
             </div>
           )}
         </div>
+
+        {/* Set who you are (shared account, switched and no identity yet) */}
+        {needsWhoAreYou && (
+          <button
+            type="button"
+            onClick={() => navigate('/sync')}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 mb-3 rounded-xl bg-[var(--teal-green)]/15 border border-[var(--teal-green)]/30 text-[var(--teal-green)] text-left"
+          >
+            <span className="text-[14px] font-medium">Set who you are in this group</span>
+            <span className="text-[var(--teal-green)]">→</span>
+          </button>
+        )}
 
         {/* Search */}
         <div className="flex items-center gap-2.5 bg-[var(--bg)] rounded-xl px-3.5 py-2.5 mb-3">

@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 import { usePeopleStore } from '@/stores/peopleStore';
+import { useAccountStore } from '@/stores/accountStore';
+import { useSyncStore } from '@/stores/syncStore';
 import { Button, Input, Sheet, useToast } from '@/components/ui';
 import { PeopleList } from '@/components/people';
 import { haptic } from '@/lib/utils';
 import type { Person } from '@/types';
 
 export function PeoplePage() {
-  const { people, loadPeople, addPerson, updatePerson, deletePerson } = usePeopleStore();
+  const { people, loadPeople, addPerson, updatePerson, deletePerson, claimPerson } = usePeopleStore();
+  const isSharedMode = useAccountStore(s => s.isSharedMode());
+  const selfPersonId = useAccountStore(s => s.selfPersonId);
+  const setSelfPersonId = useAccountStore(s => s.setSelfPersonId);
+  const deviceId = useSyncStore(s => s.deviceId);
   const { showSuccess, showError } = useToast();
   
   const [showAddModal, setShowAddModal] = useState(false);
@@ -77,6 +83,21 @@ export function PeoplePage() {
     setNewName(person.name);
   };
 
+  const handleSetAsMe = async (person: Person) => {
+    if (!deviceId) {
+      showError('Sync not ready');
+      return;
+    }
+    try {
+      await claimPerson(person.id, deviceId);
+      setSelfPersonId(person.id);
+      haptic('success');
+      showSuccess(`${person.name} is now you`);
+    } catch {
+      showError('Failed to set');
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg)]">
       {/* Header */}
@@ -101,6 +122,9 @@ export function PeoplePage() {
           people={people}
           onEdit={openEdit}
           onDelete={handleDelete}
+          isSharedMode={isSharedMode}
+          selfPersonId={selfPersonId}
+          onSetAsMe={isSharedMode ? handleSetAsMe : undefined}
         />
       </div>
 

@@ -5,9 +5,12 @@ interface PeopleListProps {
   people: Person[];
   onEdit: (person: Person) => void;
   onDelete: (id: string, name: string) => void;
+  isSharedMode?: boolean;
+  selfPersonId?: string | null;
+  onSetAsMe?: (person: Person) => void;
 }
 
-export function PeopleList({ people, onEdit, onDelete }: PeopleListProps) {
+export function PeopleList({ people, onEdit, onDelete, isSharedMode, selfPersonId, onSetAsMe }: PeopleListProps) {
   if (people.length === 0) {
     return (
       <div className="text-center py-16">
@@ -28,6 +31,9 @@ export function PeopleList({ people, onEdit, onDelete }: PeopleListProps) {
           person={person}
           onEdit={onEdit}
           onDelete={onDelete}
+          isSharedMode={isSharedMode}
+          isSelf={selfPersonId === person.id}
+          onSetAsMe={onSetAsMe}
         />
       ))}
     </div>
