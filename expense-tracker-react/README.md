@@ -1,6 +1,6 @@
 # Expense Tracker (React 19)
 
-React 19 + TypeScript + Vite migration of the Expense Tracker app. Uses Dexie (IndexedDB), Zustand, PeerJS sync, Tesseract OCR, and PWA (Workbox).
+React 19 + TypeScript + Vite migration of the Expense Tracker app. Uses Dexie (IndexedDB), Zustand, Yjs/y-webrtc sync, Tesseract OCR, and PWA (Workbox).
 
 ## GitHub Pages
 
@@ -17,6 +17,24 @@ cd expense-tracker-react
 VITE_BASE_PATH='/expensTrack/' npm run build
 npm run preview
 ```
+
+## WebRTC Sync & Signaling
+
+The app uses **y-webrtc** for peer-to-peer sync. Peers discover each other via a **signaling server**. By default it tries:
+
+- `wss://signaling.yjs.dev`
+- `wss://y-webrtc-signaling-eu.herokuapp.com`
+- `wss://y-webrtc-signaling-us.herokuapp.com`
+
+If you see **"WebSocket connection to 'wss://signaling.yjs.dev/' failed"**:
+
+1. **Public servers may be down** – Try again later or use your own server.
+2. **Network/firewall** – Some networks block WebSockets. Try another network.
+3. **Custom signaling server** – Run the built-in server:
+   ```bash
+   cd node_modules/y-webrtc && PORT=4444 node bin/server.js
+   ```
+   Then set `VITE_YJS_SIGNALING=ws://localhost:4444` (or your server’s `wss://` URL) when building.
 
 ## Verification (existing data)
 
