@@ -21,6 +21,8 @@ import { CameraCapture } from '@/components/camera/CameraCapture';
 function AppRoutes() {
   const isOnboarded = useAccountStore(s => s.isOnboarded);
   const currentAccountId = useAccountStore(s => s.currentAccountId);
+  const currentAccount = useAccountStore(s => s.getCurrentAccount());
+  const selfPersonId = useAccountStore(s => s.selfPersonId);
 
   // Initialize database when account changes
   useEffect(() => {
@@ -29,7 +31,18 @@ function AppRoutes() {
     }
   }, [currentAccountId]);
 
+  // If not onboarded, show onboarding
   if (!isOnboarded) {
+    return (
+      <Routes>
+        <Route path="*" element={<OnboardingPage />} />
+      </Routes>
+    );
+  }
+
+  // If shared account but no selfPersonId, force back to onboarding to select name
+  // This handles edge cases where the app state is inconsistent
+  if (currentAccount?.mode === 'shared' && !selfPersonId) {
     return (
       <Routes>
         <Route path="*" element={<OnboardingPage />} />

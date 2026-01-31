@@ -630,25 +630,33 @@ export function OnboardingPage() {
           <h1 className="text-2xl font-bold mb-2">Select your name</h1>
           <p className="text-[var(--text-secondary)] mb-6">
             {syncedPeople.length > 0 
-              ? "Tap your name to complete joining the group"
+              ? "You must select your name to complete joining the group"
               : "No members found. Ask the group creator to add you first."}
           </p>
           
           {syncedPeople.length > 0 ? (
-            <div className="space-y-3">
-              {syncedPeople.map(person => (
-                <button
-                  key={person.id}
-                  onClick={() => handleSelectName(person)}
-                  className="w-full flex items-center gap-3 p-4 bg-[var(--white)] rounded-xl active:scale-[0.98] transition-transform"
-                >
-                  <div className="w-12 h-12 rounded-full bg-[var(--teal-green)]/10 text-[var(--teal-green)] flex items-center justify-center font-bold text-lg">
-                    {person.name.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="font-medium text-lg">{person.name}</span>
-                </button>
-              ))}
-            </div>
+            <>
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-4">
+                <p className="text-sm text-amber-700 text-center">
+                  Select your name from the list below to continue
+                </p>
+              </div>
+              <div className="space-y-3">
+                {syncedPeople.map(person => (
+                  <button
+                    key={person.id}
+                    onClick={() => handleSelectName(person)}
+                    className="w-full flex items-center gap-3 p-4 bg-[var(--white)] rounded-xl active:scale-[0.98] transition-transform border-2 border-transparent hover:border-[var(--teal-green)]"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-[var(--teal-green)]/10 text-[var(--teal-green)] flex items-center justify-center font-bold text-lg">
+                      {person.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="font-medium text-lg">{person.name}</span>
+                    <span className="ml-auto text-[var(--teal-green)]">Tap to select</span>
+                  </button>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center">
               <div className="text-5xl mb-4">🤷</div>
@@ -671,8 +679,18 @@ export function OnboardingPage() {
           {syncedPeople.length > 0 && (
             <div className="mt-auto pt-6">
               <p className="text-center text-sm text-[var(--text-secondary)]">
-                Don't see your name? Ask the group creator to add you.
+                Don't see your name? Ask the group creator to add you, then scan again.
               </p>
+              <Button 
+                variant="secondary" 
+                onClick={() => {
+                  setStep('scan');
+                  setJoinError(null);
+                }}
+                className="w-full mt-3"
+              >
+                Scan Again
+              </Button>
             </div>
           )}
         </div>
