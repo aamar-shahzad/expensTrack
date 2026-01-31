@@ -117,7 +117,11 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     });
     const query = description.trim().toLowerCase();
     return Object.entries(byDesc)
-      .filter(([d]) => !query || d.toLowerCase().includes(query))
+      .filter(([d]) => {
+        const lower = d.toLowerCase();
+        if (lower === query) return false; // hide exact match
+        return !query || lower.includes(query);
+      })
       .sort((a, b) => b[1] - a[1])
       .map(([d]) => d)
       .slice(0, 8);
@@ -448,9 +452,9 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   key={s}
                   type="button"
                   onMouseDown={() => {
-                    haptic('light');
                     setDescription(s);
                     setShowDescriptionSuggestions(false);
+                    setTimeout(() => amountInputRef.current?.focus(), 50);
                   }}
                   className="w-full text-left px-3 py-2.5 text-[15px] hover:bg-[var(--bg)] active:bg-[var(--teal-green)]/10 truncate"
                 >

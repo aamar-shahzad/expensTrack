@@ -74,6 +74,9 @@ function ToastItem({ toast }: { toast: Toast }) {
 
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       className={cn(
         'px-6 py-3 rounded-full text-white text-sm font-medium shadow-lg max-w-[calc(100vw-32px)] whitespace-nowrap',
         'transition-all duration-300',
