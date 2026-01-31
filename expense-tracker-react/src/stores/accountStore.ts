@@ -88,12 +88,17 @@ export const useAccountStore = create<AccountState>()(
       },
 
       setCurrentAccount: async (id) => {
-        const account = get().accounts.find(a => a.id === id);
-        if (account) {
-          closeDB();
-          await initDB(id);
-          set({ currentAccountId: id });
-        }
+        const state = get();
+        const account = state.accounts.find(a => a.id === id);
+        if (!account) return;
+        const isSwitch = state.currentAccountId !== null && state.currentAccountId !== id;
+        closeDB();
+        await initDB(id);
+        set({
+          currentAccountId: id,
+          // Clear per-account identity when switching so we don't show wrong "you" on the new account
+          ...(isSwitch && { selfPersonId: null }),
+        });
       },
 
       getCurrentAccount: () => {

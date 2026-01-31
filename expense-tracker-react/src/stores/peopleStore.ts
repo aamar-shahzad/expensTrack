@@ -42,9 +42,15 @@ export const usePeopleStore = create<PeopleState>()(
       loading: false,
       lastPayerId: null,
 
-      // Set people from Yjs observer
+      // Set people from Yjs observer (e.g. on account switch or sync)
       setPeople: (people) => {
-        set({ people, loading: false });
+        set(state => {
+          const lastPayerId =
+            state.lastPayerId && people.some(p => p.id === state.lastPayerId)
+              ? state.lastPayerId
+              : null;
+          return { people, loading: false, lastPayerId };
+        });
       },
 
       setLoading: (loading) => {
