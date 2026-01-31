@@ -209,14 +209,22 @@ export function formatAmount(amount: number, currency: string = '$'): string {
 
 // Helper to format date
 export function formatDate(dateStr: string): string {
-  const [year, month, day] = dateStr.split('-').map(Number);
+  if (!dateStr || typeof dateStr !== 'string') return '—';
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(n => Number.isNaN(n))) return '—';
+  const [year, month, day] = parts;
   const d = new Date(year, month - 1, day);
+  if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export function formatDateFull(dateStr: string): string {
-  const [year, month, day] = dateStr.split('-').map(Number);
+  if (!dateStr || typeof dateStr !== 'string') return '—';
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(n => Number.isNaN(n))) return '—';
+  const [year, month, day] = parts;
   const d = new Date(year, month - 1, day);
+  if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-US', { 
     weekday: 'long', 
     year: 'numeric', 

@@ -210,16 +210,16 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
     
     // Apply category filter
     if (categoryFilter !== 'all') {
-      filtered = filtered.filter(e => getCategoryIcon(e.description) === categoryFilter);
+      filtered = filtered.filter(e => getCategoryIcon(e.description ?? '') === categoryFilter);
     }
     
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(e => 
-        e.description.toLowerCase().includes(query) ||
-        e.tags?.toLowerCase().includes(query) ||
-        e.notes?.toLowerCase().includes(query)
+      filtered = filtered.filter(e =>
+        (e.description ?? '').toLowerCase().includes(query) ||
+        (e.tags ?? '').toLowerCase().includes(query) ||
+        (e.notes ?? '').toLowerCase().includes(query)
       );
     }
     

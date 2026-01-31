@@ -47,9 +47,9 @@ export function StatsPage() {
 
     const maxMonthly = Math.max(...months.map(m => m[1]));
 
-    // Average per day
-    const dates = new Set(expenses.map(e => e.date));
-    const avgPerDay = totalAmount / dates.size;
+    // Average per day (guard against no valid dates)
+    const dates = new Set(expenses.map(e => e.date).filter(Boolean));
+    const avgPerDay = dates.size > 0 ? totalAmount / dates.size : 0;
 
     // Top expenses
     const topExpenses = [...expenses]
