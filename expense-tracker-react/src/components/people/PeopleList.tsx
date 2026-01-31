@@ -9,9 +9,10 @@ interface PeopleListProps {
   isSharedMode?: boolean;
   selfPersonId?: string | null;
   onSetAsMe?: (person: Person) => void;
+  canManagePeople?: boolean;
 }
 
-export function PeopleList({ people, onEdit, onDelete, onTap, isSharedMode, selfPersonId, onSetAsMe }: PeopleListProps) {
+export function PeopleList({ people, onEdit, onDelete, onTap, isSharedMode, selfPersonId, onSetAsMe, canManagePeople }: PeopleListProps) {
   if (people.length === 0) {
     return (
       <div className="text-center py-16">
