@@ -214,7 +214,7 @@ export function OnboardingPage() {
       await addPerson(name);
       setAddedPeople([...addedPeople, name]);
       setNewPersonName('');
-    } catch (error) {
+    } catch {
       showError('Failed to add person');
     }
   };
@@ -273,7 +273,8 @@ export function OnboardingPage() {
       );
       await setCurrentAccount(data.accountId);
       
-      await new Promise(resolve => setTimeout(resolve, 400));
+      // Wait for YjsProvider to switch to the new account's doc before connecting
+      await new Promise(resolve => setTimeout(resolve, 600));
       
       const roomName = `expense-tracker-${data.accountId}`;
       connectRef.current(roomName, { deviceId: deviceId ?? '', hostDeviceId: data.deviceId });
@@ -363,7 +364,7 @@ export function OnboardingPage() {
     : '';
 
   return (
-    <div className="min-h-screen h-full bg-[var(--bg)] flex flex-col safe-top safe-bottom">
+    <div className="h-full min-h-screen bg-[var(--bg)] flex flex-col safe-top safe-bottom">
       {/* Welcome Step */}
       {step === 'welcome' && (
         <div className="flex-1 flex flex-col min-h-0">

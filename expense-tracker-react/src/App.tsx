@@ -279,7 +279,6 @@ function AppRoutes() {
   if (!isOnboarded) {
     return (
       <>
-        {/* Always render YjsStoreSync so Yjs operations work during onboarding */}
         <YjsStoreSync />
         <Routes>
           <Route path="*" element={<OnboardingPage />} />
@@ -289,7 +288,6 @@ function AppRoutes() {
   }
 
   // If shared account but no selfPersonId, force back to onboarding to select name
-  // This handles edge cases where the app state is inconsistent
   if (currentAccount?.mode === "shared" && !selfPersonId) {
     return (
       <>
