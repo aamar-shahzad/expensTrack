@@ -283,9 +283,7 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-      {/* Scrollable content */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+    <form onSubmit={handleSubmit} className="pb-2">
       {/* Amount Section - Hero */}
       <div className="bg-gradient-to-br from-[var(--teal-green)] to-[var(--primary)] text-white px-6 py-8 text-center">
         <div className="text-sm opacity-80 mb-2">Amount</div>
@@ -519,9 +517,8 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
         </div>
       )}
 
-      </div>
-      {/* Sticky submit - always visible on mobile */}
-      <div className="flex-shrink-0 px-4 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] bg-[var(--bg)] border-t border-[var(--border)]/50">
+      {/* Submit Button */}
+      <div className="px-4 pt-4 pb-2">
         <Button
           type="submit"
           loading={loading || isProcessing}

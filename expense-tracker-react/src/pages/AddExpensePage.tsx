@@ -46,7 +46,7 @@ export function AddExpensePage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full bg-[var(--bg)]">
+      <div className="flex flex-col min-h-screen bg-[var(--bg)]">
         <header className="flex-shrink-0 safe-top px-4 py-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg)]">
           <button
             onClick={() => navigate(-1)}
@@ -66,7 +66,7 @@ export function AddExpensePage() {
 
   if (notFound) {
     return (
-      <div className="flex flex-col h-full bg-[var(--bg)]">
+      <div className="flex flex-col min-h-screen bg-[var(--bg)]">
         <header className="flex-shrink-0 safe-top px-4 py-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg)]">
           <button
             onClick={() => navigate(-1)}
@@ -91,7 +91,7 @@ export function AddExpensePage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[var(--bg)]">
+    <div className="flex flex-col min-h-screen bg-[var(--bg)]">
       <header className="flex-shrink-0 safe-top px-4 py-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg)]">
         <button
           onClick={() => navigate(-1)}
@@ -103,7 +103,7 @@ export function AddExpensePage() {
         <div className="w-14" aria-hidden />
       </header>
 
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-[calc(24px+env(safe-area-inset-bottom))]">
         <ExpenseForm expense={effectiveExpense} />
       </div>
     </div>
