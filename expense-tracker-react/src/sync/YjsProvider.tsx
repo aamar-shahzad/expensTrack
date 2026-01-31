@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import * as Y from 'yjs';
 import { WebrtcProvider } from 'y-webrtc';
 import { IndexeddbPersistence } from 'y-indexeddb';
@@ -56,30 +56,55 @@ interface YjsProviderProps {
 }
 
 export function YjsProvider({ children, dbName }: YjsProviderProps) {
-  // Create Yjs document (singleton per provider)
-  const ydocRef = useRef<Y.Doc | null>(null);
+  // Create Yjs document - recreate when dbName changes
+  const [ydoc, setYdoc] = useState<Y.Doc>(() => new Y.Doc());
   const providerRef = useRef<WebrtcProvider | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
+  const prevDbNameRef = useRef<string>(dbName);
   
   const [isConnected, setIsConnected] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
   const [connectedPeers, setConnectedPeers] = useState<AwarenessUser[]>([]);
   
-  // Initialize Yjs document
-  if (!ydocRef.current) {
-    ydocRef.current = new Y.Doc();
-  }
+  // Recreate Yjs document when dbName changes
+  useEffect(() => {
+    if (prevDbNameRef.current !== dbName) {
+      console.log('[Yjs] Database name changed, recreating document:', dbName);
+      
+      // Cleanup old resources
+      if (providerRef.current) {
+        providerRef.current.destroy();
+        providerRef.current = null;
+      }
+      if (persistenceRef.current) {
+        persistenceRef.current.destroy();
+        persistenceRef.current = null;
+      }
+      
+      // Destroy old document
+      ydoc.destroy();
+      
+      // Create new document
+      const newDoc = new Y.Doc();
+      setYdoc(newDoc);
+      setIsConnected(false);
+      setIsSynced(false);
+      setConnectedPeers([]);
+      
+      prevDbNameRef.current = dbName;
+    }
+  }, [dbName, ydoc]);
   
-  const ydoc = ydocRef.current;
-  
-  // Get shared types (these are created on first access)
-  const expenses = ydoc.getArray<Expense>('expenses');
-  const people = ydoc.getArray<Person>('people');
-  const payments = ydoc.getArray<Payment>('payments');
+  // Get shared types (memoized to prevent unnecessary re-renders)
+  const expenses = useMemo(() => ydoc.getArray<Expense>('expenses'), [ydoc]);
+  const people = useMemo(() => ydoc.getArray<Person>('people'), [ydoc]);
+  const payments = useMemo(() => ydoc.getArray<Payment>('payments'), [ydoc]);
   
   // Setup IndexedDB persistence
   useEffect(() => {
     if (!dbName) return;
+    
+    console.log('[Yjs] Setting up IndexedDB persistence:', dbName);
     
     const persistence = new IndexeddbPersistence(dbName, ydoc);
     persistenceRef.current = persistence;
@@ -182,11 +207,9 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
       if (persistenceRef.current) {
         persistenceRef.current.destroy();
       }
-      if (ydocRef.current) {
-        ydocRef.current.destroy();
-      }
+      ydoc.destroy();
     };
-  }, []);
+  }, [ydoc]);
   
   const value: YjsContextValue = {
     ydoc,
