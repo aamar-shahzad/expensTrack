@@ -3,35 +3,46 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ExpenseForm } from '@/components/expenses';
 import { LoadingSpinner } from '@/components/ui';
 import type { Expense } from '@/types';
+import { useExpenseStore } from '@/stores/expenseStore';
+import { useSyncStore } from '@/stores/syncStore';
 import * as db from '@/db/operations';
 
 export function AddExpensePage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const [expense, setExpense] = useState<Expense | undefined>(undefined);
-  const [loading, setLoading] = useState(!!id);
+  const allExpenses = useExpenseStore(s => s.allExpenses);
+  const isSynced = useSyncStore(s => s.isSynced);
+  
+  // Prefer store (Yjs source of truth); fallback to DB for legacy or before sync
+  const expenseFromStore = id ? allExpenses.find(e => e.id === id) ?? undefined : undefined;
+  const [expenseFromDb, setExpenseFromDb] = useState<Expense | undefined>(undefined);
+  const [dbFetched, setDbFetched] = useState(false);
+  const effectiveExpense = expenseFromStore ?? expenseFromDb;
   
   const isEditing = !!id;
 
-  // Load expense for editing
+  // Fallback: load from IndexedDB for editing (e.g. before Yjs has synced or legacy data)
   useEffect(() => {
     if (!id) return;
     
-    const loadExpense = async () => {
+    const loadFromDb = async () => {
       try {
         const exp = await db.getExpense(id);
-        if (exp) {
-          setExpense(exp);
-        }
+        setExpenseFromDb(exp);
       } catch (e) {
         console.error('Failed to load expense:', e);
       } finally {
-        setLoading(false);
+        setDbFetched(true);
       }
     };
     
-    loadExpense();
+    loadFromDb();
   }, [id]);
+
+  // Loading: wait for either expense (store or DB) or for sync + DB result
+  const loading = Boolean(
+    id && effectiveExpense === undefined && (!dbFetched || !isSynced)
+  );
 
   if (loading) {
     return (
@@ -66,7 +77,7 @@ export function AddExpensePage() {
 
       {/* Form - Scrollable */}
       <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-        <ExpenseForm expense={expense} />
+        <ExpenseForm expense={effectiveExpense} />
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { useExpenseStore } from '@/stores/expenseStore';
 import { usePeopleStore } from '@/stores/peopleStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useSyncStore } from '@/stores/syncStore';
 import { haptic } from '@/lib/utils';
 import * as db from '@/db/operations';
 
@@ -16,64 +17,75 @@ export function ExpenseDetailPage() {
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   
+  const allExpenses = useExpenseStore(s => s.allExpenses);
   const deleteExpense = useExpenseStore(s => s.deleteExpense);
   const getPersonName = usePeopleStore(s => s.getPersonName);
   const isSharedMode = useAccountStore(s => s.isSharedMode());
   const formatAmount = useSettingsStore(s => s.formatAmount);
+  const isSynced = useSyncStore(s => s.isSynced);
   
-  const [expense, setExpense] = useState<Expense | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Prefer store (Yjs source of truth); fallback to DB for legacy or before sync
+  const expenseFromStore = id ? allExpenses.find(e => e.id === id) ?? null : null;
+  const [expenseFromDb, setExpenseFromDb] = useState<Expense | null>(null);
+  const [dbFetched, setDbFetched] = useState(false);
+  const effectiveExpense = expenseFromStore ?? expenseFromDb;
+  
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [showFullImage, setShowFullImage] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   const imageUrlRef = useRef<string | null>(null);
 
-  // Load expense
+  // Fallback: load from IndexedDB (e.g. before Yjs has synced or legacy data)
   useEffect(() => {
-    const loadExpense = async () => {
-      if (!id) return;
-      
+    if (!id) return;
+    
+    const loadFromDb = async () => {
       try {
         const exp = await db.getExpense(id);
-        if (exp) {
-          setExpense(exp);
-          
-          // Load image if exists
-          if (exp.imageId) {
-            const image = await db.getImage(exp.imageId);
-            if (image?.data) {
-              if (imageUrlRef.current) {
-                URL.revokeObjectURL(imageUrlRef.current);
-              }
-              const url = URL.createObjectURL(image.data);
-              imageUrlRef.current = url;
-              setImageUrl(url);
-            }
-          }
-        }
+        setExpenseFromDb(exp ?? null);
       } catch (e) {
-        console.error('Failed to load expense:', e);
-        showError('Failed to load expense');
+        console.error('Failed to load expense from DB:', e);
       } finally {
-        setLoading(false);
+        setDbFetched(true);
       }
     };
     
-    loadExpense();
+    loadFromDb();
+  }, [id]);
+
+  // Load image from IndexedDB when we have an expense with imageId
+  useEffect(() => {
+    if (!effectiveExpense?.imageId) return;
+    
+    let revoked = false;
+    db.getImage(effectiveExpense.imageId).then((image) => {
+      if (revoked || !image?.data) return;
+      if (imageUrlRef.current) URL.revokeObjectURL(imageUrlRef.current);
+      const url = URL.createObjectURL(image.data);
+      imageUrlRef.current = url;
+      setImageUrl(url);
+    });
     
     return () => {
+      revoked = true;
       if (imageUrlRef.current) {
         URL.revokeObjectURL(imageUrlRef.current);
+        imageUrlRef.current = null;
       }
     };
-  }, [id, showError]);
+  }, [effectiveExpense?.imageId]);
+
+  // Loading: wait for either expense to appear (store or DB) or for sync + DB result
+  const loading = Boolean(
+    id && !effectiveExpense && (!dbFetched || !isSynced)
+  );
 
   const handleDelete = async () => {
-    if (!expense) return;
+    if (!effectiveExpense) return;
     
     try {
-      await deleteExpense(expense.id);
+      await deleteExpense(effectiveExpense.id);
       haptic('success');
       showSuccess('Expense deleted');
       navigate('/');
@@ -100,7 +112,7 @@ export function ExpenseDetailPage() {
     );
   }
 
-  if (!expense) {
+  if (!effectiveExpense) {
     return (
       <div className="flex flex-col h-full bg-[var(--bg)]">
         <div className="flex-shrink-0 bg-[var(--bg)] safe-top px-4 py-3 flex items-center justify-between border-b border-[var(--border)]">
@@ -122,8 +134,8 @@ export function ExpenseDetailPage() {
     );
   }
 
-  const icon = getCategoryIcon(expense.description);
-  const payerName = isSharedMode && expense.payerId ? getPersonName(expense.payerId) : '';
+  const icon = getCategoryIcon(effectiveExpense.description);
+  const payerName = isSharedMode && effectiveExpense.payerId ? getPersonName(effectiveExpense.payerId) : '';
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg)]">
@@ -137,7 +149,7 @@ export function ExpenseDetailPage() {
         </button>
         <span className="text-[17px] font-semibold">Expense</span>
         <button 
-          onClick={() => navigate(`/expense/${expense.id}/edit`)}
+          onClick={() => navigate(`/expense/${effectiveExpense.id}/edit`)}
           className="text-[var(--teal-green)] text-[17px] font-medium px-2 py-1 -mx-2 rounded-lg active:bg-[var(--teal-green)]/10"
         >
           Edit
@@ -163,10 +175,10 @@ export function ExpenseDetailPage() {
         {/* Amount Hero */}
         <div className="bg-gradient-to-br from-[var(--teal-green)] to-[var(--primary)] text-white px-6 py-8 text-center">
           <div className="text-5xl font-bold mb-2">
-            {formatAmount(expense.amount)}
+            {formatAmount(effectiveExpense.amount)}
           </div>
           <div className="text-white/80">
-            {formatDate(expense.date)}
+            {formatDate(effectiveExpense.date)}
           </div>
         </div>
 
@@ -179,7 +191,7 @@ export function ExpenseDetailPage() {
             </div>
             <div className="flex-1">
               <div className="text-xs text-[var(--text-secondary)] uppercase tracking-wide">Description</div>
-              <div className="font-medium">{expense.description}</div>
+              <div className="font-medium">{effectiveExpense.description}</div>
             </div>
           </div>
 
@@ -192,23 +204,23 @@ export function ExpenseDetailPage() {
           )}
 
           {/* Tags */}
-          {expense.tags && (
+          {effectiveExpense.tags && (
             <div className="px-4 py-4">
               <div className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1">Tags</div>
-              <div className="font-medium">{expense.tags}</div>
+              <div className="font-medium">{effectiveExpense.tags}</div>
             </div>
           )}
 
           {/* Notes */}
-          {expense.notes && (
+          {effectiveExpense.notes && (
             <div className="px-4 py-4">
               <div className="text-xs text-[var(--text-secondary)] uppercase tracking-wide mb-1">Notes</div>
-              <div className="text-[var(--text-secondary)]">{expense.notes}</div>
+              <div className="text-[var(--text-secondary)]">{effectiveExpense.notes}</div>
             </div>
           )}
 
           {/* Recurring */}
-          {expense.recurring && (
+          {effectiveExpense.recurring && (
             <div className="px-4 py-4 flex items-center gap-2">
               <span className="text-xl">🔄</span>
               <span className="text-[var(--text-secondary)]">Recurring expense</span>
