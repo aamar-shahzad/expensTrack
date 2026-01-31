@@ -61,6 +61,7 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
   const providerRef = useRef<WebrtcProvider | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
   const prevDbNameRef = useRef<string>(dbName);
+  const currentRoomRef = useRef<string | null>(null);
   
   const [isConnected, setIsConnected] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
@@ -75,6 +76,7 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
       if (providerRef.current) {
         providerRef.current.destroy();
         providerRef.current = null;
+        currentRoomRef.current = null;
       }
       if (persistenceRef.current) {
         persistenceRef.current.destroy();
@@ -122,33 +124,37 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
   
   // Connect to WebRTC room
   const connect = useCallback((roomName: string, password?: string) => {
+    // Skip if already connected to same room (avoids dropping connection when auto-connect runs)
+    if (currentRoomRef.current === roomName && providerRef.current) {
+      return;
+    }
+    
     // Disconnect existing provider if any
     if (providerRef.current) {
       providerRef.current.destroy();
       providerRef.current = null;
     }
     
+    currentRoomRef.current = roomName;
     console.log('[Yjs] Connecting to room:', roomName);
     
     const provider = new WebrtcProvider(roomName, ydoc, {
-      // Use public signaling servers
-      signaling: [
-        'wss://signaling.yjs.dev',
-        'wss://y-webrtc-signaling-eu.herokuapp.com',
-        'wss://y-webrtc-signaling-us.herokuapp.com'
-      ],
+      // Use single signaling server so both peers definitely meet (multi-server can split peers)
+      signaling: ['wss://signaling.yjs.dev'],
       // Encrypt communication if password provided
       password: password || undefined,
       // Max connections (with random factor to prevent clusters)
       maxConns: 20 + Math.floor(Math.random() * 15),
       // Filter browser tab connections (use BroadcastChannel instead)
       filterBcConns: true,
-      // WebRTC config
+      // WebRTC config - multiple STUN servers for better NAT traversal
       peerOpts: {
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' }
           ]
         }
       }
@@ -186,6 +192,7 @@ export function YjsProvider({ children, dbName }: YjsProviderProps) {
       console.log('[Yjs] Disconnecting');
       providerRef.current.destroy();
       providerRef.current = null;
+      currentRoomRef.current = null;
       setIsConnected(false);
       setConnectedPeers([]);
     }

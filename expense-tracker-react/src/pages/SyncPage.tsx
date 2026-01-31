@@ -1,18 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSyncStore } from '@/stores/syncStore';
 import { useAccountStore } from '@/stores/accountStore';
 import { usePeopleStore } from '@/stores/peopleStore';
-import { Button, useToast, Modal } from '@/components/ui';
+import { Button, Input, useToast, Modal } from '@/components/ui';
 import { QRCode, QRScanner } from '@/components/sync';
 import { haptic, copyToClipboard } from '@/lib/utils';
+import { generateInviteUrl, parseInviteInput } from '@/lib/invite';
 import { useYjs } from '@/sync';
 import type { Person } from '@/types';
 
+type InviteData = { accountId: string; deviceId: string; accountName: string };
+
 export function SyncPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { deviceId, isConnected, isSynced, connectedPeers, getLastSyncTimeFormatted } = useSyncStore();
-  const { connect, setAwareness } = useYjs();
+  const { connect, setAwareness, people: yjsPeople } = useYjs();
+  const createAccountWithId = useAccountStore(s => s.createAccountWithId);
+  const setCurrentAccount = useAccountStore(s => s.setCurrentAccount);
 
   const currentAccount = useAccountStore(s => s.getCurrentAccount());
+
+  // Handle join from /join link (navigated with state.joinData)
+  useEffect(() => {
+    const joinData = (location.state as { joinData?: InviteData })?.joinData;
+    if (joinData) {
+      navigate(location.pathname, { replace: true, state: {} }); // Clear state
+      handleJoinWithInviteData(joinData);
+    }
+  }, []);
   const selfPersonId = useAccountStore(s => s.selfPersonId);
   const setSelfPersonId = useAccountStore(s => s.setSelfPersonId);
   
@@ -22,6 +39,8 @@ export function SyncPage() {
 
   const [showScanner, setShowScanner] = useState(false);
   const [showSelectName, setShowSelectName] = useState(false);
+  const [showPasteInvite, setShowPasteInvite] = useState(false);
+  const [pasteInput, setPasteInput] = useState('');
   const [isJoining, setIsJoining] = useState(false);
 
   const lastSync = getLastSyncTimeFormatted();
@@ -36,49 +55,69 @@ export function SyncPage() {
     }
   };
 
+  const handleCopyInviteLink = async () => {
+    if (currentAccount) {
+      const url = generateInviteUrl(currentAccount.id, currentAccount.name);
+      const success = await copyToClipboard(url);
+      if (success) {
+        haptic('success');
+        showSuccess('Invite link copied! Share via message or email.');
+      }
+    }
+  };
+
+  const handleJoinWithInviteData = async (data: InviteData) => {
+    setIsJoining(true);
+    try {
+      const isSameAccount = currentAccount?.id === data.accountId;
+      if (!isSameAccount) {
+        createAccountWithId(data.accountId, data.accountName, 'shared', '$');
+        await setCurrentAccount(data.accountId);
+        await new Promise(resolve => setTimeout(resolve, 400));
+      }
+      const roomName = `expense-tracker-${data.accountId}`;
+      connect(roomName);
+      setAwareness({ id: deviceId, name: people.find(p => p.id === selfPersonId)?.name || 'Unknown' });
+      let attempts = 0;
+      while (attempts < 60) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+        const currentPeople = yjsPeople.toArray();
+        if (currentPeople.length > 0) {
+          usePeopleStore.getState().setPeople(currentPeople);
+          if (!selfPersonId) setShowSelectName(true);
+          else showSuccess('Connected and synced!');
+          return;
+        }
+      }
+      showError('No group members found. Make sure the other device has the app open and is showing the QR code.');
+    } catch (error) {
+      showError(error instanceof Error ? error.message : 'Failed to connect.');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handlePasteInvite = async () => {
+    const parsed = parseInviteInput(pasteInput);
+    if (!parsed) {
+      showError('Invalid invite. Paste the link shared by the group creator.');
+      return;
+    }
+    setShowPasteInvite(false);
+    setPasteInput('');
+    await handleJoinWithInviteData(parsed);
+  };
+
   // QR Scanner handlers for new member joining
   const handleOpenScanner = () => {
     haptic('light');
     setShowScanner(true);
   };
 
-  const handleQRScanned = async (data: { accountId: string; deviceId: string; accountName: string }) => {
+  const handleQRScanned = async (data: InviteData) => {
     setShowScanner(false);
-    setIsJoining(true);
-    
-    try {
-      // Connect to the room (Yjs will automatically sync)
-      const roomName = `expense-tracker-${data.accountId}`;
-      connect(roomName);
-      
-      // Set awareness with our info
-      const selfPerson = people.find(p => p.id === selfPersonId);
-      setAwareness({
-        id: deviceId,
-        name: selfPerson?.name || 'Unknown'
-      });
-      
-      // Wait a moment for sync to happen
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Check if user needs to select their name
-      if (!selfPersonId) {
-        const currentPeople = usePeopleStore.getState().people;
-        if (currentPeople.length > 0) {
-          setShowSelectName(true);
-        } else {
-          showError('No group members found. Ask the group creator to add you first.');
-        }
-      } else {
-        showSuccess('Connected and synced!');
-      }
-    } catch (error) {
-      console.error('Join failed:', error);
-      const message = error instanceof Error ? error.message : 'Failed to connect.';
-      showError(message);
-    } finally {
-      setIsJoining(false);
-    }
+    await handleJoinWithInviteData(data);
   };
 
   const handleSelectName = async (person: Person) => {
@@ -175,23 +214,60 @@ export function SyncPage() {
             accountName={currentAccount?.name ?? ''}
             onCopyCode={handleCopyCode}
           />
+          {currentAccount?.mode === 'shared' && (
+            <Button
+              variant="secondary"
+              className="w-full mt-3"
+              onClick={handleCopyInviteLink}
+            >
+              Copy invite link
+            </Button>
+          )}
         </div>
 
-        {/* Scan QR to Join */}
+        {/* Join Another Device */}
         <div className="px-4 mb-6">
-          <h2 className="text-lg font-semibold mb-3">Join Another Device</h2>
-          <div className="bg-[var(--white)] rounded-xl p-4">
-            <p className="text-sm text-[var(--text-secondary)] mb-3">
-              Scan a QR code from another device to connect and sync automatically
+          <h2 className="text-lg font-semibold mb-3">Join Another Device or Group</h2>
+          <div className="bg-[var(--white)] rounded-xl p-4 space-y-3">
+            <p className="text-sm text-[var(--text-secondary)]">
+              Scan a QR code or paste an invite link to connect
             </p>
-            <Button 
-              onClick={handleOpenScanner} 
-              variant="secondary" 
-              className="w-full"
-              loading={isJoining}
-            >
-              Scan QR Code
-            </Button>
+            {showPasteInvite ? (
+              <div className="flex gap-2">
+                <Input
+                  value={pasteInput}
+                  onChange={e => setPasteInput(e.target.value)}
+                  placeholder="Paste invite link"
+                  className="flex-1"
+                  onKeyDown={e => e.key === 'Enter' && handlePasteInvite()}
+                />
+                <Button onClick={handlePasteInvite} disabled={!pasteInput.trim()}>
+                  Join
+                </Button>
+                <Button variant="secondary" onClick={() => setShowPasteInvite(false)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleOpenScanner}
+                  variant="secondary"
+                  className="flex-1"
+                  loading={isJoining}
+                >
+                  Scan QR Code
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => setShowPasteInvite(true)}
+                  disabled={isJoining}
+                >
+                  Paste invite link
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 

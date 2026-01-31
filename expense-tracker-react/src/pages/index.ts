@@ -7,3 +7,4 @@ export { SettlePage } from './SettlePage';
 export { SyncPage } from './SyncPage';
 export { SettingsPage } from './SettingsPage';
 export { OnboardingPage } from './OnboardingPage';
+export { JoinFromLinkHandler } from './JoinFromLinkHandler';

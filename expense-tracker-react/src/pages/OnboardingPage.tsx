@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button, Input, useToast } from '@/components/ui';
 import { QRScanner } from '@/components/sync';
@@ -9,7 +9,8 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { useYjs } from '@/sync';
 import { CURRENCIES } from '@/types';
-import { haptic } from '@/lib/utils';
+import { haptic, copyToClipboard } from '@/lib/utils';
+import { parseInviteInput, generateInviteUrl } from '@/lib/invite';
 import type { Person } from '@/types';
 
 type Step = 
@@ -19,6 +20,7 @@ type Step =
   | 'currency' 
   | 'addPeople'
   | 'invite'
+  | 'joinOptions'
   | 'scan'
   | 'connecting'
   | 'connectionFailed'
@@ -80,6 +82,22 @@ export function OnboardingPage() {
       }
     }
   }, [step, yjsPeople]);
+
+  // Handle /join?account=xxx&name=yyy URL (e.g. from shared invite link)
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const account = searchParams.get('account');
+    const name = searchParams.get('name');
+    if (account && step === 'welcome') {
+      const parsed = parseInviteInput(`?account=${account}&name=${name || 'Shared Group'}`);
+      if (parsed) {
+        setJoinAccountName(parsed.accountName);
+        setStep('connecting');
+        attemptConnection(parsed);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when URL has join params
+  }, [searchParams.toString()]);
 
   const handleModeSelect = (selectedMode: 'single' | 'shared') => {
     haptic('light');
@@ -212,7 +230,21 @@ export function OnboardingPage() {
   // Join flow handlers
   const handleStartJoin = () => {
     haptic('light');
-    setStep('scan');
+    setStep('joinOptions');
+  };
+
+  const [pasteInput, setPasteInput] = useState('');
+
+  const handlePasteInvite = async () => {
+    const parsed = parseInviteInput(pasteInput);
+    if (!parsed) {
+      showError('Invalid invite. Paste the link or code shared by the group creator.');
+      return;
+    }
+    haptic('light');
+    setPasteInput('');
+    setJoinAccountName(parsed.accountName);
+    await attemptConnection(parsed);
   };
 
   const handleQRScanned = async (data: { accountId: string; deviceId: string; accountName: string }) => {
@@ -251,7 +283,7 @@ export function OnboardingPage() {
       
       // Wait for WebRTC connection and CRDT sync - poll for people data
       let attempts = 0;
-      const maxAttempts = 25; // ~12.5 seconds max
+      const maxAttempts = 60; // ~30 seconds max (WebRTC can be slow on mobile/cross-network)
       
       while (attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -268,7 +300,7 @@ export function OnboardingPage() {
       }
       
       // If we get here, no people were synced
-      setJoinError('No group members found. Make sure the other device has the app open and is on the Sync/Invite screen, then try again.');
+      setJoinError('No group members found. Make sure the other device has the app open and is showing the QR code.');
       setStep('connectionFailed');
     } catch (error) {
       console.error('Join failed:', error);
@@ -546,11 +578,11 @@ export function OnboardingPage() {
         <div className="flex-1 flex flex-col p-6">
           <h1 className="text-2xl font-bold mb-2">Invite your group</h1>
           <p className="text-[var(--text-secondary)] mb-6">
-            Others can scan this QR code to join and sync expenses
+            Others can scan the QR code or use the invite link to join
           </p>
           
           {/* QR Code */}
-          <div className="bg-[var(--white)] rounded-xl p-6 mb-6">
+          <div className="bg-[var(--white)] rounded-xl p-6 mb-4">
             <div className="flex justify-center mb-4">
               {qrData && (
                 <div className="p-4 bg-white rounded-xl">
@@ -563,6 +595,26 @@ export function OnboardingPage() {
               <div className="text-2xl font-mono font-bold tracking-widest">{deviceId}</div>
             </div>
           </div>
+
+          {/* Copy invite link */}
+          {currentAccount && (
+            <Button
+              variant="secondary"
+              className="w-full mb-6"
+              onClick={async () => {
+                const url = generateInviteUrl(currentAccount.id, currentAccount.name);
+                const success = await copyToClipboard(url);
+                if (success) {
+                  haptic('success');
+                  showSuccess('Invite link copied! Share it via message or email.');
+                } else {
+                  showError('Could not copy. Try copying the QR code instead.');
+                }
+              }}
+            >
+              Copy invite link
+            </Button>
+          )}
           
           <div className="bg-[var(--teal-green)]/10 rounded-xl p-4 mb-6">
             <div className="text-sm">
@@ -570,7 +622,7 @@ export function OnboardingPage() {
               <ol className="list-decimal list-inside mt-2 space-y-1 text-[var(--text-secondary)]">
                 <li>Open the app on another device</li>
                 <li>Tap "Join Existing Group"</li>
-                <li>Scan this QR code</li>
+                <li>Scan the QR code or paste the invite link</li>
                 <li>Select their name from the list</li>
               </ol>
             </div>
@@ -583,6 +635,60 @@ export function OnboardingPage() {
             <p className="text-center text-sm text-[var(--text-secondary)] mt-2">
               You can invite more people later from the Sync page
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Join options: paste link or scan QR */}
+      {step === 'joinOptions' && (
+        <div className="flex-1 flex flex-col p-6">
+          <button
+            onClick={() => { setStep('welcome'); setJoinError(null); }}
+            className="text-[var(--teal-green)] mb-4 self-start"
+          >
+            ← Back
+          </button>
+          
+          <h1 className="text-2xl font-bold mb-2">Join a group</h1>
+          <p className="text-[var(--text-secondary)] mb-6">
+            Paste the invite link shared by the group creator, or scan their QR code
+          </p>
+          
+          <div className="space-y-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium mb-2 text-[var(--text-secondary)]">
+                Paste invite link or code
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  value={pasteInput}
+                  onChange={e => setPasteInput(e.target.value)}
+                  placeholder="Paste link or et:... code"
+                  className="flex-1"
+                  onKeyDown={e => e.key === 'Enter' && handlePasteInvite()}
+                />
+                <Button onClick={handlePasteInvite} disabled={!pasteInput.trim()}>
+                  Join
+                </Button>
+              </div>
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[var(--border)]" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-[var(--bg)] px-4 text-sm text-[var(--text-secondary)]">or</span>
+              </div>
+            </div>
+            
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => { setJoinError(null); setStep('scan'); }}
+            >
+              Scan QR Code
+            </Button>
           </div>
         </div>
       )}
@@ -600,7 +706,7 @@ export function OnboardingPage() {
             onError={handleQRError}
             onCancel={() => {
               setJoinError(null);
-              setStep('welcome');
+              setStep('joinOptions');
             }}
           />
         </>

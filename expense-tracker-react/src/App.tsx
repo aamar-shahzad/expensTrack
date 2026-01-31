@@ -21,7 +21,8 @@ import {
   SettlePage,
   SyncPage,
   SettingsPage,
-  OnboardingPage
+  OnboardingPage,
+  JoinFromLinkHandler
 } from '@/pages';
 import { CameraCapture } from '@/components/camera/CameraCapture';
 
@@ -281,6 +282,7 @@ function AppRoutes() {
       <YjsStoreSync />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/join" element={<JoinFromLinkHandler />} />
         <Route path="/add" element={<AddExpensePage />} />
         <Route path="/expense/:id" element={<ExpenseDetailPage />} />
         <Route path="/expense/:id/edit" element={<AddExpensePage />} />
